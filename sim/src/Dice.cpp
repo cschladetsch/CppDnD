@@ -32,9 +32,18 @@ std::string Rng::State() const {
 }
 
 bool Rng::SetState(const std::string& s) {
-    std::istringstream i(s);
-    i >> engine_;
-    return !i.fail();
+    // MSVC's operator>> throws on malformed input where libstdc++ sets failbit; handle both,
+    // and only commit to the engine once the whole state parsed.
+    try {
+        std::istringstream i(s);
+        std::mt19937_64 e;
+        i >> e;
+        if (i.fail()) return false;
+        engine_ = e;
+        return true;
+    } catch (const std::exception&) {
+        return false;
+    }
 }
 
 DiceRoller::Scope::Scope(Rng& rng) : prev_(t_active) { t_active = &rng; }

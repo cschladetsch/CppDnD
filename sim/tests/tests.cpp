@@ -408,10 +408,29 @@ static void TestLlm() {
 }
 
 int main() {
-    Content::Load(DND_DATA_DIR);
-    TestDice(); TestGrid(); TestDm(); TestRules(); TestContent(); TestRng(); TestJsonRoundTrip(); TestAdjustDamage();
-    TestExtraAttackAndConcentration(); TestRemoteCombat(); TestGameModule(); TestSaveLoadDeterminism(); TestProceduralDelve();
-    TestRoleSwap(); TestLlm();
+    try {
+        Content::Load(DND_DATA_DIR);
+    } catch (const std::exception& e) {
+        std::cerr << "cannot load content from '" << DND_DATA_DIR << "': " << e.what() << "\n";
+        return 2;
+    }
+    struct T { const char* name; void (*fn)(); };
+    const T tests[] = {{"Dice", TestDice}, {"Grid", TestGrid}, {"Dm", TestDm}, {"Rules", TestRules}, {"Content", TestContent},
+                       {"Rng", TestRng}, {"JsonRoundTrip", TestJsonRoundTrip}, {"AdjustDamage", TestAdjustDamage},
+                       {"ExtraAttackAndConcentration", TestExtraAttackAndConcentration}, {"RemoteCombat", TestRemoteCombat},
+                       {"GameModule", TestGameModule}, {"SaveLoadDeterminism", TestSaveLoadDeterminism},
+                       {"ProceduralDelve", TestProceduralDelve}, {"RoleSwap", TestRoleSwap}, {"Llm", TestLlm}};
+    for (const auto& t : tests) {
+        try {
+            t.fn();
+        } catch (const std::exception& e) {
+            ++g_failures;
+            std::cerr << "test " << t.name << " threw: " << e.what() << "\n";
+        } catch (...) {
+            ++g_failures;
+            std::cerr << "test " << t.name << " threw an unknown exception\n";
+        }
+    }
     if (g_failures) { std::cerr << g_failures << " check(s) failed\n"; return 1; }
     std::cout << "all tests passed\n";
     return 0;
