@@ -204,10 +204,16 @@ CmdResult Game::AutoStep() {
         for (int l = 1; l <= 9; ++l) { slots += pm.sheet.slots[static_cast<std::size_t>(l)]; slotsMax += pm.sheet.slotsMax[static_cast<std::size_t>(l)]; }
     }
     const bool drained = slotsMax > 0 && slots * 2 < slotsMax;
+    bool shortRestHelps = false;  // someone is hurt and still has Hit Dice to spend
+    for (const auto& pm : party_)
+        if (!pm.dead && pm.sheet.hitDiceLeft > 0 && pm.sheet.maxHp - pm.sheet.hp >= pm.sheet.hitDie / 2 + 1 + pm.sheet.Mod(Ability::Con)) shortRestHelps = true;
     if (n && (frac / n < 0.7 || drained) && Here().rest != "none") {
         const bool canLong = hour_ - lastLongRestHour_ >= 24;
-        const CmdResult r = Rest(canLong ? "long" : "short");
-        if (r.ok) return r;
+        // A short rest never restores spell slots, so repeating it would only burn hours.
+        if (canLong || (frac / n < 0.7 && shortRestHelps)) {
+            const CmdResult r = Rest(canLong ? "long" : "short");
+            if (r.ok) return r;
+        }
     }
     for (const auto& npc : Here().npcs)
         for (const auto& t : npc.topics)

@@ -210,6 +210,18 @@ std::optional<Pos> ApproachCell(const Combat& c, const GameActor& me, Pos target
     return best;
 }
 
+// True if moving along `path` would actually get the creature somewhere: the affordable prefix,
+// backed off so it never ends inside another creature (mirrors Combat::DoMove), is not empty.
+bool CanMakeProgress(const Combat& c, const GameActor& me, const std::vector<Pos>& path) {
+    const auto& g = c.Grid();
+    const int mv = UsableMovement(me);
+    std::size_t k = 0;
+    int spent = 0;
+    while (k < path.size() && spent + g.EnterCostFt(path[k]) <= mv) spent += g.EnterCostFt(path[k++]);
+    while (k > 0 && g.OccupantAt(path[k - 1]) >= 0) --k;
+    return k > 0;
+}
+
 std::optional<Action> TrySelfHeal(const GameActor& me) {
     const auto& s = me.sheet;
     if (s.economy.bonusAction && s.FeatureUses("second_wind") > 0) return MakeFeature("second_wind");
@@ -243,7 +255,8 @@ std::optional<Action> TrySupport(const Combat& c, const GameActor& me) {
             return a;
         }
         if (UsableMovement(me) >= 5)
-            if (auto cell = ApproachCell(c, me, ally->pos, 5)) return MakeMove(*cell);
+            if (auto cell = ApproachCell(c, me, ally->pos, 5))
+                if (CanMakeProgress(c, me, c.Grid().ComputePaths(me.pos, c.PassableFor(me)).PathTo(*cell))) return MakeMove(*cell);
     }
     return std::nullopt;
 }
@@ -340,8 +353,7 @@ Action Offence(const Combat& c, const GameActor& me) {
     if (!cell) return Action::End();
     // Only move if at least the first step is affordable (difficult terrain costs double).
     const auto path = c.Grid().ComputePaths(me.pos, c.PassableFor(me)).PathTo(*cell);
-    if (!path.empty() && c.Grid().EnterCostFt(path.front()) <= UsableMovement(me))
-        return MakeMove(*cell);
+    if (CanMakeProgress(c, me, path)) return MakeMove(*cell);
     if (eco.action && !me.dashedThisTurn && eco.attacksLeft == 0) {
         Action a;
         a.type = ActionType::Dash;
