@@ -343,6 +343,17 @@ Action Offence(const Combat& c, const GameActor& me) {
                 if (!path.empty() && cost <= UsableMovement(me)) return MakeMove(*cell);
             }
         }
+        // A ranged weapon aimed beyond its normal range suffers disadvantage. Movement is free relative to
+        // the attack, so step into normal range first (the attack is chosen again after the move).
+        if (best.valid() && best.act.type == ActionType::Attack && !(burst.valid() && burst.score > best.score) &&
+            !EnemyNear(c, me, 5) && UsableMovement(me) >= 5 && best.act.attackIndex >= 0) {
+            const auto& w = me.sheet.attacks[static_cast<std::size_t>(best.act.attackIndex)];
+            const GameActor* t = c.Find(best.act.targetId);
+            if (t && w.IsRanged() && DistanceFt(me.pos, t->pos) > w.rangeFt) {
+                if (const auto cell = ApproachCell(c, me, t->pos, w.rangeFt))
+                    if (CanMakeProgress(c, me, c.Grid().ComputePaths(me.pos, c.PassableFor(me)).PathTo(*cell))) return MakeMove(*cell);
+            }
+        }
         if (best.valid() || burst.valid()) return (burst.valid() && burst.score > best.score) ? burst.act : best.act;
     }
 
