@@ -398,7 +398,7 @@ Json CombatView(const Combat& c) {
     Json actors = Json::array();
     static const char* life[] = {"alive", "unconscious", "stable", "dead"};
     for (const auto& a : c.Actors()) {
-        Json x{{"id", a->id}, {"name", a->Name()}, {"team", a->team == Team::Party ? "party" : "monsters"}, {"glyph", std::string(1, c.Glyph(*a))},
+        Json x{{"id", a->id}, {"name", a->Name()}, {"team", a->team == Team::Party ? "party" : "monsters"}, {"glyph", std::string(1, c.Glyph(*a))}, {"classId", a->sheet.classId}, {"monsterId", a->sheet.monsterId}, {"tags", a->sheet.tags},
                {"pos", {a->pos.x, a->pos.y}}, {"hp", a->sheet.hp}, {"maxHp", a->sheet.maxHp}, {"ac", a->EffectiveAc()},
                {"life", life[static_cast<int>(a->life)]}, {"concentrating", a->concentrating},
                {"controller", a->controller ? std::string(a->controller->Kind()) : std::string()}};

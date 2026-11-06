@@ -85,7 +85,11 @@ std::shared_ptr<AgentTable> Wire(Server& s, Game& g) {
 
 int main(int argc, char** argv) {
     std::string dataDir = Content::DefaultDataDir();
-    std::string staticDir, host = "127.0.0.1";
+    std::string staticDir, artDir, host = "127.0.0.1";
+#ifdef DND_ART_DIR
+    artDir = DND_ART_DIR;  // generated or hand-made pictures; --art overrides
+#endif
+    if (const char* a = std::getenv("DND_ART"); a && *a) artDir = a;
 #ifdef DND_WEB_DIR
     staticDir = DND_WEB_DIR;  // the bundled web client; --static overrides, --static "" disables
 #endif
@@ -101,6 +105,7 @@ int main(int argc, char** argv) {
         else if (a == "--host") host = next();
         else if (a == "--data") dataDir = next();
         else if (a == "--static") staticDir = next();
+        else if (a == "--art") artDir = next();
         else if (a == "--llm-url") S.llmCfg.baseUrl = next();
         else if (a == "--llm-model") S.llmCfg.model = next();
         else if (a == "--mock-llm") S.mock = true;
@@ -108,7 +113,7 @@ int main(int argc, char** argv) {
         else if (a == "--ollama") { S.llmCfg.baseUrl = "http://127.0.0.1:11434"; S.llmCfg.model = next(); S.llmCfg.stream = false; }
         else if (a == "--help" || a == "-h") {
             std::cout << "dnd_server [--port 8088] [--host 127.0.0.1] [--data DIR] [--static DIR]\n"
-                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--agents FILE] [--mock-llm]\n"
+                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--agents FILE] [--art DIR] [--mock-llm]\n"
                          "LLM env: DND_LLM_URL DND_LLM_PATH DND_LLM_MODEL DND_LLM_KEY DND_LLM_TIMEOUT DND_LLM_STREAM\n"
                          "Models are looked up in the shared model store (DEEPSEEK_MODEL_HOME).\n";
             return 0;
@@ -357,12 +362,34 @@ int main(int argc, char** argv) {
         return last;
     });
 
+    if (!artDir.empty()) {  // /art/<kind>/<id>.png, read from disk on each request so new pictures appear without a restart
+        std::error_code ec;
+        std::filesystem::create_directories(artDir, ec);
+        if (!svr.set_mount_point("/art", artDir)) { std::cerr << "warning: cannot serve art from '" << artDir << "'\n"; artDir.clear(); }
+    }
+    svr.Get("/api/art", [&](const httplib::Request&, httplib::Response& res) {
+        namespace fs = std::filesystem;
+        Json out{{"base", "/art/"}, {"enabled", !artDir.empty()}};
+        for (const char* kind : {"characters", "monsters", "npcs", "locations", "modules"}) {
+            Json m = Json::object();
+            std::error_code ec;
+            const fs::path d = fs::path(artDir) / kind;
+            if (!artDir.empty() && fs::is_directory(d, ec))
+                for (const auto& e : fs::directory_iterator(d, ec)) {
+                    const std::string ext = e.path().extension().string();
+                    if (e.is_regular_file(ec) && (ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp"))
+                        m[e.path().stem().string()] = std::string(kind) + "/" + e.path().filename().string() + "?v=" + std::to_string(e.last_write_time(ec).time_since_epoch().count() % 100000000);
+                }
+            out[kind] = m;
+        }
+        Reply(res, 200, out);
+    });
     if (!staticDir.empty() && !svr.set_mount_point("/", staticDir)) {
         std::cerr << "warning: cannot serve web client from '" << staticDir << "'\n";
         staticDir.clear();
     }
 
-    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  web=" << (staticDir.empty() ? "off" : staticDir) << "  modules=" << Content::Modules().size()
+    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  web=" << (staticDir.empty() ? "off" : staticDir) << "  art=" << (artDir.empty() ? "off" : artDir) << "  modules=" << Content::Modules().size()
               << "  llm=" << (S.llm ? S.llm->Describe() : "off") << std::endl;
     if (!svr.listen(host, port)) {
         std::cerr << "cannot listen on " << host << ":" << port << "\n";

@@ -119,6 +119,7 @@ Create a game with `"agents": true` (needs an agents file, see [../data/README.m
 | `GET /api/games/:id/agents?since=N` | `{enabled, agents: [{name, role, selector, backend, url, model, persona, calls, failures, modelStore}], problems, messages, lastSeq}`; `messages` are the JSON exchanged at the table (`say`, `narrate`, `proposal`, `decision`) |
 | `POST /api/games/:id/agents/model` | switch a model mid-game: `{"selector": "type:undead", "model": "phi3:mini", "backend": "ollama", "fromStore": false}`; `fromStore: true` requires the model to exist in the model store |
 | `GET /api/models` | models present in the CppLmmModelStore |
+| `GET /api/art` | `{enabled, base, characters, monsters, npcs, locations, modules}`, each a map of id to a path under `base` (with `?v=` for cache busting); only ids that have a picture are listed. Files are served under `/art/`. |
 | `GET /api/llm` | also reports `agents: {available, file, error}` |
 
 Selectors: `dm`, `player:<name>`, `npc:<id>`, `type:<creature type>`, `monster:<id>`. Switching `type:undead` changes every zombie, skeleton, ghoul, specter and vampire spawn at once, now and for ones that appear later. The model store resolves and checks model names; serving the model is the backend's job (an Ollama tag, a llama.cpp router, vLLM).

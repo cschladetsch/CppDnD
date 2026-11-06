@@ -108,6 +108,18 @@ Reasoning models are supported: `reasoning_content` and `<think>` blocks are str
 
 `sim/data/agents.json` says which model plays the DM, each creature type, each character and each NPC type, and what personality each has. In the web client the AI table panel lists them and lets you switch one mid-game; over HTTP it is `POST /api/games/:id/agents/model`. The CppLmmModelStore resolves and checks model names (`requireStore`, `GET /api/models`); the backend (Ollama, llama.cpp, vLLM) serves them. Details in [sim/data/README.md](sim/data/README.md) and [sim/docs/API.md](sim/docs/API.md).
 
+## Art
+
+There is no bundled artwork, and none is needed. The web client draws its own tokens (a class or creature icon, a health ring, a pip per condition) and terrain tiles, and shows a picture wherever one exists in `sim/art/<kind>/<id>.png`. To make pictures from the game data with a local Stable Diffusion server (AUTOMATIC1111, Forge or SD.Next, started with `--api`):
+
+```powershell
+.\art.ps1 -List                    # show every prompt, generate nothing
+.\art.ps1                          # make whatever is missing
+.\art.ps1 -Only characters -Force  # redo one kind
+```
+
+Or drop in your own files with the same names. Details in [sim/art/README.md](sim/art/README.md).
+
 ## Layout
 
 Each folder has its own README.

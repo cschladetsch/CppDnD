@@ -138,6 +138,20 @@ if (-not (Test-Path $agentsFile)) {
     }
 }
 
+# ---- art: pictures are optional; the client draws its own tokens without them
+Head 'Art'
+$artDir = Join-Path $PSScriptRoot 'sim\art'
+if (Test-Path $artDir) {
+    $counts = foreach ($k in 'characters','monsters','npcs','locations','modules') {
+        $n = @(Get-ChildItem (Join-Path $artDir $k) -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.png','.jpg','.jpeg','.webp','.svg' }).Count
+        "$k $n"
+    }
+    Ok ("art folder: " + ($counts -join ', ') + ' (missing pictures fall back to drawn tokens)')
+} else { Warn 'sim\art is missing' }
+$sd = $(if ($env:SD_URL) { $env:SD_URL } else { 'http://127.0.0.1:7860' })
+try { Invoke-RestMethod "$sd/sdapi/v1/options" -TimeoutSec 2 | Out-Null; Ok "Stable Diffusion answers at $sd (.\art.ps1 generates pictures)" }
+catch { Warn "no Stable Diffusion server at $sd (optional; only needed for .\art.ps1)" }
+
 # ---- tests
 if ($Test) {
     Head 'Tests'

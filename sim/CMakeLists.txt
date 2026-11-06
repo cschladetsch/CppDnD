@@ -70,7 +70,7 @@ target_link_libraries(dnd_sim PRIVATE dnd_core)
 
 add_executable(dnd_server src/server_main.cpp)
 target_link_libraries(dnd_server PRIVATE dnd_core)
-target_compile_definitions(dnd_server PRIVATE "DND_WEB_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/web\"")
+target_compile_definitions(dnd_server PRIVATE "DND_WEB_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/web\"" "DND_ART_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/art\"")
 
 enable_testing()
 add_executable(dnd_tests tests/tests.cpp)
@@ -83,4 +83,4 @@ if(Python3_FOUND)
 endif()
 
 install(TARGETS dnd_sim dnd_server RUNTIME DESTINATION bin)
-install(DIRECTORY data web DESTINATION share/dnd)
+install(DIRECTORY data web art DESTINATION share/dnd OPTIONAL)

@@ -31,10 +31,14 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .member { padding:6px 0; border-top:1px solid var(--edge); } .member:first-of-type { border-top:0; }
 .member.dead { opacity:.45; text-decoration:line-through; }
 #grid { display:grid; gap:1px; background:#0c0a12; width:max-content; max-width:100%; overflow:auto; border:1px solid var(--edge); }
-.cell { width:26px; height:26px; display:flex; align-items:center; justify-content:center; font:700 13px ui-monospace, monospace; background:#262235; user-select:none; }
-.cell.wall { background:#08070c; } .cell.rough { background:#322c3f; } .cell.half, .cell.three { background:#3a3326; }
-.cell.party { background:var(--party); color:#06121f; border-radius:50%; } .cell.foe { background:var(--foe); color:#240808; border-radius:50%; }
-.cell.down { opacity:.5; } .cell.cur { outline:2px solid var(--accent); } .cell.target { cursor:crosshair; } .cell.move { cursor:pointer; }
+.cell { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font:700 13px ui-monospace, monospace; background:#262235 var(--tile-floor) center/100% 100%; user-select:none; position:relative; }
+.cell.wall { background:#08070c var(--tile-wall) center/100% 100%; } .cell.rough { background:#322c3f var(--tile-rough) center/100% 100%; } .cell.half, .cell.three { background:#3a3326 var(--tile-cover) center/100% 100%; }
+.cell svg.tok { width:30px; height:30px; display:block; }
+.tok-sm { width:34px; height:34px; border-radius:50%; flex:none; object-fit:cover; }
+.cell.down { opacity:.5; }
+.who { display:flex; gap:8px; align-items:center; }
+.backdrop { width:100%; max-height:220px; object-fit:cover; border-radius:6px; margin-bottom:8px; display:block; }
+.portrait { width:44px; height:44px; border-radius:6px; object-fit:cover; flex:none; } .cell.cur { outline:2px solid var(--accent); } .cell.target { cursor:crosshair; } .cell.move { cursor:pointer; }
 #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#3b1d24; border:1px solid var(--bad); padding:8px 14px; border-radius:6px; display:none; max-width:90vw; }
 .start { max-width:560px; margin:30px auto; } .start label { display:block; margin:10px 0 4px; color:var(--dim); font-size:13px; }
 .start select, .start input { width:100%; }
@@ -104,8 +108,64 @@ function startGame(id, v) {
     el("div", {}, el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" }), sayBox()),
     el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }))));
   $("#saveBtn").hidden = $("#newBtn").hidden = false;
+  loadArt().then(() => { if (view) { renderScene(); renderParty(); renderCombat(); } });
   apply(v);
 }
+
+
+// ---------------------------------------------------------------- art: pictures when they exist, drawn tokens otherwise
+let art = {};
+async function loadArt() {
+  const r = await api("GET", "/api/art");
+  art = r.status === 200 && r.data && r.data.enabled !== false ? r.data : {};
+}
+function artUrl(kind, id) { const f = art[kind] && art[kind][id]; return f ? (art.base || "/art/") + f : ""; }
+const ICONS = {
+  fighter: "M12 3l2 2-1 8 3 1v2h-3v4h-2v-4H8v-2l3-1-1-8z",
+  wizard: "M12 2l5 14H7zM5 18h14v2H5zM12 7l1 2h2l-1.6 1.2.6 2L12 11l-2 1.2.6-2L9 9h2z",
+  cleric: "M10 3h4v6h6v4h-6v8h-4v-8H4V9h6z",
+  rogue: "M13 3l3 3-5 9 2 2-2 4-2-2-4 1 1-4 2 1 5-9z",
+  ranger: "M6 3c8 1 13 7 13 15-3-3-4-6-4-9-4 0-7 2-9 6V3zM4 20l14-14 1 1L5 21z",
+  barbarian: "M5 4c5-2 10 0 12 5l3 11-3-1-2-8-4 3 1 6-3 1-1-7-3-1z",
+  undead: "M12 3c5 0 8 3 8 8 0 3-1 4-2 5v3h-3v-2h-2v2h-2v-2H9v2H6v-3c-1-1-2-2-2-5 0-5 3-8 8-8zM9 9a2 2 0 100 4 2 2 0 000-4zm6 0a2 2 0 100 4 2 2 0 000-4z",
+  beast: "M7 4c2 0 3 2 3 4S9 11 7 11 4 9 4 7s1-3 3-3zm10 0c2 0 3 1 3 3s-1 4-3 4-3-1-3-3 1-4 3-4zM12 12c4 0 7 4 7 7 0 2-2 2-4 1-1-.5-2-.5-3-.5s-2 0-3 .5c-2 1-4 1-4-1 0-3 3-7 7-7z",
+  humanoid: "M12 3a4 4 0 110 8 4 4 0 010-8zM5 21c0-5 3-8 7-8s7 3 7 8z",
+  giant: "M3 9l4 3 2-6 3 4 3-4 2 6 4-3-2 12H5z",
+  other: "M12 3l9 18H3z",
+};
+function iconFor(a) {
+  if (a.team === "party" && ICONS[a.classId]) return a.classId;
+  const tags = a.tags || [];
+  for (const t of ["undead", "beast", "giant", "humanoid"]) if (tags.includes(t)) return t;
+  return ICONS[a.classId] ? a.classId : "other";
+}
+// a round token: team colour, class or creature icon, a health ring, and a pip for each condition
+function tokenSvg(a) {
+  const col = a.team === "party" ? "#5fb0ff" : "#e0584f", frac = a.maxHp ? Math.max(0, Math.min(1, a.hp / a.maxHp)) : 0;
+  const C = 2 * Math.PI * 14, ring = frac > .5 ? "#6fcf7a" : frac > .25 ? "#e5c24a" : "#e0584f";
+  const svg = document.createElementNS(SVGNS, "svg");
+  svg.setAttribute("viewBox", "0 0 32 32"); svg.setAttribute("class", "tok");
+  const pips = (a.effects || []).slice(0, 4).map((e, i) => `<circle cx="${6 + i * 7}" cy="29" r="2.4" fill="#e5c24a" stroke="#1b1726" stroke-width=".8"><title>${e}</title></circle>`).join("");
+  svg.innerHTML = `<circle cx="16" cy="16" r="14" fill="#1b1726" stroke="#0c0a12" stroke-width="3"/>
+    <circle cx="16" cy="16" r="14" fill="none" stroke="${ring}" stroke-width="2.4" stroke-dasharray="${(C * frac).toFixed(1)} ${C.toFixed(1)}" transform="rotate(-90 16 16)"/>
+    <circle cx="16" cy="16" r="11" fill="${col}" opacity=".9"/>
+    <g transform="translate(8.5 8.5) scale(.625)" fill="#0b0f1a"><path d="${ICONS[iconFor(a)]}"/></g>${pips}`;
+  return svg;
+}
+function picOrToken(kind, id, a, cls) {
+  const u = artUrl(kind, id);
+  if (u) return el("img", { src: u, className: cls || "portrait", alt: "", loading: "lazy" });
+  return a ? tokenSvg(a) : document.createTextNode("");
+}
+const tile = svg => `url("data:image/svg+xml,${encodeURIComponent(`<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'>${svg}</svg>`)}")`;
+function installTiles() {
+  const r = document.documentElement.style;
+  r.setProperty("--tile-floor", tile("<path d='M0 0h32v32H0z' fill='none'/><path d='M0 16h32M16 0v16M8 16v16M24 16v16' stroke='#33304a' stroke-width='1' opacity='.55'/>"));
+  r.setProperty("--tile-wall", tile("<path d='M0 0h32v32H0z' fill='#14111c'/><path d='M0 8h32M0 16h32M0 24h32M8 0v8M24 0v8M16 8v8M0 8v8M32 8v8M8 16v8M24 16v8M16 24v8' stroke='#2c2740' stroke-width='1.4'/>"));
+  r.setProperty("--tile-rough", tile("<g fill='#4a4260' opacity='.7'><circle cx='8' cy='9' r='2.4'/><circle cx='22' cy='7' r='1.8'/><circle cx='14' cy='20' r='2.8'/><circle cx='26' cy='24' r='2'/><circle cx='5' cy='26' r='1.6'/></g>"));
+  r.setProperty("--tile-cover", tile("<rect x='5' y='9' width='22' height='15' rx='2' fill='#5a4a32' stroke='#2e2518' stroke-width='1.4'/><path d='M5 15h22M5 20h22' stroke='#2e2518' stroke-width='1'/>"));
+}
+installTiles();
 
 // ---------------------------------------------------------------- plain English
 let llmOn = false, agentsOn = false;
@@ -243,7 +303,8 @@ function renderScene() {
     return;
   }
   const exploring = v.mode === "exploring";
-  const rows = [el("h2", { textContent: l.name }), el("div", { textContent: l.description }),
+  const back = artUrl("locations", l.id) || artUrl("modules", v.module.id);
+  const rows = [...(back ? [el("img", { src: back, className: "backdrop", alt: "" })] : []), el("h2", { textContent: l.name }), el("div", { textContent: l.description }),
     el("div", { className: "dim small", textContent: `Resting here: ${l.rest}` })];
   const exits = el("div", { className: "row" });
   for (const x of l.exits) {
@@ -253,7 +314,8 @@ function renderScene() {
   }
   rows.push(el("h2", { textContent: "Paths", style: "margin-top:12px" }), exits);
   for (const n of l.npcs) {
-    const r = el("div", { className: "row" }, el("span", { className: "dim", textContent: n.name + ":" }));
+    const np = artUrl("npcs", n.id);
+    const r = el("div", { className: "row" }, ...(np ? [el("img", { src: np, className: "portrait", alt: "" })] : []), el("span", { className: "dim", textContent: n.name + ` (${n.type || "commoner"}):` }));
     for (const t of n.topics) r.append(el("button", { textContent: t.id + (t.heard ? " \u2713" : ""), disabled: !exploring, onclick: () => cmd("talk", { npc: n.id, topic: t.id }) }));
     rows.push(r);
   }
@@ -270,8 +332,9 @@ function renderParty() {
   for (const m of view.party) {
     const pct = Math.max(0, Math.round(100 * m.hp / m.maxHp));
     const slots = m.slots.map((n, i) => (m.slotsMax[i] ? `L${i}:${n}/${m.slotsMax[i]}` : "")).filter(Boolean).join(" ");
+    const tok = picOrToken("characters", m.id, { team: "party", classId: m.class, hp: m.hp, maxHp: m.maxHp, effects: [] }, "portrait");
     box.append(el("div", { className: "member" + (m.dead ? " dead" : "") },
-      el("div", {}, el("b", { textContent: m.name }), el("span", { className: "dim small", textContent: `  ${m.class} ${m.level}  AC ${m.ac}  HP ${m.hp}/${m.maxHp}` })),
+      el("div", { className: "who" }, tok.nodeType === 1 && tok.tagName.toLowerCase() === "svg" ? (tok.style.width = "34px", tok.style.height = "34px", tok) : tok, el("span", {}, el("b", { textContent: m.name }), el("span", { className: "dim small", textContent: `  ${m.class} ${m.level}  AC ${m.ac}  HP ${m.hp}/${m.maxHp}` }))),
       el("div", { className: "bar" }, el("i", { style: `width:${pct}%` })),
       el("div", { className: "dim small", textContent: `XP ${m.xp}${m.nextLevelXp ? "/" + m.nextLevelXp : ""}  potions ${m.potions}  dice ${m.hitDice}${m.exhaustion ? "  exhaustion " + m.exhaustion : ""}${slots ? "  " + slots : ""}` })));
   }
@@ -289,12 +352,14 @@ function renderCombat() {
   const opts = c.options, byPos = new Map(c.actors.filter(a => a.life !== "dead").map(a => [a.pos.join(","), a]));
   const me = opts ? c.actors.find(a => a.id === opts.actor) : null;
   const w = c.grid.width;
-  const grid = el("div", { id: "grid", style: `grid-template-columns:repeat(${w},26px)` });
+  const grid = el("div", { id: "grid", style: `grid-template-columns:repeat(${w},32px)` });
   c.grid.rows.forEach((row, y) => [...row].forEach((ch, x) => {
     const a = byPos.get(`${x},${y}`);
     const cls = ["cell", ch === "#" ? "wall" : ch === "~" ? "rough" : ch === "c" ? "half" : ch === "O" ? "three" : ""];
-    const cell = el("div", { textContent: a ? a.glyph : ch === "." ? "" : ch === "#" ? "" : ch });
-    if (a) { cls.push(a.team === "party" ? "party" : "foe"); if (a.life !== "alive") cls.push("down"); if (a.id === c.current) cls.push("cur"); cell.title = `${a.name}  HP ${a.hp}/${a.maxHp}  AC ${a.ac}${a.effects.length ? "  " + a.effects.join(", ") : ""}`; }
+    const cell = el("div", { textContent: a ? "" : ch === "." || ch === "#" || ch === "c" || ch === "O" || ch === "~" ? "" : ch });
+    if (a) { const pid = a.team === "party" ? (view.party.find(p => p.name === a.name) || {}).id : a.monsterId;
+      const u = artUrl(a.team === "party" ? "characters" : "monsters", pid); cell.append(u ? el("img", { src: u, className: "tok-sm", alt: "", style: "width:30px;height:30px" }) : tokenSvg(a));
+      cls.push(a.team === "party" ? "party" : "foe"); if (a.life !== "alive") cls.push("down"); if (a.id === c.current) cls.push("cur"); cell.title = `${a.name}  HP ${a.hp}/${a.maxHp}  AC ${a.ac}${a.effects.length ? "  " + a.effects.join(", ") : ""}`; }
     if (opts && me) {
       if (a && a.id !== me.id && a.life !== "dead") { cls.push("target"); cell.onclick = () => useOn(a); }
       else if (!a && ch !== "#") { cls.push("move"); cell.onclick = () => doAction({ type: "move", dest: [x, y] }); }

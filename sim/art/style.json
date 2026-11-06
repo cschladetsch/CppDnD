@@ -1,0 +1,12 @@
+{
+  "_comment": "Prompt style for tools/gen_art.py. Every picture is the style prefix + a subject built from the JSON data + the suffix.",
+  "prefix": "dark fantasy gothic horror illustration, painterly, moody dramatic lighting, rich detail,",
+  "suffix": "",
+  "negative": "text, watermark, signature, logo, lowres, blurry, jpeg artifacts, deformed, extra limbs, extra fingers, modern clothing, photo",
+  "steps": 25,
+  "cfg": 6.5,
+  "sampler": "DPM++ 2M Karras",
+  "checkpoint": "",
+  "portrait": [512, 512],
+  "wide": [768, 432]
+}

@@ -14,6 +14,7 @@
 - Combat: the grid (click a square to move, click a creature to use the selected attack or spell), Dash, Dodge, potion, class features, End turn, and role swap at any time. Monster turns run automatically via `/advance`.
 - Party and quest panels, an event log with flavour text, and Save, which downloads the game as JSON.
 - AI table panel (when a game uses agents): every actor with its model and call counts, and a control to switch any actor or enemy type to another model mid-game. The start screen has an "AI table" checkbox when an agents file is found.
+- Pictures: combat uses drawn SVG tokens (class or creature icon, health ring, condition pips) on tiled terrain; any picture found in the art folder (`GET /api/art`) replaces the token, the location text gets a backdrop, NPCs and party members get portraits. See [../art/README.md](../art/README.md).
 - Prompt box (plain English). Enabled when the server has a model: start it with `--ollama <model>` or set `DND_LLM_URL` and `DND_LLM_MODEL`.
 
 ## Using a different front end
