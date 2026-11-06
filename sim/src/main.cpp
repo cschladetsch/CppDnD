@@ -21,6 +21,7 @@ void Usage() {
         "  --module <id>             play a module (see --list); default: a procedural delve\n"
         "  --rooms <n> --difficulty easy|medium|hard|deadly   procedural delve settings\n"
         "  --role player|dm|auto     who you are (default: auto = watch the AI play)\n"
+        "  --interactive, -i         play it yourself (same as --role player unless --role is given)\n"
         "  --hero <id|name>          hero to control in player mode\n"
         "  --party a,b,c             character ids (default: thorin,elara,aldric,finn)\n"
         "  --level <n>               override starting level\n"
@@ -137,7 +138,7 @@ int main(int argc, char** argv) {
     cfg.role = Role::Spectator;
     cfg.seed = std::random_device{}();
     std::string dataDir = Content::DefaultDataDir(), loadPath, savePath;
-    bool quiet = false, list = false, llmSay = false;
+    bool quiet = false, list = false, llmSay = false, interactive = false;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -160,6 +161,7 @@ int main(int argc, char** argv) {
         else if (a == "--llm-narration") cfg.llmNarration = true;
         else if (a == "--llm-dm") cfg.llmDm = true;
         else if (a == "--llm-say") llmSay = true;
+        else if (a == "--interactive" || a == "-i") interactive = true;
         else if (a == "--quiet") quiet = true;
         else if (a == "--list") list = true;
         else if (a == "--help" || a == "-h") { Usage(); return 0; }
@@ -187,6 +189,8 @@ int main(int argc, char** argv) {
         } else {
             g = std::make_unique<Game>(cfg);   // prints nothing yet: the listener is attached below
         }
+
+        if (interactive && g->Config().role == Role::Spectator) g->SetRole(Role::Player, cfg.hero);
 
         const auto human = [] { return std::make_unique<HumanController>(std::cin, std::cout); };
         g->SetHumanFactory(human);

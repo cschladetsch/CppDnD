@@ -8,6 +8,7 @@ Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_
 
 ```powershell
 .\run.ps1                              # build if needed, then watch the AI play a 3 room delve
+.\run.ps1 --interactive                # play it yourself (one hero, you choose each action)
 .\run.ps1 --module ravenmoor --role player --hero elara --seed 7
 .\run.ps1 -Server --port 8088          # web client at http://127.0.0.1:8088/
 .\test.ps1                           # build, then run every test
@@ -47,6 +48,7 @@ Offline or already have the model store checked out: add `-DDND_MODELSTORE_DIR=<
 ```powershell
 .\run.ps1 --list                                                  # modules, characters, monsters
 .\run.ps1 --module ravenmoor --role player --hero elara --seed 7
+.\run.ps1 --interactive --module ravenmoor                     # same as --role player
 .\run.ps1 --module ravenmoor --role auto --quiet                  # watch the AI play the whole module
 .\run.ps1 --rooms 3 --difficulty hard                             # quick procedural delve
 .\run.ps1 --module ravenmoor --role player --hero elara --llm-say # plain English at the prompt
