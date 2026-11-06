@@ -105,3 +105,7 @@ Set `DND_LLM_URL`, `DND_LLM_MODEL`, optionally `DND_LLM_PATH`, `DND_LLM_KEY`, `D
 `POST /api/games/:id/say` with `{"text": "go to the village and ask Marta about rumours"}` asks the model to turn the text into the commands and actions above (up to 6 steps), then runs them through the normal rules. The first refused step stops the sequence. Returns `{ok, message, steps, view}`, where `message` is an in-character reply or the reason something was refused. A question that is not an action just gets a reply. Needs a configured model (`400` otherwise).
 
 Using Ollama: `ollama pull llama3.1`, then `.\web.ps1 -Model llama3.1`. This sets `http://127.0.0.1:11434` with streaming off; any other OpenAI-compatible server works through `DND_LLM_URL` and `DND_LLM_MODEL`. The CLI has the same prompt with `--llm-say`: anything that is not a built-in command is sent to the model.
+
+## World map
+
+Every game view carries `map`: `{start, current, nodes: [{id, name, kind, visited, current}], edges: [{from, to, miles, hours, open}]}`. Nodes are the places the party has been plus the places their exits lead to, so it never reveals more than the next step. `open` is false while an exit's requirements are unmet. Layout is up to the client; the bundled one lays it out in columns by distance from `start`.

@@ -9,6 +9,7 @@
 ## What it does
 
 - Start screen: module (or a procedural delve), role (player, Dungeon Master, spectator), hero, optional seed, or load a save file.
+- World map, shown in every state (exploring, fighting, complete, defeated): the places visited and the places they lead to, with travel times, your position highlighted (red while fighting), and click-to-travel on open exits. Nothing beyond the next step is revealed.
 - Exploration: exits with travel times, NPC topics, search, short and long rest, wait, pace, autopilot.
 - Combat: the grid (click a square to move, click a creature to use the selected attack or spell), Dash, Dodge, potion, class features, End turn, and role swap at any time. Monster turns run automatically via `/advance`.
 - Party and quest panels, an event log with flavour text, and Save, which downloads the game as JSON.

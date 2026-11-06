@@ -1,4 +1,5 @@
 // Game: JSON view, save/load and the autopilot.
+#include <set>
 #include <algorithm>
 #include <cctype>
 #include <deque>
@@ -55,6 +56,27 @@ Json Game::View(int sinceSeq) const {
         }
         v["location"] = Json{{"id", l->id}, {"name", l->name}, {"kind", l->kind}, {"description", l->description}, {"rest", l->rest},
                              {"exits", exits}, {"npcs", npcs}};
+    }
+    {   // The world map: places the party has been, and the places those lead to (nothing further is revealed).
+        std::set<std::string> known = visited_;
+        known.insert(location_);
+        Json edges = Json::array();
+        const std::set<std::string> seen = known;
+        for (const auto& id : seen) {
+            const LocationDef* l = module_.FindLocation(id);
+            if (!l) continue;
+            for (const auto& x : l->exits) {
+                known.insert(x.to);
+                edges.push_back(Json{{"from", id}, {"to", x.to}, {"miles", x.miles}, {"hours", x.hours}, {"open", Satisfied(x.needs)}});
+            }
+        }
+        Json nodes = Json::array();
+        for (const auto& id : known) {
+            const LocationDef* l = module_.FindLocation(id);
+            if (!l) continue;
+            nodes.push_back(Json{{"id", id}, {"name", l->name}, {"kind", l->kind}, {"visited", visited_.count(id) > 0}, {"current", id == location_}});
+        }
+        v["map"] = Json{{"start", module_.start}, {"current", location_}, {"nodes", nodes}, {"edges", edges}};
     }
     if (travel_.active) v["travel"] = Json{{"to", travel_.to}, {"hoursLeft", travel_.hoursLeft}};
 
