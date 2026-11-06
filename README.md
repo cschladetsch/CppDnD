@@ -12,6 +12,7 @@ Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_
 .\run.ps1 --module ravenmoor --role player --hero elara --seed 7
 .\web.ps1          # web client at http://127.0.0.1:8088/
 .\test.ps1                           # build, then run every test
+.\check.ps1                          # report what is missing (tools, files, port, Ollama); -Build, -Test, -Model
 ```
 
 `run.ps1` configures with Ninja and clang++ on first use. `-Rebuild` wipes `sim/build` first. Everything after the switches goes to the program.
