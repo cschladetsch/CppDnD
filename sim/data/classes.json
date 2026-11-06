@@ -1,0 +1,23 @@
+{
+  "_comment": "SRD 5.1 class progression, reduced to what the engine models.",
+  "spellSlotTables": {
+    "full": [[2],[3],[4,2],[4,3],[4,3,2],[4,3,3],[4,3,3,1],[4,3,3,2],[4,3,3,3,1],[4,3,3,3,2],
+             [4,3,3,3,2,1],[4,3,3,3,2,1],[4,3,3,3,2,1,1],[4,3,3,3,2,1,1],[4,3,3,3,2,1,1,1],[4,3,3,3,2,1,1,1],
+             [4,3,3,3,2,1,1,1,1],[4,3,3,3,3,1,1,1,1],[4,3,3,3,3,2,1,1,1],[4,3,3,3,3,2,2,1,1]],
+    "half": [[],[2],[3],[3],[4,2],[4,2],[4,3],[4,3],[4,3,2],[4,3,2],
+             [4,3,3],[4,3,3],[4,3,3,1],[4,3,3,1],[4,3,3,2],[4,3,3,2],[4,3,3,3,1],[4,3,3,3,1],[4,3,3,3,2],[4,3,3,3,2]]
+  },
+  "classes": [
+    { "id": "fighter", "name": "Fighter", "hitDie": 10, "saves": ["str","con"],
+      "extraAttack": [5, 11, 20], "features": [ {"id": "second_wind", "level": 1} ] },
+    { "id": "barbarian", "name": "Barbarian", "hitDie": 12, "saves": ["str","con"],
+      "extraAttack": [5], "features": [ {"id": "rage", "level": 1} ] },
+    { "id": "rogue", "name": "Rogue", "hitDie": 8, "saves": ["dex","int"], "sneakAttack": true },
+    { "id": "ranger", "name": "Ranger", "hitDie": 10, "saves": ["str","dex"],
+      "caster": "half", "spellAbility": "wis", "extraAttack": [5] },
+    { "id": "wizard", "name": "Wizard", "hitDie": 6, "saves": ["int","wis"],
+      "caster": "full", "spellAbility": "int" },
+    { "id": "cleric", "name": "Cleric", "hitDie": 8, "saves": ["wis","cha"],
+      "caster": "full", "spellAbility": "wis" }
+  ]
+}

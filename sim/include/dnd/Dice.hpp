@@ -1,6 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <optional>
+#include <random>
 #include <string>
 #include <string_view>
 
@@ -34,10 +35,36 @@ struct D20Result {
     bool IsFumble() const { return natural == 1; }
 };
 
-// One process-wide, mutex-guarded RNG. Seed() makes a whole run reproducible.
+// A self-contained, serializable random stream. Each Game owns one so concurrent games stay
+// independent and a saved game resumes with the exact same future rolls.
+class Rng {
+public:
+    explicit Rng(std::uint64_t seed = std::random_device{}()) { Seed(seed); }
+    void Seed(std::uint64_t seed) { engine_.seed(seed); }
+    int Uniform(int lo, int hi);  // portable (no std::uniform_int_distribution)
+    std::string State() const;
+    bool SetState(const std::string& s);
+
+private:
+    std::mt19937_64 engine_;
+};
+
+// Static facade. Rolls come from the Rng installed by the innermost live Scope on this thread,
+// or from a mutex-guarded process-wide fallback when there is none (CLI, tests).
 class DiceRoller {
 public:
-    static void Seed(std::uint64_t seed);
+    class Scope {
+    public:
+        explicit Scope(Rng& rng);
+        ~Scope();
+        Scope(const Scope&) = delete;
+        Scope& operator=(const Scope&) = delete;
+
+    private:
+        Rng* prev_;
+    };
+
+    static void Seed(std::uint64_t seed);  // seeds the fallback RNG
     static int Roll(int sides);                                    // 1..sides
     static int Roll(const DiceExpr& expr, bool critical = false);  // crit doubles the dice, not the bonus
     static D20Result D20(RollMode mode = RollMode::Normal);

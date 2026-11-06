@@ -1,21 +1,23 @@
 # CppDnD
 
-A single-player Dungeons & Dragons 5e tactical simulator in C++20. You can play as a party member or as the Dungeon Master, and swap between the two (or hand everything to the AI) in the middle of a fight.
+A Dungeons & Dragons 5e simulator in C++20, built as a backend for a web game. One engine, two front ends: a terminal client (`dnd_sim`) and an HTTP/JSON server (`dnd_server`). You can play a party member or the Dungeon Master, swap roles mid-fight, or hand everything to the AI.
 
 Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_simulator_architecture.md)
 
 ## Features
 
-- Controller pattern: every actor and the DM engine is driven by an `IController`, either `HumanController` (text prompts) or `AIController` (utility scoring). Controllers are hot-swappable at runtime.
-- Rules engine: d20 rolls with advantage and disadvantage, crits, cover, opportunity attacks, sneak attack, death saves, spell slots, and the action/bonus/reaction/movement economy.
-- Tactical grid: 5 ft squares, Bresenham line of sight, half and three-quarters cover, difficult terrain, Dijkstra pathfinding.
-- DM engine: DMG 2014 XP-budget encounter generator (Easy to Deadly) and event-driven narration.
-- Deterministic: one seeded RNG, so `--seed N` reproduces a fight exactly.
-- Sample content: level 3 fighter, wizard, cleric and rogue; 7 SRD monsters; 6 spells.
+- **Data-driven content.** Monsters, spells, classes, weapons, characters and modules are JSON under `sim/data/`. Load-time validation reports the file and field of any mistake.
+- **Classes.** Fighter, barbarian, rogue, ranger, wizard, cleric, built from class tables at any level 1 to 20: hit points, proficiency, spell slots, Extra Attack, sneak attack, Rage, Second Wind.
+- **Rules.** Advantage and disadvantage, crits, cover, opportunity attacks, death saves, conditions (blinded, frightened, incapacitated, paralyzed, poisoned, prone, restrained, stunned), concentration with damage saves, resistance and vulnerability, exhaustion, short and long rests with Hit Dice, travel pace and forced marches.
+- **Modules.** A module is the space for a long-running session: a graph of locations on a clock, with scripted and random encounters, NPC dialogue, flags, quests, seeded secrets and an end condition. `ravenmoor` is an original gothic-horror module in the spirit of Ravenloft.
+- **Step-driven combat.** `Advance` runs until a remote human must act; `Submit` answers. Nothing blocks, so a web server can drive many games.
+- **Save and load.** The complete state, including the RNG stream, round-trips through JSON. A reloaded game plays out identically.
+- **LLM narration and LLM Dungeon Master.** Any OpenAI-compatible server (llama.cpp, Ollama, vLLM). The model proposes; the rules engine disposes. Illegal or malformed plans fall back to the built-in AI, and a dead model never stalls a fight. Models are located through [CppLmmModelStore](https://github.com/cschladetsch/CppLmmModelStore).
+- **Deterministic.** Each game owns a seeded, portable RNG, so `--seed N` reproduces a run exactly.
 
 ## Build
 
-The engine lives in `sim/` and has its own CMake project. It needs CMake 3.20+ and a C++20 compiler, with no external dependencies.
+Needs CMake 3.20+, a C++20 compiler and git (the model store is fetched on configure).
 
 ```powershell
 cmake -S sim -B sim/build -G Ninja -DCMAKE_CXX_COMPILER=clang++
@@ -23,53 +25,61 @@ cmake --build sim/build
 ctest --test-dir sim/build
 ```
 
+Offline or already have the model store checked out: add `-DDND_MODELSTORE_DIR=<path>`. To build without it: `-DDND_USE_MODELSTORE=OFF`.
+
 > The `CMakeLists.txt` at the repo root belongs to a separate LLM-driven design (`CppAiDungeon`) and is not used by the simulator.
 
-## Run
+## Terminal client
 
 ```powershell
-.\sim\build\dnd_sim.exe --role player --hero Elara --difficulty hard --seed 7
+.\sim\build\dnd_sim.exe --list
+.\sim\build\dnd_sim.exe --module ravenmoor --role player --hero elara --seed 7
+.\sim\build\dnd_sim.exe --module ravenmoor --role auto --quiet      # watch the AI play the whole module
+.\sim\build\dnd_sim.exe --rooms 3 --difficulty hard                 # quick procedural delve
 ```
 
-| Option | Meaning |
-|---|---|
-| `--role player\|dm\|auto` | `player`: you drive one hero. `dm`: you drive every monster. `auto`: watch the AI play. |
-| `--hero <name>` | Hero to control in player mode (Thorin, Elara, Aldric, Finn). |
-| `--difficulty easy\|medium\|hard\|deadly` | Encounter budget. |
-| `--seed <n>` | Reproducible run. |
-| `--quiet` | No narration, one-line result. |
+Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `rest short|long`, `wait <hours>`, `pace slow|normal|fast`, `party`, `quests`, `auto [n]`, `save <file>`, `quit`. In a fight, `help` lists the turn commands (`m`, `a`, `c`, `f rage|second_wind`, `p`, `dash`, `dodge`, `e`, `swap player|dm|auto`). Resume with `--load <file>`.
 
-### Prompt commands
+## Web backend
 
+```powershell
+.\sim\build\dnd_server.exe --port 8088 --static .\web      # --static is optional
+curl -X POST localhost:8088/api/games -d '{"module":"ravenmoor","role":"player","hero":"elara","seed":7}'
 ```
-m <x> <y>                    move toward a square
-a <id> [attack#]             attack target id
-c <spell#|name> <id> [slot]  cast a spell at target id
-p [id]                       drink a healing potion
-dash | dodge | e             dash, dodge, end turn
-map | help
-swap player|dm|auto          change your role mid-fight
+
+The full endpoint reference is in [sim/docs/API.md](sim/docs/API.md). `python sim/tests/api_smoke.py http://127.0.0.1:8088` plays a whole module through the API.
+
+### LLM
+
+```powershell
+$env:DND_LLM_URL   = "http://127.0.0.1:11434"        # Ollama; llama-server defaults to :8080
+$env:DND_LLM_MODEL = "deepseek-r1"
+.\sim\build\dnd_server.exe
+# then create games with "llmNarration": true and/or "llmDm": true
 ```
+
+Reasoning models are supported: `reasoning_content` deltas are parsed by the model store's stream parser and never shown. `GET /api/llm` reports the model's location in the store (`DEEPSEEK_MODEL_HOME`). `--mock-llm` runs the full pipeline without a model.
 
 ## Layout
 
 ```
 sim/
-  include/dnd/   headers (Dice, Types, Grid, Actor, Combat, AI, Human, DM, Session, Content)
-  src/           implementation and main.cpp
-  tests/         dependency-free test runner
+  data/          classes, weapons, spells, monsters, characters, modules/*.json
+  include/dnd/   Dice, Types, Grid, Actor, Combat, AI, Human, DM, Content, Json, Game, Llm
+  src/           implementation, main.cpp (terminal), server_main.cpp (HTTP)
+  tests/         tests.cpp (unit and integration), api_smoke.py (HTTP end to end)
+  third_party/   nlohmann/json, cpp-httplib (vendored, MIT)
+  docs/API.md    HTTP reference
 ```
 
-## Limitations (first pass)
+## Authoring content
 
-- One attack per action (no Extra Attack); no conditions beyond downed and dodging; no concentration.
+Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/content`. See `ravenmoor.json` for every feature: locations with tactical maps (`.` floor, `#` wall, `~` rough, `c` half cover, `O` three-quarters cover, `P` party start, `M` monster spawn), exits with miles or hours and flag requirements, `enter` and `search` events, NPC topics, random tables by day and night, quests and `endWhen`.
+
+## Limitations
+
+- Vampire Spawn's bite is simplified (no necrotic damage or maximum-HP drain).
+- Spells are the ten in `spells.json`; classes have no subclasses or feats.
 - Cover objects block movement and grant cover but not sight; only walls block sight.
-- Encounter builder ignores the DMG party-size multiplier adjustment.
-- Monster tuning is lenient: the sample party wins nearly every fight.
-
-## Roadmap
-
-- Data-driven content (JSON monsters, spells, characters)
-- More classes, Extra Attack, conditions, concentration
-- Save and load, multi-encounter dungeons
-- LLM-backed narration and DM controller
+- Dead characters stay dead (no resurrection); a total party kill ends the game.
+- The LLM client speaks plain HTTP; put a proxy in front for TLS.

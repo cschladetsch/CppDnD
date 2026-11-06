@@ -19,6 +19,7 @@ void HumanController::ShowHelp() const {
             "    a <id> [attack#]           attack target id (attack# optional)\n"
             "    c <spell#|name> <id> [slot]  cast a spell at id\n"
             "    p [id]                     drink a healing potion (self or adjacent ally)\n"
+            "    f <rage|second_wind>       use a class feature\n"
             "    dash | dodge | e           dash, dodge, end turn\n"
             "    map                        redraw the map\n"
             "    swap player|dm|auto        change who you are playing, right now\n"
@@ -49,6 +50,8 @@ void HumanController::ShowTurn(const TurnContext& ctx) const {
         }
     if (anySlot) out_ << '\n';
     if (s.potions) out_ << "     potions: " << s.potions << '\n';
+    for (const auto& [id, uses] : s.featureUses) out_ << "     feature " << id << ": " << uses << " use(s)\n";
+    if (!me.concentrating.empty()) out_ << "     concentrating on: " << me.concentrating << '\n';
 }
 
 Action HumanController::DecideAction(const TurnContext& ctx) {
@@ -103,6 +106,13 @@ Action HumanController::DecideAction(const TurnContext& ctx) {
             a.type = ActionType::UsePotion;
             int id;
             a.targetId = (ss >> id) ? id : me.id;
+            return a;
+        }
+        if (cmd == "f") {
+            std::string name;
+            if (!(ss >> name)) { out_ << "  usage: f <rage|second_wind>\n"; continue; }
+            a.type = ActionType::UseFeature;
+            a.featureId = name;
             return a;
         }
         if (cmd == "c") {

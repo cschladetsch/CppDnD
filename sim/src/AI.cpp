@@ -45,6 +45,13 @@ Action MakeMove(Pos p) {
     return a;
 }
 
+Action MakeFeature(const std::string& id) {
+    Action a;
+    a.type = ActionType::UseFeature;
+    a.featureId = id;
+    return a;
+}
+
 double HitChance(int toHit, int ac, RollMode m) {
     const double p = std::clamp((21.0 - (ac - toHit)) / 20.0, 0.05, 0.95);
     if (m == RollMode::Advantage) return 1.0 - (1.0 - p) * (1.0 - p);
@@ -57,6 +64,7 @@ double FailChance(int dc, int saveBonus) { return std::clamp((dc - saveBonus - 1
 bool CanCastNow(const GameActor& me, const Spell& sp) {
     const auto& s = me.sheet;
     if (sp.bonusAction ? !s.economy.bonusAction : !s.economy.action) return false;
+    if (sp.concentration && !me.concentrating.empty()) return false;  // would drop the current spell
     return sp.level == 0 || s.LowestSlotAtLeast(sp.level) > 0;
 }
 
@@ -66,7 +74,7 @@ bool Casts(const GameActor& g) { return !g.sheet.spells.empty(); }
 
 double BestAttackAverage(const GameActor& g) {
     double best = 0;
-    for (const auto& w : g.sheet.attacks) best = std::max(best, w.damage.Average());
+    for (const auto& w : g.sheet.attacks) best = std::max(best, w.damage.Average() * std::max(1, g.sheet.attacksPerAction));
     return best;
 }
 
@@ -75,9 +83,16 @@ int MaxDamageRangeFt(const GameActor& me) {
     for (const auto& w : me.sheet.attacks) r = std::max(r, w.rangeFt);
     for (const auto& id : me.sheet.spells) {
         const Spell* sp = Content::FindSpell(id);
-        if (sp && sp->kind != SpellKind::Heal && CanCastNow(me, *sp)) r = std::max(r, sp->rangeFt);
+        const bool damaging = sp && sp->kind != SpellKind::Heal && sp->kind != SpellKind::Buff;
+        if (damaging && (sp->level == 0 || me.sheet.LowestSlotAtLeast(sp->level) > 0)) r = std::max(r, sp->rangeFt);
     }
     return r;
+}
+
+// Movement actually available for walking, after paying to stand up from prone.
+int UsableMovement(const GameActor& me) {
+    const int m = me.sheet.economy.movementFt;
+    return me.HasCondition(Condition::Prone) ? m - me.SpeedFt() / 2 : m;
 }
 
 double TargetScore(const Combat&, const GameActor& me, const GameActor& t) {
@@ -93,6 +108,7 @@ double TargetScore(const Combat&, const GameActor& me, const GameActor& t) {
         if (t.sheet.maxHp <= 20) score += 2.0;
     }
     if (t.IsDown()) score -= 100.0;  // do not waste attacks on the already-fallen
+    if (t.HasCondition(Condition::Paralyzed)) score += 3.0;  // free crits
     if (DistanceFt(me.pos, t.pos) > me.sheet.economy.movementFt + MaxDamageRangeFt(me)) score -= 5.0;
     return score - 0.01 * distCells;
 }
@@ -105,13 +121,16 @@ Plan BestSingle(const Combat& c, const GameActor& me, const GameActor& t) {
         const auto& w = s.attacks[i];
         const AttackPreview pv = c.PreviewWeapon(me, t, w);
         if (!pv.legal) continue;
-        const double p = HitChance(w.toHit, t.sheet.armorClass + pv.coverBonus, pv.mode);
-        const double dmg = w.damage.Average() * (pv.autoCritOnHit ? 2.0 : 1.0) + (pv.sneak ? s.sneakAttackDice * 3.5 : 0.0);
+        const double p = HitChance(w.toHit, t.EffectiveAc() + pv.coverBonus, pv.mode);
+        double dmg = w.damage.Average() * (pv.autoCritOnHit ? 2.0 : 1.0) + (pv.sneak ? s.sneakAttackDice * 3.5 : 0.0);
+        dmg = Combat::AdjustDamage(t, static_cast<int>(dmg), w.type, w.magical);
         Consider(best, MakeAttack(t.id, static_cast<int>(i)), p * dmg);
     }
+    if (s.economy.attacksLeft > 0) return best;  // mid Attack action: no spells
     for (const auto& id : s.spells) {
         const Spell* sp = Content::FindSpell(id);
-        if (!sp || sp->kind == SpellKind::Heal || sp->radiusFt > 0 || !CanCastNow(me, *sp)) continue;
+        if (!sp || sp->kind == SpellKind::Heal || sp->kind == SpellKind::Buff || sp->radiusFt > 0 || !CanCastNow(me, *sp)) continue;
+        if (!sp->requiresTag.empty() && !t.sheet.HasTag(sp->requiresTag)) continue;
         if (DistanceFt(me.pos, t.pos) > sp->rangeFt || c.Grid().CoverBetween(me.pos, t.pos) == Cover::Total) continue;
         const int slot = SlotFor(me, *sp);
         const double avg = Combat::SpellDice(s, *sp, slot).Average();
@@ -120,7 +139,7 @@ Plan BestSingle(const Combat& c, const GameActor& me, const GameActor& t) {
             case SpellKind::AttackRoll: {
                 const AttackPreview pv = c.PreviewAttack(me, t, true, sp->rangeFt, sp->rangeFt, false);
                 if (!pv.legal) continue;
-                ev = HitChance(s.SpellAttackBonus(), t.sheet.armorClass + pv.coverBonus, pv.mode) * avg;
+                ev = HitChance(s.SpellAttackBonus(), t.EffectiveAc() + pv.coverBonus, pv.mode) * avg * (sp->grantsAdvantage ? 1.15 : 1.0);
                 break;
             }
             case SpellKind::AutoHit: ev = Combat::SpellProjectiles(*sp, slot) * avg; break;
@@ -130,7 +149,14 @@ Plan BestSingle(const Combat& c, const GameActor& me, const GameActor& t) {
                 ev = avg * (pf + 0.5 * (1.0 - pf));
                 break;
             }
-            case SpellKind::Heal: continue;
+            case SpellKind::Condition: {
+                if (t.HasCondition(sp->condition) || t.IsDown()) continue;
+                if (std::find(t.sheet.conditionImmune.begin(), t.sheet.conditionImmune.end(), sp->condition) != t.sheet.conditionImmune.end()) continue;
+                // A paralyzed foe takes automatic crits and cannot act: worth about two rounds of its damage plus ours.
+                ev = FailChance(s.SpellSaveDc(), t.sheet.SaveBonus(sp->save)) * (BestAttackAverage(t) * 1.5 + 6.0);
+                break;
+            }
+            default: continue;
         }
         Consider(best, MakeCast(sp->id, t.id), ev - 2.0 * sp->level);  // slots are a resource
     }
@@ -143,7 +169,7 @@ Plan BestBurst(const Combat& c, const GameActor& me) {
     const auto& s = me.sheet;
     for (const auto& id : s.spells) {
         const Spell* sp = Content::FindSpell(id);
-        if (!sp || sp->radiusFt == 0 || sp->kind == SpellKind::Heal || !CanCastNow(me, *sp)) continue;
+        if (!sp || sp->radiusFt == 0 || sp->kind != SpellKind::SaveForHalf || !CanCastNow(me, *sp)) continue;
         const int slot = SlotFor(me, *sp);
         const double avg = Combat::SpellDice(s, *sp, slot).Average();
         for (const auto& centre : c.Actors()) {
@@ -186,9 +212,10 @@ std::optional<Pos> ApproachCell(const Combat& c, const GameActor& me, Pos target
 
 std::optional<Action> TrySelfHeal(const GameActor& me) {
     const auto& s = me.sheet;
+    if (s.economy.bonusAction && s.FeatureUses("second_wind") > 0) return MakeFeature("second_wind");
     if (s.economy.bonusAction && s.KnowsSpell("healing_word") && s.LowestSlotAtLeast(1)) return MakeCast("healing_word", me.id);
-    if (s.economy.action && s.KnowsSpell("cure_wounds") && s.LowestSlotAtLeast(1)) return MakeCast("cure_wounds", me.id);
-    if (s.economy.action && s.potions > 0) {
+    if (s.economy.action && s.economy.attacksLeft == 0 && s.KnowsSpell("cure_wounds") && s.LowestSlotAtLeast(1)) return MakeCast("cure_wounds", me.id);
+    if (s.economy.action && s.economy.attacksLeft == 0 && s.potions > 0) {
         Action a;
         a.type = ActionType::UsePotion;
         a.targetId = me.id;
@@ -205,8 +232,8 @@ std::optional<Action> TrySupport(const Combat& c, const GameActor& me) {
         const bool los = c.Grid().HasLineOfSight(me.pos, ally->pos);
         if (s.economy.bonusAction && s.KnowsSpell("healing_word") && s.LowestSlotAtLeast(1) && dist <= 60 && los)
             return MakeCast("healing_word", ally->id);
-        const bool canTouch = (s.economy.action && s.KnowsSpell("cure_wounds") && s.LowestSlotAtLeast(1)) ||
-                              (s.economy.action && s.potions > 0);
+        const bool noAttackYet = s.economy.attacksLeft == 0 && s.economy.action;
+        const bool canTouch = noAttackYet && ((s.KnowsSpell("cure_wounds") && s.LowestSlotAtLeast(1)) || s.potions > 0);
         if (!canTouch) continue;
         if (dist <= 5) {
             if (s.KnowsSpell("cure_wounds") && s.LowestSlotAtLeast(1)) return MakeCast("cure_wounds", ally->id);
@@ -215,17 +242,52 @@ std::optional<Action> TrySupport(const Combat& c, const GameActor& me) {
             a.targetId = ally->id;
             return a;
         }
-        if (s.economy.movementFt >= 5)
+        if (UsableMovement(me) >= 5)
             if (auto cell = ApproachCell(c, me, ally->pos, 5)) return MakeMove(*cell);
+    }
+    return std::nullopt;
+}
+
+bool EnemyNear(const Combat& c, const GameActor& me, int rangeFt) {
+    for (const GameActor* h : c.HostilesOf(me, false))
+        if (DistanceFt(me.pos, h->pos) <= rangeFt) return true;
+    return false;
+}
+
+// Bonus-action openers: rage when a fight is imminent, shield of faith before contact.
+std::optional<Action> TryBonusOpeners(const Combat& c, const GameActor& me) {
+    const auto& s = me.sheet;
+    if (!s.economy.bonusAction) return std::nullopt;
+    if (s.FeatureUses("rage") > 0 && EnemyNear(c, me, UsableMovement(me) + 10)) {
+        bool raging = false;
+        for (const auto& e : me.effects) raging = raging || e.id == "rage";
+        if (!raging) return MakeFeature("rage");
+    }
+    if (me.concentrating.empty() && EnemyNear(c, me, 120)) {
+        for (const auto& id : s.spells) {
+            const Spell* sp = Content::FindSpell(id);
+            if (!sp || sp->kind != SpellKind::Buff || !CanCastNow(me, *sp)) continue;
+            // Buff the most exposed melee ally (lowest AC with no active buff from us).
+            const GameActor* pick = nullptr;
+            for (const auto& a : c.Actors()) {
+                if (a->team != me.team || !a->IsConscious() || DistanceFt(me.pos, a->pos) > sp->rangeFt) continue;
+                bool buffed = false;
+                for (const auto& e : a->effects) buffed = buffed || e.id == sp->id;
+                if (buffed) continue;
+                const bool frontline = !a->sheet.attacks.empty() && !a->sheet.attacks.front().IsRanged() && a->sheet.spells.empty();
+                if (!pick || (frontline && a->sheet.maxHp > pick->sheet.maxHp)) pick = a.get();
+            }
+            if (pick) return MakeCast(sp->id, pick->id);
+        }
     }
     return std::nullopt;
 }
 
 Action Offence(const Combat& c, const GameActor& me) {
     const auto& eco = me.sheet.economy;
-    const bool canAct = eco.action;
+    const bool canAct = eco.action || eco.attacksLeft > 0;
     // After dashing the action is spent, but the extra movement is still worth using.
-    if (!canAct && !(me.dashedThisTurn && eco.movementFt >= 5)) return Action::End();
+    if (!canAct && !(me.dashedThisTurn && UsableMovement(me) >= 5)) return Action::End();
 
     const bool mindless = me.team == Team::Monsters && me.sheet.Score(Ability::Int) < 6;
     const auto hostiles = c.HostilesOf(me, true);
@@ -256,9 +318,9 @@ Action Offence(const Combat& c, const GameActor& me) {
     if (!cell) return Action::End();
     // Only move if at least the first step is affordable (difficult terrain costs double).
     const auto path = c.Grid().ComputePaths(me.pos, c.PassableFor(me)).PathTo(*cell);
-    if (!path.empty() && c.Grid().EnterCostFt(path.front()) <= eco.movementFt && c.Grid().OccupantAt(path.front()) < 0)
+    if (!path.empty() && c.Grid().EnterCostFt(path.front()) <= UsableMovement(me) && c.Grid().OccupantAt(path.front()) < 0)
         return MakeMove(*cell);
-    if (canAct && !me.dashedThisTurn) {
+    if (eco.action && !me.dashedThisTurn && eco.attacksLeft == 0) {
         Action a;
         a.type = ActionType::Dash;
         return a;
@@ -270,9 +332,10 @@ Action Offence(const Combat& c, const GameActor& me) {
 
 Action AIController::DecideAction(const TurnContext& ctx) {
     const GameActor& me = ctx.self;
-    if (me.sheet.hp * 4 < me.sheet.maxHp)
+    if (me.sheet.hp * 4 < me.sheet.maxHp || (me.sheet.hp * 2 < me.sheet.maxHp && me.sheet.FeatureUses("second_wind") > 0))
         if (auto a = TrySelfHeal(me)) return *a;
     if (auto a = TrySupport(ctx.combat, me)) return *a;
+    if (auto a = TryBonusOpeners(ctx.combat, me)) return *a;
     return Offence(ctx.combat, me);
 }
 

@@ -7,7 +7,8 @@ namespace dnd {
 
 enum class EventType {
     CombatStart, RoundStart, TurnStart, Move, Attack, Spell, Heal,
-    Down, Death, DeathSave, Info, CombatEnd
+    Down, Death, DeathSave, Info, CombatEnd,
+    Narration, Scene, Quest, Rest, Travel
 };
 
 struct Event {
@@ -18,6 +19,8 @@ struct Event {
     int vs = 0;
     int amount = 0;
     std::string text;
+    int seq = 0;           // assigned by Game; strictly increasing
+    std::string flavour;   // optional prose added by the narrator
 };
 
 // Synchronous publish/subscribe. Rule code emits; narrators, loggers and tests listen.

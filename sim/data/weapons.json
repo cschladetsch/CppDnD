@@ -1,0 +1,11 @@
+[
+  { "id": "warhammer",  "name": "warhammer",  "damage": "1d8",  "type": "bludgeoning" },
+  { "id": "mace",       "name": "mace",       "damage": "1d6",  "type": "bludgeoning" },
+  { "id": "greataxe",   "name": "greataxe",   "damage": "1d12", "type": "slashing" },
+  { "id": "handaxe",    "name": "handaxe",    "damage": "1d6",  "type": "slashing", "range": [20, 60], "ability": "str" },
+  { "id": "javelin",    "name": "javelin",    "damage": "1d6",  "type": "piercing", "range": [30, 120], "ability": "str" },
+  { "id": "dagger",     "name": "dagger",     "damage": "1d4",  "type": "piercing", "finesse": true },
+  { "id": "shortsword", "name": "shortsword", "damage": "1d6",  "type": "piercing", "finesse": true },
+  { "id": "shortbow",   "name": "shortbow",   "damage": "1d6",  "type": "piercing", "range": [80, 320] },
+  { "id": "longbow",    "name": "longbow",    "damage": "1d8",  "type": "piercing", "range": [150, 600] }
+]

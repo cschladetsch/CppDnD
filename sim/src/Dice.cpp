@@ -4,21 +4,45 @@
 #include <cctype>
 #include <mutex>
 #include <random>
+#include <sstream>
 
 namespace dnd {
 namespace {
 std::mutex g_mutex;
-std::mt19937_64 g_engine{std::random_device{}()};
+Rng g_global{std::random_device{}()};
+thread_local Rng* t_active = nullptr;
 
 int Uniform(int lo, int hi) {
+    if (t_active) return t_active->Uniform(lo, hi);
     std::lock_guard<std::mutex> lock(g_mutex);
-    return std::uniform_int_distribution<int>(lo, hi)(g_engine);
+    return g_global.Uniform(lo, hi);
 }
 }  // namespace
 
+int Rng::Uniform(int lo, int hi) {
+    if (hi <= lo) return lo;
+    const std::uint64_t range = static_cast<std::uint64_t>(hi) - static_cast<std::uint64_t>(lo) + 1;
+    return lo + static_cast<int>(engine_() % range);
+}
+
+std::string Rng::State() const {
+    std::ostringstream o;
+    o << engine_;
+    return o.str();
+}
+
+bool Rng::SetState(const std::string& s) {
+    std::istringstream i(s);
+    i >> engine_;
+    return !i.fail();
+}
+
+DiceRoller::Scope::Scope(Rng& rng) : prev_(t_active) { t_active = &rng; }
+DiceRoller::Scope::~Scope() { t_active = prev_; }
+
 void DiceRoller::Seed(std::uint64_t seed) {
     std::lock_guard<std::mutex> lock(g_mutex);
-    g_engine.seed(seed);
+    g_global.Seed(seed);
 }
 
 int DiceRoller::Roll(int sides) { return sides <= 0 ? 0 : Uniform(1, sides); }

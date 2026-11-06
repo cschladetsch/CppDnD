@@ -1,0 +1,12 @@
+[
+  { "id": "fire_bolt", "name": "Fire Bolt", "level": 0, "range": 120, "kind": "attack", "dice": "1d10", "damageType": "fire" },
+  { "id": "sacred_flame", "name": "Sacred Flame", "level": 0, "range": 60, "kind": "saveNegates", "save": "dex", "dice": "1d8", "damageType": "radiant" },
+  { "id": "magic_missile", "name": "Magic Missile", "level": 1, "range": 120, "kind": "autoHit", "dice": "1d4+1", "damageType": "force", "projectiles": 3, "upcastProjectiles": 1 },
+  { "id": "guiding_bolt", "name": "Guiding Bolt", "level": 1, "range": 120, "kind": "attack", "dice": "4d6", "damageType": "radiant", "upcastDice": 1, "grantsAdvantage": true },
+  { "id": "cure_wounds", "name": "Cure Wounds", "level": 1, "range": 5, "kind": "heal", "dice": "1d8", "upcastDice": 1, "addsCastingMod": true },
+  { "id": "healing_word", "name": "Healing Word", "level": 1, "range": 60, "bonusAction": true, "kind": "heal", "dice": "1d4", "upcastDice": 1, "addsCastingMod": true },
+  { "id": "shield_of_faith", "name": "Shield of Faith", "level": 1, "range": 60, "bonusAction": true, "kind": "buff", "acBonus": 2, "concentration": true, "durationRounds": 100 },
+  { "id": "shatter", "name": "Shatter", "level": 2, "range": 60, "kind": "saveForHalf", "save": "con", "dice": "3d8", "damageType": "thunder", "radius": 10, "upcastDice": 1 },
+  { "id": "hold_person", "name": "Hold Person", "level": 2, "range": 60, "kind": "condition", "save": "wis", "condition": "paralyzed", "durationRounds": 10, "saveEnds": true, "concentration": true, "requiresTag": "humanoid" },
+  { "id": "fireball", "name": "Fireball", "level": 3, "range": 150, "kind": "saveForHalf", "save": "dex", "dice": "8d6", "damageType": "fire", "radius": 20, "upcastDice": 1 }
+]

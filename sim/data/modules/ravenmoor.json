@@ -1,0 +1,557 @@
+{
+ "id": "ravenmoor",
+ "name": "The Dread of Ravenmoor",
+ "setting": "gothic horror: a mist-bound domain under a dying moon",
+ "recommendedLevel": 5,
+ "intro": "The coach lurches to a halt where the road meets the Mists. The driver will go no further. Ahead, a thin lantern-glow marks a village; behind you, white fog has already swallowed the way you came. Something in the dark of Ravenmoor has been waiting a very long time for fresh blood.",
+ "endText": "With the Countess's creature destroyed, the Mists thin and the moon breaks through for the first time in a century. Ravenmoor exhales. For now.",
+ "clock": {
+  "startHour": 18,
+  "nightStart": 19,
+  "nightEnd": 6
+ },
+ "start": "mist_road",
+ "draws": [
+  {
+   "id": "relic",
+   "choices": [
+    "old_chapel",
+    "standing_stones"
+   ]
+  }
+ ],
+ "tables": [
+  {
+   "id": "road",
+   "chanceDay": 5,
+   "chanceNight": 12,
+   "entries": [
+    {
+     "weight": 3,
+     "monsters": [
+      "wolf",
+      "wolf"
+     ]
+    },
+    {
+     "weight": 2,
+     "monsters": [
+      "cultist",
+      "cultist",
+      "cultist"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "wood",
+   "chanceDay": 10,
+   "chanceNight": 25,
+   "entries": [
+    {
+     "weight": 3,
+     "monsters": [
+      "wolf",
+      "wolf",
+      "wolf"
+     ]
+    },
+    {
+     "weight": 1,
+     "monsters": [
+      "ghoul"
+     ]
+    },
+    {
+     "weight": 1,
+     "monsters": [
+      "cultist",
+      "cultist",
+      "cult_adept"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "mists",
+   "chanceDay": 30,
+   "chanceNight": 40,
+   "entries": [
+    {
+     "weight": 2,
+     "monsters": [
+      "specter"
+     ]
+    },
+    {
+     "weight": 2,
+     "monsters": [
+      "zombie",
+      "zombie"
+     ]
+    }
+   ]
+  }
+ ],
+ "quests": [
+  {
+   "id": "find_key",
+   "name": "The Silver Key",
+   "description": "Something in Ravenmoor holds a silver key that opens the crypt below Greywick.",
+   "completeWhen": [
+    "has_silver_key"
+   ],
+   "xp": 150
+  },
+  {
+   "id": "clear_crypt",
+   "name": "Heart of the Crypt",
+   "description": "Break the undead nest beneath the village.",
+   "completeWhen": [
+    "crypt_cleared"
+   ],
+   "xp": 300
+  },
+  {
+   "id": "end_countess",
+   "name": "The Pale Countess",
+   "description": "Destroy the creature that haunts Corvane Keep.",
+   "completeWhen": [
+    "countess_defeated"
+   ],
+   "xp": 500
+  }
+ ],
+ "endWhen": [
+  "countess_defeated"
+ ],
+ "locations": [
+  {
+   "id": "mist_road",
+   "name": "The Mist Road",
+   "kind": "wilderness",
+   "rest": "risky",
+   "randomTable": "road",
+   "description": "A rutted road ends at a wall of luminous fog. A cairn of black stones marks the border, its top carved with a raven. Wolves howl somewhere east.",
+   "events": [
+    {
+     "id": "arrival",
+     "trigger": "enter",
+     "narration": "You step down from the coach. When you turn, the road behind you is gone, replaced by pale, breathing mist."
+    }
+   ],
+   "exits": [
+    {
+     "to": "greywick",
+     "label": "Follow the lantern light to Greywick",
+     "miles": 2
+    },
+    {
+     "to": "whispering_wood",
+     "label": "Take the forest track",
+     "miles": 3
+    },
+    {
+     "to": "mists",
+     "label": "Walk into the Mists",
+     "miles": 1
+    }
+   ]
+  },
+  {
+   "id": "greywick",
+   "name": "Greywick",
+   "kind": "settlement",
+   "rest": "safe",
+   "description": "A huddle of shuttered cottages around a crooked well. Garlic hangs from every lintel. The only window with light belongs to the Bent Raven inn.",
+   "events": [
+    {
+     "id": "welcome",
+     "trigger": "enter",
+     "narration": "Doors bolt as you pass. At the inn, a woman waves you in without a word and slides the bar across behind you."
+    },
+    {
+     "id": "cellar",
+     "trigger": "search",
+     "narration": "In the inn's cellar, behind a barrel of sour wine, you find a dusty crate with a stoppered flask inside.",
+     "potions": 1
+    }
+   ],
+   "npcs": [
+    {
+     "id": "marta",
+     "name": "Marta Hollin",
+     "description": "The innkeeper: grey-eyed, tired, sharp as a tack.",
+     "topics": [
+      {
+       "id": "rumours",
+       "text": "\"The Countess's dead walk at night. Old Father Aldous hid the silver key before the chapel fell. Or so my gran said. Bring it to the crypt door under the church.\"",
+       "setsFlags": [
+        "heard_of_key"
+       ]
+      },
+      {
+       "id": "countess",
+       "text": "\"Corvane Keep, up the black stair. We don't speak her name after dusk. Past the crypt there's a way up, they say.\"",
+       "setsFlags": [
+        "knows_countess"
+       ]
+      },
+      {
+       "id": "beds",
+       "text": "\"Beds are two silver. Nothing crosses the threshold while the garlic hangs. Sleep.\""
+      }
+     ]
+    }
+   ],
+   "exits": [
+    {
+     "to": "mist_road",
+     "label": "Back to the Mist Road",
+     "miles": 2
+    },
+    {
+     "to": "old_chapel",
+     "label": "The ruined chapel on the hill",
+     "miles": 1
+    },
+    {
+     "to": "whispering_wood",
+     "label": "The Whispering Wood",
+     "miles": 3
+    },
+    {
+     "to": "crypt",
+     "label": "The crypt door beneath the church",
+     "hours": 0.5,
+     "requires": [
+      "has_silver_key"
+     ],
+     "blockedText": "A great iron door, locked tight. The keyhole is silver-lined."
+    }
+   ]
+  },
+  {
+   "id": "whispering_wood",
+   "name": "The Whispering Wood",
+   "kind": "wilderness",
+   "rest": "risky",
+   "randomTable": "wood",
+   "map": [
+    "....................",
+    "..O.......O.........",
+    "....................",
+    ".P...c.........M....",
+    ".P..........O...M...",
+    ".P.............M.M..",
+    ".P....O....c....M...",
+    "....................",
+    "..~~....c....~~O....",
+    "...................."
+   ],
+   "description": "Black pines crowd the track. The wind makes a sound like muttered conversation, and the muttering stops whenever you do.",
+   "events": [
+    {
+     "id": "pack",
+     "trigger": "enter",
+     "narration": "Eyes glint at the edge of the lantern light, and a low growl rolls through the trees.",
+     "encounter": {
+      "monsters": [
+       "wolf",
+       "wolf",
+       "wolf",
+       "wolf"
+      ]
+     },
+     "setsFlags": [
+      "wood_pack_slain"
+     ],
+     "xp": 0
+    }
+   ],
+   "exits": [
+    {
+     "to": "mist_road",
+     "label": "Back to the Mist Road",
+     "miles": 3
+    },
+    {
+     "to": "greywick",
+     "label": "To Greywick",
+     "miles": 3
+    },
+    {
+     "to": "standing_stones",
+     "label": "Toward the standing stones",
+     "miles": 2
+    }
+   ]
+  },
+  {
+   "id": "old_chapel",
+   "name": "The Ruined Chapel",
+   "kind": "site",
+   "rest": "risky",
+   "map": [
+    "######################",
+    "#....................#",
+    "#...................M#",
+    "#.....O....O....O.M..#",
+    "#P................M..#",
+    "#P......cc...cc....c.#",
+    "#.P................c.#",
+    "#.P...............M..#",
+    "#.....O....O....O.M..#",
+    "#....................#",
+    "#....................#",
+    "######################"
+   ],
+   "description": "A roofless nave open to the sick moon. Pews lie splintered; the altar is cracked clean across.",
+   "events": [
+    {
+     "id": "defilers",
+     "trigger": "enter",
+     "narration": "Bones rise from the pews, and something that was once a sexton drags itself out of the vestry, jaws working.",
+     "encounter": {
+      "monsters": [
+       "skeleton",
+       "skeleton",
+       "ghoul"
+      ]
+     },
+     "setsFlags": [
+      "chapel_cleared"
+     ]
+    },
+    {
+     "id": "key_here",
+     "trigger": "search",
+     "requires": [
+      "chapel_cleared",
+      "relic=old_chapel"
+     ],
+     "narration": "Under the broken altar slab, wrapped in rotted vestments, you find a tarnished silver key.",
+     "setsFlags": [
+      "has_silver_key"
+     ]
+    },
+    {
+     "id": "no_key",
+     "trigger": "search",
+     "requires": [
+      "chapel_cleared",
+      "!relic=old_chapel"
+     ],
+     "narration": "You turn the chapel over. No key, but a priest's emergency flask is tucked in the sacristy.",
+     "potions": 1
+    }
+   ],
+   "exits": [
+    {
+     "to": "greywick",
+     "label": "Back down to Greywick",
+     "miles": 1
+    }
+   ]
+  },
+  {
+   "id": "standing_stones",
+   "name": "The Standing Stones",
+   "kind": "site",
+   "rest": "risky",
+   "randomTable": "wood",
+   "map": [
+    "......................",
+    "......................",
+    "...~~......O..........",
+    "......................",
+    ".P......O.....O...M...",
+    ".P.................M..",
+    ".P...O....cc......M...",
+    ".P.............O...M..",
+    "........O........M....",
+    "............O.....~...",
+    "......................",
+    "......................"
+   ],
+   "description": "A ring of leaning monoliths, each carved with a weeping face. The grass inside the ring is dead.",
+   "events": [
+    {
+     "id": "haunting",
+     "trigger": "enter",
+     "narration": "The stones begin to hum. Mist pours from the carved eyes, and shapes drag themselves from the soil.",
+     "encounter": {
+      "monsters": [
+       "specter",
+       "zombie",
+       "zombie"
+      ]
+     },
+     "setsFlags": [
+      "stones_cleared"
+     ]
+    },
+    {
+     "id": "key_here",
+     "trigger": "search",
+     "requires": [
+      "stones_cleared",
+      "relic=standing_stones"
+     ],
+     "narration": "At the ring's centre, in a hollow beneath a flat stone, lies a silver key wrapped in a lock of black hair.",
+     "setsFlags": [
+      "has_silver_key"
+     ]
+    },
+    {
+     "id": "no_key",
+     "trigger": "search",
+     "requires": [
+      "stones_cleared",
+      "!relic=standing_stones"
+     ],
+     "narration": "Only offerings: coins, dried flowers, and a travel-worn healing draught someone left behind.",
+     "potions": 1
+    }
+   ],
+   "exits": [
+    {
+     "to": "whispering_wood",
+     "label": "Back into the wood",
+     "miles": 2
+    }
+   ]
+  },
+  {
+   "id": "crypt",
+   "name": "The Crypt of the Vane Family",
+   "kind": "site",
+   "rest": "risky",
+   "map": [
+    "########################",
+    "#.........#............#",
+    "#.........#.c........M.#",
+    "#P....c...........c.M..#",
+    "#PP.................M..#",
+    "#P....c...#.......c..M.#",
+    "#.........#.c.......M..#",
+    "#.........#............#",
+    "########################"
+   ],
+   "description": "Cold air breathes from rows of sealed sarcophagi. Carved ravens peer down from every arch.",
+   "events": [
+    {
+     "id": "nest",
+     "trigger": "enter",
+     "narration": "The silver key turns with a sound like a sigh. Lids slide aside in the dark.",
+     "encounter": {
+      "monsters": [
+       "ghoul",
+       "ghoul",
+       "skeleton",
+       "skeleton"
+      ]
+     },
+     "setsFlags": [
+      "crypt_cleared"
+     ]
+    },
+    {
+     "id": "seal",
+     "trigger": "search",
+     "requires": [
+      "crypt_cleared"
+     ],
+     "narration": "Behind the largest tomb, a worn stair rises into darkness, and on its first step lies a vial of lamp-oil gone bright as quicksilver: a draught of healing.",
+     "potions": 1,
+     "setsFlags": [
+      "found_hidden_stair"
+     ]
+    }
+   ],
+   "exits": [
+    {
+     "to": "greywick",
+     "label": "Climb back to Greywick",
+     "hours": 0.5
+    },
+    {
+     "to": "corvane_keep",
+     "label": "The hidden stair to Corvane Keep",
+     "hours": 1,
+     "requires": [
+      "crypt_cleared"
+     ],
+     "blockedText": "The stair, if there is one, is hidden by the living dead."
+    }
+   ]
+  },
+  {
+   "id": "corvane_keep",
+   "name": "Corvane Keep",
+   "kind": "site",
+   "rest": "none",
+   "map": [
+    "##########################",
+    "#........................#",
+    "#.~......................#",
+    "#.....O.....O.....O......#",
+    "#P...................M...#",
+    "#P....................cM.#",
+    "#P....................cM.#",
+    "#P...................M...#",
+    "#.....O.....O.....O......#",
+    "#.~......................#",
+    "#........................#",
+    "##########################"
+   ],
+   "description": "A hall of black stone and cold chandeliers. A cracked mirror covers one wall and reflects nothing of the room.",
+   "events": [
+    {
+     "id": "countess",
+     "trigger": "enter",
+     "narration": "A figure unfolds from the dais, pale, gracious, hungry. \"Guests. How rare. How delicious.\"",
+     "encounter": {
+      "monsters": [
+       "vampire_spawn"
+      ]
+     },
+     "setsFlags": [
+      "countess_defeated"
+     ],
+     "xp": 500
+    }
+   ],
+   "exits": [
+    {
+     "to": "crypt",
+     "label": "Back down the hidden stair",
+     "hours": 1
+    }
+   ]
+  },
+  {
+   "id": "mists",
+   "name": "The Mists",
+   "kind": "boundary",
+   "rest": "none",
+   "randomTable": "mists",
+   "description": "White fog and no horizon. Whatever direction you walk, the cairn waits for you at the end.",
+   "events": [
+    {
+     "id": "turned_around",
+     "trigger": "enter",
+     "once": false,
+     "narration": "You walk for an hour and arrive where you began. Ravenmoor does not let its guests leave."
+    }
+   ],
+   "exits": [
+    {
+     "to": "mist_road",
+     "label": "Follow the cairn back",
+     "miles": 1
+    }
+   ]
+  }
+ ]
+}

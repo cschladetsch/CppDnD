@@ -1,0 +1,16 @@
+[
+  { "id": "thorin", "name": "Thorin", "class": "fighter", "level": 3, "tags": ["humanoid","dwarf"],
+    "scores": [16,12,16,10,12,8], "ac": 18, "speed": 25, "weapons": ["warhammer","handaxe"], "potions": 1 },
+  { "id": "elara", "name": "Elara", "class": "wizard", "level": 3, "tags": ["humanoid","elf"],
+    "scores": [8,14,12,16,13,10], "ac": 12, "speed": 30, "weapons": ["dagger"],
+    "spells": ["fire_bolt","magic_missile","shatter","hold_person"] },
+  { "id": "aldric", "name": "Aldric", "class": "cleric", "level": 3, "tags": ["humanoid"],
+    "scores": [14,10,14,10,16,12], "ac": 18, "speed": 30, "weapons": ["mace"],
+    "spells": ["sacred_flame","cure_wounds","healing_word","guiding_bolt","shield_of_faith","hold_person"] },
+  { "id": "finn", "name": "Finn", "class": "rogue", "level": 3, "tags": ["humanoid","halfling"],
+    "scores": [8,16,14,12,12,12], "ac": 14, "speed": 25, "weapons": ["shortsword","shortbow"], "potions": 1 },
+  { "id": "gruk", "name": "Gruk", "class": "barbarian", "level": 3, "tags": ["humanoid","half-orc"],
+    "scores": [16,14,16,8,10,8], "ac": 15, "speed": 30, "weapons": ["greataxe","javelin"] },
+  { "id": "sylva", "name": "Sylva", "class": "ranger", "level": 3, "tags": ["humanoid","elf"],
+    "scores": [12,16,14,10,14,10], "ac": 14, "speed": 30, "weapons": ["longbow","shortsword"], "spells": ["cure_wounds"] }
+]
