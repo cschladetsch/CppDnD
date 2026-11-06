@@ -11,6 +11,22 @@ Everything the engine knows about the game lives here as JSON. Files may contain
 | `characters.json` | party members: `class`, `level`, `scores`, `ac`, `speed`, `weapons`, `spells`, `potions` |
 | `modules/*.json` | one file per module (see below) |
 
+## Where content is read from
+
+All content is loaded from one directory, chosen in this order:
+
+1. `--data <dir>` on `dnd_sim` or `dnd_server`
+2. the `DND_DATA` environment variable
+3. the folder this one was built from (`sim/data`, baked in at build time as `DND_DATA_DIR`; an installed build uses `share/dnd/data`)
+
+The server prints the directory it chose as `data=...` in its startup line. The directory must contain `classes.json`, `weapons.json`, `spells.json`, `monsters.json`, `characters.json` and a `modules/` folder; every `modules/*.json` is a module, and its `id` is what you pass as `--module` or `"module"` in the API. Content is read once at startup, so restart after editing.
+
+To keep your own modules out of the repo, copy this folder, edit the copy, and point `--data` or `DND_DATA` at it.
+
+## Not stored here: games and saves
+
+Content is read-only. A running game is held in the server's memory and is gone when the server stops. A save is a separate JSON file (the whole state including the RNG stream): the web client's Save button downloads it, `GET /api/games/:id/save` returns it, and the terminal client writes `save.json` or the path given with `--save`. Load one with `--load <file>`, `POST /api/games/load`, or the start screen's file picker.
+
 Dice are written `2d6+3`. Ability scores are `[STR, DEX, CON, INT, WIS, CHA]`. Monster stats follow SRD 5.1 unless a comment says a creature is original.
 
 ## Adding a monster, spell or character
