@@ -1,28 +1,41 @@
 # CppDnD
 
-A Dungeons & Dragons 5e simulator in C++20, built as a backend for a web game. One engine, two front ends: a terminal client (`dnd_sim`) and an HTTP/JSON server (`dnd_server`). You can play a party member or the Dungeon Master, swap roles mid-fight, or hand everything to the AI.
+A Dungeons & Dragons 5e simulator in C++20, built as a backend for a web game. One engine, three ways in: a terminal client (`dnd_sim`), an HTTP/JSON server (`dnd_server`) that also serves a browser client, and a plain-English prompt backed by a local model. You can play a party member or the Dungeon Master, swap roles mid-fight, or hand everything to the AI.
 
 Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_simulator_architecture.md)
 
+## Quick start
+
+```powershell
+.\r.ps1                              # build if needed, then watch the AI play a 3 room delve
+.\r.ps1 --module ravenmoor --role player --hero elara --seed 7
+.\r.ps1 -Server --port 8088          # web client at http://127.0.0.1:8088/
+.\test.ps1                           # build, then run every test
+```
+
+`r.ps1` configures with Ninja and clang++ on first use. `-Rebuild` wipes `sim/build` first. Everything after the switches goes to the program.
+
 ## Features
 
-- **Data-driven content.** Monsters, spells, classes, weapons, characters and modules are JSON under `sim/data/`. Load-time validation reports the file and field of any mistake.
+- **Data-driven content.** Monsters, spells, classes, weapons, characters and modules are JSON under `sim/data/`. Load-time validation reports the file and field of any mistake. See [sim/data/README.md](sim/data/README.md).
 - **Classes.** Fighter, barbarian, rogue, ranger, wizard, cleric, built from class tables at any level 1 to 20: hit points, proficiency, spell slots, Extra Attack, sneak attack, Rage, Second Wind.
 - **Rules.** Advantage and disadvantage, crits, cover, opportunity attacks, death saves, conditions (blinded, frightened, incapacitated, paralyzed, poisoned, prone, restrained, stunned), concentration with damage saves, resistance and vulnerability, exhaustion, short and long rests with Hit Dice, travel pace and forced marches.
 - **Modules.** A module is the space for a long-running session: a graph of locations on a clock, with scripted and random encounters, NPC dialogue, flags, quests, seeded secrets and an end condition. `ravenmoor` is an original gothic-horror module in the spirit of Ravenloft.
 - **Step-driven combat.** `Advance` runs until a remote human must act; `Submit` answers. Nothing blocks, so a web server can drive many games.
 - **Save and load.** The complete state, including the RNG stream, round-trips through JSON. A reloaded game plays out identically.
+- **Web client.** A single-page client in [sim/web/](sim/web/README.md), served by the server at `/`.
+- **Plain English.** Type "go to the village and ask Marta about the rumours" or "hit the ghoul with my axe"; a model turns it into game commands and the rules engine validates each one.
 - **LLM narration and LLM Dungeon Master.** Any OpenAI-compatible server (llama.cpp, Ollama, vLLM). The model proposes; the rules engine disposes. Illegal or malformed plans fall back to the built-in AI, and a dead model never stalls a fight. Models are located through [CppLmmModelStore](https://github.com/cschladetsch/CppLmmModelStore).
 - **Deterministic.** Each game owns a seeded, portable RNG, so `--seed N` reproduces a run exactly.
 
 ## Build
 
-Needs CMake 3.20+, a C++20 compiler and git (the model store is fetched on configure).
+Needs CMake 3.20+, a C++20 compiler and git (the model store is fetched on configure). The scripts above do this for you; by hand:
 
 ```powershell
 cmake -S sim -B sim/build -G Ninja -DCMAKE_CXX_COMPILER=clang++
 cmake --build sim/build
-ctest --test-dir sim/build
+ctest --test-dir sim/build --output-on-failure
 ```
 
 Offline or already have the model store checked out: add `-DDND_MODELSTORE_DIR=<path>`. To build without it: `-DDND_USE_MODELSTORE=OFF`.
@@ -32,49 +45,70 @@ Offline or already have the model store checked out: add `-DDND_MODELSTORE_DIR=<
 ## Terminal client
 
 ```powershell
-.\sim\build\dnd_sim.exe --list
-.\sim\build\dnd_sim.exe --module ravenmoor --role player --hero elara --seed 7
-.\sim\build\dnd_sim.exe --module ravenmoor --role auto --quiet      # watch the AI play the whole module
-.\sim\build\dnd_sim.exe --rooms 3 --difficulty hard                 # quick procedural delve
+.\r.ps1 --list                                                  # modules, characters, monsters
+.\r.ps1 --module ravenmoor --role player --hero elara --seed 7
+.\r.ps1 --module ravenmoor --role auto --quiet                  # watch the AI play the whole module
+.\r.ps1 --rooms 3 --difficulty hard                             # quick procedural delve
+.\r.ps1 --module ravenmoor --role player --hero elara --llm-say # plain English at the prompt
 ```
 
 Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `rest short|long`, `wait <hours>`, `pace slow|normal|fast`, `party`, `quests`, `auto [n]`, `save <file>`, `quit`. In a fight, `help` lists the turn commands (`m`, `a`, `c`, `f rage|second_wind`, `p`, `dash`, `dodge`, `e`, `swap player|dm|auto`). Resume with `--load <file>`.
 
-## Web backend
+## Web server and client
 
 ```powershell
-.\sim\build\dnd_server.exe --port 8088 --static .\web      # --static is optional
+.\r.ps1 -Server --port 8088
+```
+
+Open http://127.0.0.1:8088/ for the bundled client, or talk to the JSON API directly:
+
+```powershell
 curl -X POST localhost:8088/api/games -d '{"module":"ravenmoor","role":"player","hero":"elara","seed":7}'
 ```
 
-The full endpoint reference is in [sim/docs/API.md](sim/docs/API.md). `python sim/tests/api_smoke.py http://127.0.0.1:8088` plays a whole module through the API.
+Server flags: `--port`, `--host`, `--data <dir>`, `--static <dir>` (serve a different front end; also `DND_WEB`), `--llm-url`, `--llm-model`, `--ollama <model>`, `--mock-llm`. The endpoint reference is [sim/docs/API.md](sim/docs/API.md).
 
-### LLM
+## Language models
+
+All model features go through one OpenAI-compatible client. Pick a backend:
 
 ```powershell
-$env:DND_LLM_URL   = "http://127.0.0.1:11434"        # Ollama; llama-server defaults to :8080
-$env:DND_LLM_MODEL = "deepseek-r1"
-.\sim\build\dnd_server.exe
-# then create games with "llmNarration": true and/or "llmDm": true
+ollama pull llama3.1
+.\r.ps1 -Server --port 8088 --ollama llama3.1       # Ollama on :11434, streaming off
 ```
 
-Reasoning models are supported: `reasoning_content` deltas are parsed by the model store's stream parser and never shown. `GET /api/llm` reports the model's location in the store (`DEEPSEEK_MODEL_HOME`). `--mock-llm` runs the full pipeline without a model.
+or, for any other server (llama.cpp's `llama-server` defaults to :8080):
+
+```powershell
+$env:DND_LLM_URL   = "http://127.0.0.1:8080"
+$env:DND_LLM_MODEL = "deepseek-r1"
+.\r.ps1 -Server --port 8088
+```
+
+Other variables: `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STREAM=0|1`. With a model configured:
+
+- the web client's prompt box and `POST /api/games/:id/say` accept plain English;
+- create a game with `"llmNarration": true` for prose scenes and `"llmDm": true` for a model-run Dungeon Master (CLI: `--llm-narration`, `--llm-dm`, `--llm-say`).
+
+Reasoning models are supported: `reasoning_content` and `<think>` blocks are stripped and never shown. `GET /api/llm` reports the model's location in the store (`DEEPSEEK_MODEL_HOME`). `--mock-llm` runs the whole pipeline without a model, which is what the tests use.
 
 ## Layout
 
 ```
+r.ps1, test.ps1   build and run, build and test
 sim/
-  data/          classes, weapons, spells, monsters, characters, modules/*.json
-  include/dnd/   Dice, Types, Grid, Actor, Combat, AI, Human, DM, Content, Json, Game, Llm
-  src/           implementation, main.cpp (terminal), server_main.cpp (HTTP)
-  tests/         tests.cpp (unit and integration), api_smoke.py (HTTP end to end)
-  third_party/   nlohmann/json, cpp-httplib (vendored, MIT)
-  docs/API.md    HTTP reference
+  data/           classes, weapons, spells, monsters, characters, modules/*.json   (README inside)
+  include/dnd/    Dice, Types, Grid, Actor, Combat, AI, Human, DM, Content, Json, Game, Llm
+  src/            implementation, main.cpp (terminal), server_main.cpp (HTTP)
+  web/            single-page browser client                                       (README inside)
+  tests/          tests.cpp (unit and integration), api_smoke.py (HTTP end to end) (README inside)
+  third_party/    nlohmann/json, cpp-httplib (vendored, MIT)
+  docs/API.md     HTTP reference
 ```
 
 ## Authoring content
 
-Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/content`. See `ravenmoor.json` for every feature: locations with tactical maps (`.` floor, `#` wall, `~` rough, `c` half cover, `O` three-quarters cover, `P` party start, `M` monster spawn), exits with miles or hours and flag requirements, `enter` and `search` events, NPC topics, random tables by day and night, quests and `endWhen`.
+Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/content`. The format is described in [sim/data/README.md](sim/data/README.md); `ravenmoor.json` uses every feature.
 
 ## Limitations
 
@@ -83,9 +117,4 @@ Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/conte
 - Cover objects block movement and grant cover but not sight; only walls block sight.
 - Dead characters stay dead (no resurrection); a total party kill ends the game.
 - The LLM client speaks plain HTTP; put a proxy in front for TLS.
-
-## Web client
-
-Run `.\r.ps1 -Server --port 8088` and open http://127.0.0.1:8088/ . The server serves `sim/web/index.html` by default; override with `--static <dir>` or `DND_WEB`.
-
-Plain English: start the server with `--ollama <model>` (or set `DND_LLM_URL` and `DND_LLM_MODEL`) and the web client shows a prompt box under the log. See `sim/docs/API.md`.
+- The server holds games in memory; use the save endpoint to keep one.
