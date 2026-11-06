@@ -25,18 +25,19 @@ A module is the space for a long session. Top-level keys:
 |---|---|
 | `id`, `name`, `setting`, `intro`, `endText` | identity and framing text |
 | `recommendedLevel` | shown in the client; autopilot is tuned for it |
-| `clock` / `start` | starting hour and starting location |
+| `clock` | `{startHour, nightStart, nightEnd}`; night raises random encounter chances |
+| `start` | id of the starting location |
 | `locations` | the graph (below) |
 | `tables` | random encounter tables: `chanceDay`, `chanceNight` (percent per risky hour) and weighted `entries` of `monsters` |
 | `draws` | seeded secrets: `{id, choices}`; the pick is stored as flag `<id>=<choice>` |
 | `quests` | `{id, name, description, completeWhen: [flags], xp}` |
 | `endWhen` | flag that completes the module |
 
-A location has `id`, `name`, `kind`, `description`, `rest` (`safe`, `risky`, `none`), an optional `randomTable`, `events`, `exits` and `npcs`.
+A location has `id`, `name`, `kind` (`wilderness`, `settlement`, `boundary`, `site`), `description`, `rest` (`safe`, `risky`, `none`), an optional `randomTable` and `map`, and lists of `events`, `exits` and `npcs`.
 
 - **exits:** `{to, label, miles | hours, requires: [flags], blockedText}`. Travel time comes from `miles` and pace (2, 3 or 4 mph) or the fixed `hours`.
-- **events:** `{id, trigger: "enter" | "search", narration, ...}` can set flags, grant items, start an encounter or complete a quest.
-- **npcs:** `{id, name, description, topics: [{id, text, requires, sets}]}`; topics can be gated by flags and set flags when heard.
-- **encounters** carry a `monsters` list and an optional tactical `map`: `.` floor, `#` wall, `~` rough, `c` half cover, `O` three-quarters cover, `P` party start, `M` monster spawn.
+- **events:** `{id, trigger: "enter" | "search", narration, once, requires: [flags], setsFlags: [flags], xp, potions, encounter: {monsters: [ids]}}`. An event with an `encounter` starts a fight; `setsFlags` and `xp` apply when it is won.
+- **npcs:** `{id, name, description, topics: [{id, text, setsFlags}]}`; hearing a topic sets its flags.
+- **map:** the tactical grid for fights at that location: `.` floor, `#` wall, `~` rough, `c` half cover, `O` three-quarters cover, `P` party start, `M` monster spawn.
 
 `ravenmoor.json` demonstrates every one of these.
