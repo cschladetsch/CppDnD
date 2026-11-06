@@ -7,13 +7,13 @@ Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_
 ## Quick start
 
 ```powershell
-.\r.ps1                              # build if needed, then watch the AI play a 3 room delve
-.\r.ps1 --module ravenmoor --role player --hero elara --seed 7
-.\r.ps1 -Server --port 8088          # web client at http://127.0.0.1:8088/
+.\run.ps1                              # build if needed, then watch the AI play a 3 room delve
+.\run.ps1 --module ravenmoor --role player --hero elara --seed 7
+.\run.ps1 -Server --port 8088          # web client at http://127.0.0.1:8088/
 .\test.ps1                           # build, then run every test
 ```
 
-`r.ps1` configures with Ninja and clang++ on first use. `-Rebuild` wipes `sim/build` first. Everything after the switches goes to the program.
+`run.ps1` configures with Ninja and clang++ on first use. `-Rebuild` wipes `sim/build` first. Everything after the switches goes to the program.
 
 ## Features
 
@@ -45,11 +45,11 @@ Offline or already have the model store checked out: add `-DDND_MODELSTORE_DIR=<
 ## Terminal client
 
 ```powershell
-.\r.ps1 --list                                                  # modules, characters, monsters
-.\r.ps1 --module ravenmoor --role player --hero elara --seed 7
-.\r.ps1 --module ravenmoor --role auto --quiet                  # watch the AI play the whole module
-.\r.ps1 --rooms 3 --difficulty hard                             # quick procedural delve
-.\r.ps1 --module ravenmoor --role player --hero elara --llm-say # plain English at the prompt
+.\run.ps1 --list                                                  # modules, characters, monsters
+.\run.ps1 --module ravenmoor --role player --hero elara --seed 7
+.\run.ps1 --module ravenmoor --role auto --quiet                  # watch the AI play the whole module
+.\run.ps1 --rooms 3 --difficulty hard                             # quick procedural delve
+.\run.ps1 --module ravenmoor --role player --hero elara --llm-say # plain English at the prompt
 ```
 
 Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `rest short|long`, `wait <hours>`, `pace slow|normal|fast`, `party`, `quests`, `auto [n]`, `save <file>`, `quit`. In a fight, `help` lists the turn commands (`m`, `a`, `c`, `f rage|second_wind`, `p`, `dash`, `dodge`, `e`, `swap player|dm|auto`). Resume with `--load <file>`.
@@ -57,7 +57,7 @@ Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `res
 ## Web server and client
 
 ```powershell
-.\r.ps1 -Server --port 8088
+.\run.ps1 -Server --port 8088
 ```
 
 Open http://127.0.0.1:8088/ for the bundled client, or talk to the JSON API directly:
@@ -74,7 +74,7 @@ All model features go through one OpenAI-compatible client. Pick a backend:
 
 ```powershell
 ollama pull llama3.1
-.\r.ps1 -Server --port 8088 --ollama llama3.1       # Ollama on :11434, streaming off
+.\run.ps1 -Server --port 8088 --ollama llama3.1       # Ollama on :11434, streaming off
 ```
 
 or, for any other server (llama.cpp's `llama-server` defaults to :8080):
@@ -82,7 +82,7 @@ or, for any other server (llama.cpp's `llama-server` defaults to :8080):
 ```powershell
 $env:DND_LLM_URL   = "http://127.0.0.1:8080"
 $env:DND_LLM_MODEL = "deepseek-r1"
-.\r.ps1 -Server --port 8088
+.\run.ps1 -Server --port 8088
 ```
 
 Other variables: `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STREAM=0|1`. With a model configured:
@@ -95,7 +95,7 @@ Reasoning models are supported: `reasoning_content` and `<think>` blocks are str
 ## Layout
 
 ```
-r.ps1, test.ps1   build and run, build and test
+run.ps1, test.ps1   build and run, build and test
 sim/
   data/           classes, weapons, spells, monsters, characters, modules/*.json   (README inside)
   include/dnd/    Dice, Types, Grid, Actor, Combat, AI, Human, DM, Content, Json, Game, Llm

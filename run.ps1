@@ -1,7 +1,7 @@
 # Build (if needed) and run the simulator.
-#   .\r.ps1 --module ravenmoor --role player --hero elara     terminal client
-#   .\r.ps1 -Server --port 8088                               HTTP server
-#   .\r.ps1 -Rebuild                                          force a clean configure
+#   .\run.ps1 --module ravenmoor --role player --hero elara     terminal client
+#   .\run.ps1 -Server --port 8088                               HTTP server
+#   .\run.ps1 -Rebuild                                          force a clean configure
 param(
     [switch]$Server,
     [switch]$Rebuild,
