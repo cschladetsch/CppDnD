@@ -70,6 +70,10 @@ void Wire(Server& s, Game& g) {
 int main(int argc, char** argv) {
     std::string dataDir = Content::DefaultDataDir();
     std::string staticDir, host = "127.0.0.1";
+#ifdef DND_WEB_DIR
+    staticDir = DND_WEB_DIR;  // the bundled web client; --static overrides, --static "" disables
+#endif
+    if (const char* w = std::getenv("DND_WEB"); w && *w) staticDir = w;
     int port = 8088;
     Server S;
     S.llmCfg = LlmConfig::FromEnv();
@@ -281,9 +285,12 @@ int main(int argc, char** argv) {
         return last;
     });
 
-    if (!staticDir.empty() && !svr.set_mount_point("/", staticDir)) std::cerr << "warning: cannot serve static dir '" << staticDir << "'\n";
+    if (!staticDir.empty() && !svr.set_mount_point("/", staticDir)) {
+        std::cerr << "warning: cannot serve web client from '" << staticDir << "'\n";
+        staticDir.clear();
+    }
 
-    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  modules=" << Content::Modules().size()
+    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  web=" << (staticDir.empty() ? "off" : staticDir) << "  modules=" << Content::Modules().size()
               << "  llm=" << (S.llm ? S.llm->Describe() : "off") << std::endl;
     if (!svr.listen(host, port)) {
         std::cerr << "cannot listen on " << host << ":" << port << "\n";

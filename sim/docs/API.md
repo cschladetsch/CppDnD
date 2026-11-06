@@ -95,3 +95,7 @@ loop:
 ## LLM
 
 Set `DND_LLM_URL`, `DND_LLM_MODEL`, optionally `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STREAM=0|1`, or pass `--llm-url` and `--llm-model`. Creating a game with `llmNarration` adds prose (`events[].flavour`) to scenes, falls, deaths, victories and quests. `llmDm` lets the model plan each monster turn; every action still goes through the rules engine and any failure hands the rest of that turn to the built-in AI.
+
+## Web client
+
+`dnd_server` serves a bundled single-page client from `sim/web/` at `/` (start screen, exploration, party and quests, combat grid with click to move and attack, role swap, save download and load). Use `--static <dir>` or the `DND_WEB` environment variable to serve a different front end; the `/api` routes are unaffected.

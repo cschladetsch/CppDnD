@@ -83,3 +83,7 @@ Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/conte
 - Cover objects block movement and grant cover but not sight; only walls block sight.
 - Dead characters stay dead (no resurrection); a total party kill ends the game.
 - The LLM client speaks plain HTTP; put a proxy in front for TLS.
+
+## Web client
+
+Run `.\r.ps1 -Server --port 8088` and open http://127.0.0.1:8088/ . The server serves `sim/web/index.html` by default; override with `--static <dir>` or `DND_WEB`.
