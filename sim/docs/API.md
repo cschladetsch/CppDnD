@@ -99,3 +99,9 @@ Set `DND_LLM_URL`, `DND_LLM_MODEL`, optionally `DND_LLM_PATH`, `DND_LLM_KEY`, `D
 ## Web client
 
 `dnd_server` serves a bundled single-page client from `sim/web/` at `/` (start screen, exploration, party and quests, combat grid with click to move and attack, role swap, save download and load). Use `--static <dir>` or the `DND_WEB` environment variable to serve a different front end; the `/api` routes are unaffected.
+
+## Plain English
+
+`POST /api/games/:id/say` with `{"text": "go to the village and ask Marta about rumours"}` asks the model to turn the text into the commands and actions above (up to 6 steps), then runs them through the normal rules. The first refused step stops the sequence. Returns `{ok, message, steps, view}`, where `message` is an in-character reply or the reason something was refused. A question that is not an action just gets a reply. Needs a configured model (`400` otherwise).
+
+Using Ollama: `ollama pull llama3.1`, then `.\r.ps1 -Server --port 8088 --ollama llama3.1`. This sets `http://127.0.0.1:11434` with streaming off; any other OpenAI-compatible server works through `DND_LLM_URL` and `DND_LLM_MODEL`. The CLI has the same prompt with `--llm-say`: anything that is not a built-in command is sent to the model.

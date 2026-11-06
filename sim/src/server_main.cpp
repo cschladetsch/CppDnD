@@ -88,9 +88,10 @@ int main(int argc, char** argv) {
         else if (a == "--llm-url") S.llmCfg.baseUrl = next();
         else if (a == "--llm-model") S.llmCfg.model = next();
         else if (a == "--mock-llm") S.mock = true;
+        else if (a == "--ollama") { S.llmCfg.baseUrl = "http://127.0.0.1:11434"; S.llmCfg.model = next(); S.llmCfg.stream = false; }
         else if (a == "--help" || a == "-h") {
             std::cout << "dnd_server [--port 8088] [--host 127.0.0.1] [--data DIR] [--static DIR]\n"
-                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--mock-llm]\n"
+                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--mock-llm]\n"
                          "LLM env: DND_LLM_URL DND_LLM_PATH DND_LLM_MODEL DND_LLM_KEY DND_LLM_TIMEOUT DND_LLM_STREAM\n"
                          "Models are looked up in the shared model store (DEEPSEEK_MODEL_HOME).\n";
             return 0;
@@ -249,6 +250,15 @@ int main(int argc, char** argv) {
         const ActionResult r = g.SubmitAction(a);
         if (r.ok && g.GetMode() == Mode::Combat) g.AdvanceCombat();
         Reply(res, r.ok ? 200 : 422, {{"ok", r.ok}, {"reason", r.reason}, {"view", g.View(sinceOf(req))}});
+    }));
+
+    // Plain English: the model turns the text into commands or actions, the engine validates each one.
+    svr.Post("/api/games/:id/say", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        if (!S.llm) throw HttpError{400, "no model configured (start the server with --ollama MODEL, or set DND_LLM_URL / DND_LLM_MODEL)"};
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        const SayResult r = Say(*S.llm, *slot->game, Body(req).value("text", ""));
+        Reply(res, 200, {{"ok", r.ok}, {"message", r.message}, {"steps", r.steps}, {"view", slot->game->View(sinceOf(req))}});
     }));
 
     svr.Post("/api/games/:id/role", guarded([&](const httplib::Request& req, httplib::Response& res) {

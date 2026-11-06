@@ -297,4 +297,106 @@ void LlmDmController::OnActionResult(const TurnContext& ctx, const Action&, bool
     (void)ctx;
 }
 
+// ---------------------------------------------------------------- plain English
+
+namespace {
+
+nlohmann::json SayContext(const Game& g) {
+    using J = nlohmann::json;
+    const J v = g.View(g.LastSeq());  // no events
+    J c;
+    c["mode"] = v.value("mode", "");
+    c["time"] = v.at("clock");
+    if (v.contains("location") && v["location"].is_object()) {
+        const auto& l = v["location"];
+        J exits = J::array();
+        for (const auto& x : l.value("exits", J::array()))
+            exits.push_back({{"to", x.value("to", "")}, {"name", x.value("name", "")}, {"available", x.value("available", true)}});
+        J npcs = J::array();
+        for (const auto& n : l.value("npcs", J::array())) {
+            J topics = J::array();
+            for (const auto& t : n.value("topics", J::array())) topics.push_back(t.value("id", ""));
+            npcs.push_back({{"id", n.value("id", "")}, {"name", n.value("name", "")}, {"topics", topics}});
+        }
+        c["location"] = {{"name", l.value("name", "")}, {"description", l.value("description", "")}, {"exits", exits}, {"npcs", npcs}};
+    }
+    J party = J::array();
+    for (const auto& m : v.value("party", J::array()))
+        party.push_back({{"name", m.value("name", "")}, {"hp", m.value("hp", 0)}, {"maxHp", m.value("maxHp", 0)}, {"dead", m.value("dead", false)}});
+    c["party"] = party;
+    if (v.contains("combat") && v["combat"].is_object()) {
+        const auto& cb = v["combat"];
+        J k;
+        k["round"] = cb.value("round", 0);
+        k["awaitingActorId"] = cb.value("awaiting", -1);
+        k["actors"] = cb.value("actors", J::array());
+        k["map"] = cb["grid"].value("rows", J::array());
+        if (cb.contains("options")) k["yourOptions"] = cb["options"];
+        c["combat"] = k;
+    }
+    return c;
+}
+
+}  // namespace
+
+SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
+    SayResult out;
+    if (Trim(text).empty()) { out.message = "Say something first."; return out; }
+    static const char* sys =
+        "You translate a player's plain-English message into commands for a D&D 5e game and reply in a short, in-character voice. "
+        "Use ONLY ids that appear in the state. Reply with one JSON object and nothing else:\n"
+        "{\"steps\":[...],\"reply\":\"one or two sentences, optional\"}\n"
+        "When mode is exploring, each step is one of: {\"cmd\":\"travel\",\"to\":EXIT_ID} {\"cmd\":\"search\"} "
+        "{\"cmd\":\"talk\",\"npc\":NPC_ID,\"topic\":TOPIC_ID} {\"cmd\":\"rest\",\"kind\":\"short\"|\"long\"} {\"cmd\":\"wait\",\"hours\":N} "
+        "{\"cmd\":\"pace\",\"pace\":\"slow\"|\"normal\"|\"fast\"}.\n"
+        "When mode is combat and awaitingActorId is set, each step is an action: {\"type\":\"move\",\"dest\":[x,y]} "
+        "{\"type\":\"attack\",\"target\":ID,\"attack\":INDEX} {\"type\":\"cast\",\"spell\":SPELL_ID,\"target\":ID,\"slot\":LEVEL} "
+        "{\"type\":\"dash\"} {\"type\":\"dodge\"} {\"type\":\"potion\",\"target\":ID} {\"type\":\"feature\",\"feature\":ID} {\"type\":\"end_turn\"}. "
+        "Melee needs adjacency, so move first if needed. Target creatures by id.\n"
+        "At most 6 steps. If the message is a question, a joke or anything that is not an action, return no steps and answer in \"reply\" "
+        "using only what the state tells you. Never invent exits, people, topics or creatures.";
+    const std::string user = "State:\n" + SayContext(game).dump() + "\n\nPlayer says: " + text;
+    const LlmReply r = client.Chat(sys, user, true);
+    if (!r.ok) { out.message = "The model did not answer: " + r.error; return out; }
+    const std::string obj = ExtractJsonObject(r.content);
+    const auto j = obj.empty() ? nlohmann::json() : nlohmann::json::parse(obj, nullptr, false);
+    if (!j.is_object()) { out.message = "I could not understand the model's reply."; return out; }
+    std::string reply = j.value("reply", "");
+    out.ok = true;
+    int n = 0;
+    if (j.contains("steps") && j["steps"].is_array()) {
+        for (const auto& st : j["steps"]) {
+            if (!st.is_object() || ++n > 6) break;
+            const int awaitingBefore = game.GetCombat() ? game.GetCombat()->AwaitingActor() : -1;
+            if (st.contains("type")) {
+                if (game.GetMode() != Mode::Combat || awaitingBefore < 0) { out.ok = false; reply = "It is not your turn to act."; break; }
+                Action a;
+                std::string err;
+                if (!ActionFromJson(st, a, err)) { out.ok = false; reply = err; break; }
+                const ActionResult ar = game.SubmitAction(a);
+                if (!ar.ok) { out.ok = false; reply = "That was not possible: " + ar.reason; break; }
+                out.steps.push_back(st.value("type", ""));
+                if (game.GetMode() == Mode::Combat) game.AdvanceCombat();
+                if (game.GetMode() != Mode::Combat || !game.GetCombat() || game.GetCombat()->AwaitingActor() != awaitingBefore) break;  // the turn passed
+                continue;
+            }
+            if (game.GetMode() != Mode::Exploring) { out.ok = false; reply = "That cannot be done right now."; break; }
+            const std::string cmd = st.value("cmd", "");
+            CmdResult cr{false, "unknown command '" + cmd + "'"};
+            if (cmd == "travel") cr = game.Travel(st.value("to", ""));
+            else if (cmd == "search") cr = game.Search();
+            else if (cmd == "talk") cr = game.Talk(st.value("npc", ""), st.value("topic", ""));
+            else if (cmd == "rest") cr = game.Rest(st.value("kind", "short"));
+            else if (cmd == "wait") cr = game.Wait(st.value("hours", 1));
+            else if (cmd == "pace") cr = game.SetPace(st.value("pace", "normal"));
+            if (!cr.ok) { out.ok = false; reply = cr.message; break; }
+            out.steps.push_back(cmd);
+            if (game.GetMode() != Mode::Exploring) break;  // a fight broke out; stop here
+        }
+    }
+    if (out.steps.empty() && out.ok && reply.empty()) reply = "Nothing happens.";
+    out.message = reply;
+    return out;
+}
+
 }  // namespace dnd

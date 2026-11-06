@@ -407,6 +407,31 @@ static void TestLlm() {
     CHECK(!mi.exists && mi.path.find("no-such-model") != std::string::npos);
 }
 
+static void TestSay() {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 11;
+    Game g(cfg);
+    MockLlmClient mock([](const std::string&, const std::string& user, bool) {
+        LlmReply r;
+        r.ok = true;
+        r.content = user.find("Player says: leave") != std::string::npos
+                        ? R"(```json
+{"steps":[{"cmd":"travel","to":"greywick"},{"cmd":"travel","to":"nowhere-real"}],"reply":"Off we go."})"
+                        : R"({"steps":[],"reply":"A cold wind answers."})";
+        return r;
+    });
+    const std::string before = g.LocationId();
+    SayResult chat = Say(mock, g, "what do you think?");
+    CHECK(chat.ok && chat.steps.empty() && chat.message == "A cold wind answers." && g.LocationId() == before);
+    SayResult go = Say(mock, g, "leave for the village");
+    CHECK(g.LocationId() == "greywick");      // the first step ran
+    CHECK(!go.ok && go.steps.size() == 1);    // the invented exit was refused by the engine
+    CHECK(Say(mock, g, "   ").ok == false);
+    MockLlmClient broken([](const std::string&, const std::string&, bool) { LlmReply r; r.ok = false; r.error = "down"; return r; });
+    CHECK(!Say(broken, g, "hello").ok);
+}
+
 int main() {
     try {
         Content::Load(DND_DATA_DIR);
@@ -419,7 +444,7 @@ int main() {
                        {"Rng", TestRng}, {"JsonRoundTrip", TestJsonRoundTrip}, {"AdjustDamage", TestAdjustDamage},
                        {"ExtraAttackAndConcentration", TestExtraAttackAndConcentration}, {"RemoteCombat", TestRemoteCombat},
                        {"GameModule", TestGameModule}, {"SaveLoadDeterminism", TestSaveLoadDeterminism},
-                       {"ProceduralDelve", TestProceduralDelve}, {"RoleSwap", TestRoleSwap}, {"Llm", TestLlm}};
+                       {"ProceduralDelve", TestProceduralDelve}, {"RoleSwap", TestRoleSwap}, {"Llm", TestLlm}, {"Say", TestSay}};
     for (const auto& t : tests) {
         try {
             t.fn();

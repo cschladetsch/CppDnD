@@ -116,4 +116,17 @@ private:
     bool useFallback_ = false;
 };
 
+// ---------------------------------------------------------------- plain English
+
+// Turns a player's free-form English ("go to the village and ask Marta about the rumours", "hit the
+// ghoul with my axe") into the same commands and actions the rest of the API uses, then runs them.
+// The model only chooses among ids present in the current state; the rules engine still validates
+// every step and the first refused step stops the sequence.
+struct SayResult {
+    bool ok = false;
+    std::string message;             // in-character reply and/or why something was refused
+    std::vector<std::string> steps;  // what was actually done, one line each
+};
+SayResult Say(ILlmClient& client, Game& game, const std::string& text);
+
 }  // namespace dnd

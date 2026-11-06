@@ -29,6 +29,7 @@ void Usage() {
         "  --data <dir>              content directory (default: $DND_DATA or the built-in path)\n"
         "  --load <file> / --save <file>   resume / write a save file\n"
         "  --llm-narration / --llm-dm      use the model from DND_LLM_URL / DND_LLM_MODEL\n"
+        "  --llm-say                 type plain English at the prompt (same model settings)\n"
         "  --quiet                   no narration\n"
         "  --list                    list modules, characters and monsters\n"
         "In exploration type 'help'; in a fight type 'help' at your turn. 'swap player|dm|auto' changes role mid-fight.\n";
@@ -91,7 +92,7 @@ void RunCombat(Game& g) {
     }
 }
 
-void Explore(Game& g, const std::string& savePath) {
+void Explore(Game& g, const std::string& savePath, ILlmClient* say) {
     std::cout << "Commands: look, go <place>, search, talk <npc> [topic], rest short|long, wait <hours>, pace <slow|normal|fast>, party, quests, auto [n], save <file>, quit\n";
     ShowLocation(g);
     std::string line;
@@ -117,6 +118,11 @@ void Explore(Game& g, const std::string& savePath) {
         else if (cmd == "pace") r = g.SetPace(a);
         else if (cmd == "auto") { for (int i = 0, n = a.empty() ? 1 : std::atoi(a.c_str()); i < n && g.GetMode() == Mode::Exploring; ++i) { r = g.AutoStep(); if (!r.ok) break; } }
         else if (cmd == "save") { std::ofstream(a.empty() ? savePath : a) << g.Save().dump(1); std::cout << "saved\n"; }
+        else if (say) {
+            const SayResult sr = Say(*say, g, line);
+            if (!sr.message.empty()) std::cout << "  " << sr.message << "\n";
+            if (g.GetMode() == Mode::Exploring) ShowLocation(g);
+        }
         else std::cout << "unknown command '" << cmd << "'\n";
         if (!r.ok && !r.message.empty()) std::cout << "  (" << r.message << ")\n";
         if (cmd == "talk" && r.ok && b.empty()) std::cout << "  " << r.message << "\n";
@@ -131,7 +137,7 @@ int main(int argc, char** argv) {
     cfg.role = Role::Spectator;
     cfg.seed = std::random_device{}();
     std::string dataDir = Content::DefaultDataDir(), loadPath, savePath;
-    bool quiet = false, list = false;
+    bool quiet = false, list = false, llmSay = false;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -153,6 +159,7 @@ int main(int argc, char** argv) {
         else if (a == "--save") savePath = next();
         else if (a == "--llm-narration") cfg.llmNarration = true;
         else if (a == "--llm-dm") cfg.llmDm = true;
+        else if (a == "--llm-say") llmSay = true;
         else if (a == "--quiet") quiet = true;
         else if (a == "--list") list = true;
         else if (a == "--help" || a == "-h") { Usage(); return 0; }
@@ -186,7 +193,7 @@ int main(int argc, char** argv) {
         if (!quiet) g->SetListener(Print);
 
         std::shared_ptr<ILlmClient> llm;
-        if (g->Config().llmNarration || g->Config().llmDm) {
+        if (g->Config().llmNarration || g->Config().llmDm || llmSay) {
             const LlmConfig lc = LlmConfig::FromEnv();
             llm = std::make_shared<HttpLlmClient>(lc);
             if (g->Config().llmNarration) g->SetNarrator(MakeLlmNarrator(llm, *g));
@@ -202,7 +209,7 @@ int main(int argc, char** argv) {
             for (int i = 0; i < 5000 && (g->GetMode() == Mode::Exploring || g->GetMode() == Mode::Combat); ++i)
                 if (!g->AutoStep().ok) break;
         } else {
-            Explore(*g, savePath.empty() ? "save.json" : savePath);
+            Explore(*g, savePath.empty() ? "save.json" : savePath, llmSay ? llm.get() : nullptr);
         }
         std::cout << "\nResult: " << ToString(g->GetMode()) << " after " << g->Day() << " day(s).\n";
         ShowParty(*g);

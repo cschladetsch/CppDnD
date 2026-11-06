@@ -87,3 +87,5 @@ Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/conte
 ## Web client
 
 Run `.\r.ps1 -Server --port 8088` and open http://127.0.0.1:8088/ . The server serves `sim/web/index.html` by default; override with `--static <dir>` or `DND_WEB`.
+
+Plain English: start the server with `--ollama <model>` (or set `DND_LLM_URL` and `DND_LLM_MODEL`) and the web client shows a prompt box under the log. See `sim/docs/API.md`.

@@ -25,6 +25,7 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 #log div { padding:1px 0; white-space:pre-wrap; }
 #log .scene { color:var(--accent); margin-top:8px; font-weight:600; } #log .narration { color:#cdbfe6; font-style:italic; }
 #log .quest, #log .rest, #log .travel { color:var(--ok); } #log .round_start { color:var(--dim); margin-top:6px; } #log .turn_start { color:#b9c7ff; }
+#log .you { color:var(--accent); margin-top:6px; }
 #log .death, #log .down { color:var(--bad); } #log .flavour { color:var(--dim); font-style:italic; padding-left:12px; }
 .bar { height:6px; background:#0e0c14; border-radius:3px; overflow:hidden; } .bar > i { display:block; height:100%; background:var(--ok); }
 .member { padding:6px 0; border-top:1px solid var(--edge); } .member:first-of-type { border-top:0; }
@@ -64,6 +65,7 @@ async function showStart() {
   gid = null; view = null; lastSeq = 0;
   $("#saveBtn").hidden = $("#newBtn").hidden = true; $("#sub").textContent = "";
   if (!content) content = (await api("GET", "/api/content")).data;
+  llmOn = !!((await api("GET", "/api/llm")).data.enabled);
   const mods = el("select", { id: "mod" }, el("option", { value: "", textContent: "Procedural delve (3 rooms)" }));
   for (const m of content.modules || []) mods.append(el("option", { value: m.id, textContent: `${m.name} (level ${m.recommendedLevel})` }));
   mods.value = (content.modules || [])[0]?.id || "";
@@ -93,11 +95,33 @@ async function showStart() {
 function startGame(id, v) {
   gid = id; lastSeq = 0;
   $("#app").replaceChildren(el("main", {},
-    el("div", {}, el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" })),
+    el("div", {}, el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" }), sayBox()),
     el("div", {}, el("div", { className: "panel", id: "party" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }))));
   $("#saveBtn").hidden = $("#newBtn").hidden = false;
   apply(v);
 }
+
+// ---------------------------------------------------------------- plain English
+let llmOn = false;
+function sayBox() {
+  const input = el("input", { id: "sayText", type: "text", autocomplete: "off", style: "flex:1;min-width:0",
+    placeholder: llmOn ? "Say or do something, in English (e.g. go to the village and ask Marta about rumours)" : "English prompt is off: start the server with --ollama MODEL" , disabled: !llmOn });
+  const btn = el("button", { className: "primary", textContent: "Send", disabled: !llmOn });
+  const form = el("form", { className: "panel row", id: "say", style: "flex-wrap:nowrap;align-items:center" }, input, btn);
+  form.onsubmit = async e => {
+    e.preventDefault();
+    const text = input.value.trim(); if (!text || busy || !gid) return;
+    busy = true; btn.disabled = input.disabled = true; btn.textContent = "...";
+    logLine("you", "> " + text);
+    const { data } = await api("POST", `/api/games/${gid}/say?since=${lastSeq}`, { text });
+    busy = false; btn.disabled = input.disabled = false; btn.textContent = "Send"; input.value = ""; input.focus();
+    if (data.view) apply(data.view);
+    if (data.message) logLine("narration", data.message);
+    else if (data.error) toast(data.error);
+  };
+  return form;
+}
+function logLine(cls, text) { const log = $("#log"); if (!log) return; log.append(el("div", { className: cls, textContent: text })); log.scrollTop = log.scrollHeight; }
 
 // ---------------------------------------------------------------- state
 function logEvents(events) {
