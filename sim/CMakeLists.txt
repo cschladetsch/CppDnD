@@ -49,7 +49,7 @@ endif()
 add_library(dnd_core STATIC
     src/Dice.cpp src/Types.cpp src/Grid.cpp src/Actor.cpp src/Content.cpp
     src/Combat.cpp src/AI.cpp src/Human.cpp src/DM.cpp src/Json.cpp
-    src/Game.cpp src/GameView.cpp src/Llm.cpp)
+    src/Game.cpp src/GameView.cpp src/Llm.cpp src/Agents.cpp)
 target_include_directories(dnd_core PUBLIC include)
 target_link_libraries(dnd_core PUBLIC dnd_json Threads::Threads)
 target_compile_definitions(dnd_core PUBLIC "DND_DATA_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/data\"")

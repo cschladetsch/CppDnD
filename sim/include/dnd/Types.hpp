@@ -139,6 +139,7 @@ struct ActionEconomy {
 struct CharacterSheet {
     std::string name;
     std::string classId;                // empty for monsters
+    std::string monsterId;              // monsters only: the id in monsters.json (agents.json can pick a model by it)
     std::vector<std::string> tags;      // creature type + race, e.g. "humanoid", "elf", "undead"
     int level = 1;
     std::array<int, 6> scores{10, 10, 10, 10, 10, 10};

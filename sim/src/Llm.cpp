@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cstdlib>
 #include <filesystem>
+#include <set>
 
 #include "dnd/AI.hpp"
 #include "dnd/Util.hpp"
@@ -52,6 +53,17 @@ ModelInfo LocateModel(const std::string& name) {
             if (e.is_regular_file(ec) && e.path().extension() == ".gguf") { m.weights = e.path().string(); break; }
     }
     return m;
+}
+
+std::vector<ModelInfo> ListModels() {
+    std::vector<ModelInfo> out;
+    const std::string home = LocateModel("").home;
+    std::error_code ec;
+    if (!std::filesystem::is_directory(home, ec)) return out;
+    for (const auto& e : std::filesystem::directory_iterator(home, ec))
+        if (e.is_directory(ec)) out.push_back(LocateModel(e.path().filename().string()));
+    std::sort(out.begin(), out.end(), [](const ModelInfo& a, const ModelInfo& b) { return a.name < b.name; });
+    return out;
 }
 
 // ---------------------------------------------------------------- text helpers
@@ -299,31 +311,39 @@ void LlmDmController::OnActionResult(const TurnContext& ctx, const Action&, bool
 
 // ---------------------------------------------------------------- plain English
 
-namespace {
-
-nlohmann::json SayContext(const Game& g) {
+Json ObserveWorld(const Game& g) {
     using J = nlohmann::json;
     const J v = g.View(g.LastSeq());  // no events
+    std::set<std::string> visited;
+    if (v.contains("map"))
+        for (const auto& n : v["map"].value("nodes", J::array()))
+            if (n.value("visited", false)) visited.insert(n.value("id", ""));
     J c;
     c["mode"] = v.value("mode", "");
     c["time"] = v.at("clock");
+    c["pace"] = v.value("pace", "normal");
     if (v.contains("location") && v["location"].is_object()) {
         const auto& l = v["location"];
         J exits = J::array();
         for (const auto& x : l.value("exits", J::array()))
-            exits.push_back({{"to", x.value("to", "")}, {"name", x.value("name", "")}, {"available", x.value("available", true)}});
+            exits.push_back({{"to", x.value("to", "")}, {"name", x.value("name", "")}, {"available", x.value("available", true)},
+                             {"visited", visited.count(x.value("to", "")) > 0}, {"miles", x.value("miles", 0.0)}, {"hours", x.value("hours", 0.0)}});
         J npcs = J::array();
         for (const auto& n : l.value("npcs", J::array())) {
-            J topics = J::array();
-            for (const auto& t : n.value("topics", J::array())) topics.push_back(t.value("id", ""));
-            npcs.push_back({{"id", n.value("id", "")}, {"name", n.value("name", "")}, {"topics", topics}});
+            J fresh = J::array(), heard = J::array();
+            for (const auto& t : n.value("topics", J::array())) (t.value("heard", false) ? heard : fresh).push_back(t.value("id", ""));
+            npcs.push_back({{"id", n.value("id", "")}, {"name", n.value("name", "")}, {"type", n.value("type", "")}, {"topics", fresh}, {"alreadyHeard", heard}});
         }
-        c["location"] = {{"name", l.value("name", "")}, {"description", l.value("description", "")}, {"exits", exits}, {"npcs", npcs}};
+        c["location"] = {{"id", l.value("id", "")}, {"name", l.value("name", "")}, {"description", l.value("description", "")},
+                         {"rest", l.value("rest", "")}, {"exits", exits}, {"npcs", npcs}};
     }
     J party = J::array();
     for (const auto& m : v.value("party", J::array()))
-        party.push_back({{"name", m.value("name", "")}, {"hp", m.value("hp", 0)}, {"maxHp", m.value("maxHp", 0)}, {"dead", m.value("dead", false)}});
+        party.push_back({{"name", m.value("name", "")}, {"class", m.value("class", "")}, {"hp", m.value("hp", 0)}, {"maxHp", m.value("maxHp", 0)}, {"dead", m.value("dead", false)}});
     c["party"] = party;
+    J quests = J::array();
+    for (const auto& q : v.value("quests", J::array())) quests.push_back({{"name", q.value("name", "")}, {"done", q.value("done", false)}});
+    c["quests"] = quests;
     if (v.contains("combat") && v["combat"].is_object()) {
         const auto& cb = v["combat"];
         J k;
@@ -337,7 +357,16 @@ nlohmann::json SayContext(const Game& g) {
     return c;
 }
 
-}  // namespace
+CmdResult RunExplorationStep(Game& game, const Json& st) {
+    const std::string cmd = st.value("cmd", "");
+    if (cmd == "travel") return game.Travel(st.value("to", ""));
+    if (cmd == "search") return game.Search();
+    if (cmd == "talk") return game.Talk(st.value("npc", ""), st.value("topic", ""));
+    if (cmd == "rest") return game.Rest(st.value("kind", "short"));
+    if (cmd == "wait") return game.Wait(st.value("hours", 1));
+    if (cmd == "pace") return game.SetPace(st.value("pace", "normal"));
+    return CmdResult{false, "unknown command '" + cmd + "'"};
+}
 
 SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
     SayResult out;
@@ -355,7 +384,7 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
         "Melee needs adjacency, so move first if needed. Target creatures by id.\n"
         "At most 6 steps. If the message is a question, a joke or anything that is not an action, return no steps and answer in \"reply\" "
         "using only what the state tells you. Never invent exits, people, topics or creatures.";
-    const std::string user = "State:\n" + SayContext(game).dump() + "\n\nPlayer says: " + text;
+    const std::string user = "State:\n" + ObserveWorld(game).dump() + "\n\nPlayer says: " + text;
     const LlmReply r = client.Chat(sys, user, true);
     if (!r.ok) { out.message = "The model did not answer: " + r.error; return out; }
     const std::string obj = ExtractJsonObject(r.content);
@@ -382,13 +411,7 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
             }
             if (game.GetMode() != Mode::Exploring) { out.ok = false; reply = "That cannot be done right now."; break; }
             const std::string cmd = st.value("cmd", "");
-            CmdResult cr{false, "unknown command '" + cmd + "'"};
-            if (cmd == "travel") cr = game.Travel(st.value("to", ""));
-            else if (cmd == "search") cr = game.Search();
-            else if (cmd == "talk") cr = game.Talk(st.value("npc", ""), st.value("topic", ""));
-            else if (cmd == "rest") cr = game.Rest(st.value("kind", "short"));
-            else if (cmd == "wait") cr = game.Wait(st.value("hours", 1));
-            else if (cmd == "pace") cr = game.SetPace(st.value("pace", "normal"));
+            const CmdResult cr = RunExplorationStep(game, st);
             if (!cr.ok) { out.ok = false; reply = cr.message; break; }
             out.steps.push_back(cmd);
             if (game.GetMode() != Mode::Exploring) break;  // a fight broke out; stop here

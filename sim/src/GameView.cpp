@@ -36,7 +36,7 @@ Json Game::View(int sinceSeq) const {
     v["module"] = Json{{"id", module_.id}, {"name", module_.name}, {"setting", module_.setting}};
     v["clock"] = Json{{"hour", hour_}, {"clockHour", ClockHour()}, {"day", Day()}, {"night", module_.IsNight(ClockHour())},
                       {"hoursSinceLongRest", hour_ - lastLongRestHour_ > 100000 ? -1 : hour_ - lastLongRestHour_}};
-    v["llm"] = Json{{"dm", cfg_.llmDm}, {"narration", cfg_.llmNarration}};
+    v["llm"] = Json{{"dm", cfg_.llmDm}, {"narration", cfg_.llmNarration}, {"agents", cfg_.agents}};
 
     if (const LocationDef* l = module_.FindLocation(location_)) {
         Json exits = Json::array();
@@ -52,7 +52,7 @@ Json Game::View(int sinceSeq) const {
             Json topics = Json::array();
             for (const auto& t : n.topics)
                 if (Satisfied(t.needs)) topics.push_back(Json{{"id", t.id}, {"heard", fired_.count("topic:" + n.id + "/" + t.id) > 0}});
-            npcs.push_back(Json{{"id", n.id}, {"name", n.name}, {"description", n.description}, {"topics", topics}});
+            npcs.push_back(Json{{"id", n.id}, {"name", n.name}, {"type", n.type}, {"description", n.description}, {"topics", topics}});
         }
         v["location"] = Json{{"id", l->id}, {"name", l->name}, {"kind", l->kind}, {"description", l->description}, {"rest", l->rest},
                              {"exits", exits}, {"npcs", npcs}};
@@ -105,7 +105,7 @@ Json Game::Save() const {
     j["version"] = 1;
     j["config"] = Json{{"moduleId", cfg_.moduleId}, {"rooms", cfg_.rooms}, {"difficulty", cfg_.difficulty}, {"party", cfg_.party}, {"level", cfg_.level},
                        {"seed", cfg_.seed}, {"role", std::string(ToString(cfg_.role))}, {"hero", cfg_.hero}, {"pace", cfg_.pace},
-                       {"llmDm", cfg_.llmDm}, {"llmNarration", cfg_.llmNarration}};
+                       {"llmDm", cfg_.llmDm}, {"llmNarration", cfg_.llmNarration}, {"agents", cfg_.agents}};
     j["mode"] = static_cast<int>(mode_);
     j["location"] = location_;
     j["hour"] = hour_;
@@ -146,6 +146,7 @@ std::unique_ptr<Game> Game::Load(const Json& j) {
     cfg.pace = c.value("pace", "normal");
     cfg.llmDm = c.value("llmDm", false);
     cfg.llmNarration = c.value("llmNarration", false);
+    cfg.agents = c.value("agents", false);
 
     std::unique_ptr<Game> g(new Game(cfg, true));
     g->loading_ = true;
@@ -216,7 +217,9 @@ CmdResult Game::AutoStep() {
         return {true, "combat"};
     }
 
-    // Exploring.
+    // Exploring. If the party has a council (agents), it decides; with no usable proposal the autopilot below runs.
+    if (council_)
+        if (auto r = council_(*this)) return *r;
     double frac = 0;
     int n = 0, slots = 0, slotsMax = 0;
     for (const auto& pm : party_) {

@@ -18,6 +18,7 @@ Public headers, all under `dnd/`, namespace `dnd`. Each has a matching `.cpp` in
 | `Content.hpp` | class, weapon, spell, monster, character and module definitions, and the loader |
 | `Game.hpp` | `Game`: the session (exploration, clock, rests, quests, save and load) |
 | `Json.hpp` | lossless JSON for saves and the API, and `CombatView` for clients |
+| `Agents.hpp` | `AgentsConfig` (agents.json), `Agent` (own model, persona, memory), `AgentHub` (JSON messages between agents), `AgentTurnController`, and `AgentTable` (one per game: DM, enemy types, players, NPCs, council, model switching) |
 | `Llm.hpp` | model store lookup, `HttpLlmClient`, narrator, `LlmDmController`, and `Say` (plain English) |
 
 `Game.hpp` and `Combat.hpp` are the two to read first.

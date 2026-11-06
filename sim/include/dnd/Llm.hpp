@@ -22,6 +22,8 @@ struct ModelInfo {
     std::string weights; // first *.gguf found under path, if any
 };
 ModelInfo LocateModel(const std::string& name);
+// Every model directory currently in the store (names are directory names; weights = first .gguf found).
+std::vector<ModelInfo> ListModels();
 
 // ---------------------------------------------------------------- client
 
@@ -128,5 +130,10 @@ struct SayResult {
     std::vector<std::string> steps;  // what was actually done, one line each
 };
 SayResult Say(ILlmClient& client, Game& game, const std::string& text);
+
+// The exploration state as JSON (exits, people, topics, party, fight if any), as given to models.
+Json ObserveWorld(const Game& game);
+// Runs one exploration step {"cmd":"travel","to":..} | search | talk | rest | wait | pace.
+CmdResult RunExplorationStep(Game& game, const Json& step);
 
 }  // namespace dnd

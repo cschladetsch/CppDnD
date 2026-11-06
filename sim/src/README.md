@@ -13,6 +13,7 @@ Implementation of the headers in [../include/dnd](../include/README.md), plus th
 | `Game.cpp` | exploration, clock, travel, rests, events, flags, quests, autopilot, save and load |
 | `GameView.cpp` | the JSON view of a `Game` returned to clients |
 | `Json.cpp` | JSON conversion for sheets, events, actions and combat |
+| `Agents.cpp` | agents.json loading and inheritance, the agents, the message hub, per-actor combat control, the party council, NPC voices, runtime model switching |
 | `Llm.cpp` | HTTP LLM client, narrator, LLM Dungeon Master, plain-English `Say` |
 | `main.cpp` | `dnd_sim`: the terminal client (`--help` lists the options) |
 | `server_main.cpp` | `dnd_server`: the HTTP routes and static file serving |

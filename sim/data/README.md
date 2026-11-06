@@ -9,6 +9,7 @@ Everything the engine knows about the game lives here as JSON. Files may contain
 | `spells.json` | `id`, `name`, `level`, `range`, `kind` (`attack`, `saveNegates`, `saveHalf`, `autoHit`, ...), `dice`, `damageType`, plus `save`, `projectiles`, `concentration` and similar |
 | `monsters.json` | SRD stat blocks: `cr`, `xp`, `ac`, `hp`, `speed`, `scores` (STR to CHA), `tags`, `attacks`, optional `resist`, `immune`, `vulnerable`, `resistNonmagical` |
 | `characters.json` | party members: `class`, `level`, `scores`, `ac`, `speed`, `weapons`, `spells`, `potions` |
+| `agents.json` | which model thinks for which actor (see "agents.json" below) |
 | `modules/*.json` | one file per module (see below) |
 
 ## Where content is read from
@@ -53,7 +54,38 @@ A location has `id`, `name`, `kind` (`wilderness`, `settlement`, `boundary`, `si
 
 - **exits:** `{to, label, miles | hours, requires: [flags], blockedText}`. Travel time comes from `miles` and pace (2, 3 or 4 mph) or the fixed `hours`.
 - **events:** `{id, trigger: "enter" | "search", narration, once, requires: [flags], setsFlags: [flags], xp, potions, encounter: {monsters: [ids]}}`. An event with an `encounter` starts a fight; `setsFlags` and `xp` apply when it is won.
-- **npcs:** `{id, name, description, topics: [{id, text, setsFlags}]}`; hearing a topic sets its flags.
+- **npcs:** `{id, name, type, description, topics: [{id, text, setsFlags}]}`; hearing a topic sets its flags. `type` classifies the NPC (`innkeeper`, `villain`, `merchant`, `priest`, `guard`, ... any word; default `commoner`) and is what `agents.json` uses to pick a model.
 - **map:** the tactical grid for fights at that location: `.` floor, `#` wall, `~` rough, `c` half cover, `O` three-quarters cover, `P` party start, `M` monster spawn.
 
 `ravenmoor.json` demonstrates every one of these.
+
+## agents.json
+
+Used by games created with agents on (`"agents": true`, or `--agents`). Every actor becomes its own mind with its own model, persona and memory, and they talk to each other through JSON messages (see [../docs/API.md](../docs/API.md)). Comments are allowed. The shipped file names Ollama models; edit it to match what you have installed (`.\check.ps1` lists any that are missing).
+
+```json
+{
+  "backends": { "ollama": { "url": "http://127.0.0.1:11434", "timeoutSec": 120 } },
+  "defaults": { "backend": "ollama", "model": "qwen2.5:7b", "temperature": 0.7, "maxTokens": 400 },
+  "dm":       { "persona": "..." },
+  "monsterTypes": { "undead": { "model": "dolphin-llama3:8b", "persona": "..." }, "beast": { "model": "gemma2:2b" } },
+  "monsters":     { "vampire_spawn": { "model": "qwen2.5:7b" } },
+  "players":      { "*": {}, "thorin": { "model": "dolphin-llama3:8b", "persona": "..." } },
+  "npcTypes":     { "*": { "model": "gemma2:2b" }, "innkeeper": { "model": "phi3:mini" } },
+  "npcs":         { "marta": { "persona": "..." } }
+}
+```
+
+| Section | Who | Inherits, later wins |
+|---|---|---|
+| `dm` | the Dungeon Master: narration and any monster with no entry of its own | `defaults`, `dm` |
+| `monsterTypes` | every enemy of a creature type (the `tags` in `monsters.json`: `undead`, `beast`, `humanoid`, `giant`) shares one mind | `dm`, `monsterTypes["*"]`, `monsterTypes[type]` |
+| `monsters` | one kind of monster by id (`goblin`, `vampire_spawn`, ...) | the above, then `monsters[id]` |
+| `players` | each party member, by character id or name | `defaults`, `players["*"]`, `players[id]` |
+| `npcTypes`, `npcs` | module NPCs, by their `type`, then by id or name | `defaults`, `npcTypes["*"]`, `npcTypes[type]`, `npcs[id]` |
+
+Each entry may set `backend`, `model`, `persona`, `temperature`, `maxTokens`, `enabled` and `requireStore`. `"enabled": false` (or, for an NPC, no model) hands that actor back to the built-in AI or the written dialogue. `"requireStore": true` demands that the model exists in the CppLmmModelStore (`DEEPSEEK_MODEL_HOME`); if not, that actor falls back to the built-in AI and the problem is reported by `GET /api/games/:id/agents`. A backend entry is any OpenAI-compatible server: `url`, `path`, `apiKey`, `stream`, `timeoutSec`.
+
+The file is found at `--agents <file>`, else `DND_AGENTS`, else `agents.json` in the data folder. A model can also be switched while a game runs: `POST /api/games/:id/agents/model`.
+
+Local models: running different models for many actors means Ollama loads and unloads them. Set `OLLAMA_MAX_LOADED_MODELS` (and mind your VRAM) or give several actors the same model, otherwise each turn pays a load. A dead or slow model never stalls a game: after repeated failures that actor is skipped for a while and the built-in AI plays.

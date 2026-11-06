@@ -181,6 +181,7 @@
     {
      "id": "marta",
      "name": "Marta Hollin",
+     "type": "innkeeper",
      "description": "The innkeeper: grey-eyed, tired, sharp as a tack.",
      "topics": [
       {

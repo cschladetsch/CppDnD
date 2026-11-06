@@ -77,6 +77,7 @@ struct TopicDef {
 
 struct NpcDef {
     std::string id, name, description;
+    std::string type = "commoner";  // classifies the NPC; agents.json can pick a model per type
     std::vector<TopicDef> topics;
 };
 

@@ -27,6 +27,7 @@ Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_
 - **Save and load.** The complete state, including the RNG stream, round-trips through JSON. A reloaded game plays out identically.
 - **Web client.** A single-page client in [sim/web/](sim/web/README.md), served by the server at `/`.
 - **Plain English.** Type "go to the village and ask Marta about the rumours" or "hit the ghoul with my axe"; a model turns it into game commands and the rules engine validates each one.
+- **AI table.** Every actor can be its own mind: the DM, each kind of enemy (undead, beasts, ...), each party member and each NPC (by type) run on their own model, configured in one JSON file, and talk through JSON messages. Models can be switched mid-game. See [sim/data/README.md](sim/data/README.md).
 - **LLM narration and LLM Dungeon Master.** Any OpenAI-compatible server (llama.cpp, Ollama, vLLM). The model proposes; the rules engine disposes. Illegal or malformed plans fall back to the built-in AI, and a dead model never stalls a fight. Models are located through [CppLmmModelStore](https://github.com/cschladetsch/CppLmmModelStore).
 - **Deterministic.** Each game owns a seeded, portable RNG, so `--seed N` reproduces a run exactly.
 
@@ -96,6 +97,16 @@ Other variables: `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STRE
 - create a game with `"llmNarration": true` for prose scenes and `"llmDm": true` for a model-run Dungeon Master (CLI: `--llm-narration`, `--llm-dm`, `--llm-say`).
 
 Reasoning models are supported: `reasoning_content` and `<think>` blocks are stripped and never shown. `GET /api/llm` reports the model's location in the store (`DEEPSEEK_MODEL_HOME`). `--mock-llm` runs the whole pipeline without a model, which is what the tests use.
+
+## AI table (a model per actor)
+
+```powershell
+.\check.ps1 -Model qwen2.5:7b     # is Ollama up, and are the models in sim\data\agents.json installed?
+.\web.ps1 -Model qwen2.5:7b       # start, then tick "AI table" on the start screen
+.\run.ps1 --agents                # terminal: same, using the default agents file
+```
+
+`sim/data/agents.json` says which model plays the DM, each creature type, each character and each NPC type, and what personality each has. In the web client the AI table panel lists them and lets you switch one mid-game; over HTTP it is `POST /api/games/:id/agents/model`. The CppLmmModelStore resolves and checks model names (`requireStore`, `GET /api/models`); the backend (Ollama, llama.cpp, vLLM) serves them. Details in [sim/data/README.md](sim/data/README.md) and [sim/docs/API.md](sim/docs/API.md).
 
 ## Layout
 

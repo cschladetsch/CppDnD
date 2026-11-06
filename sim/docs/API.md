@@ -109,3 +109,19 @@ Using Ollama: `ollama pull llama3.1`, then `.\web.ps1 -Model llama3.1`. This set
 ## World map
 
 Every game view carries `map`: `{start, current, nodes: [{id, name, kind, visited, current}], edges: [{from, to, miles, hours, open}]}`. Nodes are the places the party has been plus the places their exits lead to, so it never reveals more than the next step. `open` is false while an exit's requirements are unmet. Layout is up to the client; the bundled one lays it out in columns by distance from `start`.
+
+## Agents (every actor its own model)
+
+Create a game with `"agents": true` (needs an agents file, see [../data/README.md](../data/README.md)). The Dungeon Master, each kind of enemy, each party member and each NPC then think with their own model and persona. Agents exchange JSON through a shared table: each turn an agent receives `{task, you, role, table, your_recent_decisions, observation, reply_schema}` and answers with one JSON object, for example `{"say": "...", "actions": [...]}` in a fight or `{"say": "...", "propose": {"cmd": "travel", "to": "greywick"}}` when the party decides where to go (the most-proposed move wins; the first speaker breaks ties). Words spoken appear in the event log; an NPC speaks its topic in its own voice and falls back to the written line if its model fails. The rules engine validates every action, and anything illegal or unparseable is played by the built-in AI instead.
+
+| Path | Meaning |
+|---|---|
+| `GET /api/games/:id/agents?since=N` | `{enabled, agents: [{name, role, selector, backend, url, model, persona, calls, failures, modelStore}], problems, messages, lastSeq}`; `messages` are the JSON exchanged at the table (`say`, `narrate`, `proposal`, `decision`) |
+| `POST /api/games/:id/agents/model` | switch a model mid-game: `{"selector": "type:undead", "model": "phi3:mini", "backend": "ollama", "fromStore": false}`; `fromStore: true` requires the model to exist in the model store |
+| `GET /api/models` | models present in the CppLmmModelStore |
+| `GET /api/llm` | also reports `agents: {available, file, error}` |
+
+Selectors: `dm`, `player:<name>`, `npc:<id>`, `type:<creature type>`, `monster:<id>`. Switching `type:undead` changes every zombie, skeleton, ghoul, specter and vampire spawn at once, now and for ones that appear later. The model store resolves and checks model names; serving the model is the backend's job (an Ollama tag, a llama.cpp router, vLLM).
+
+Fights with agents block while models think; expect `advance` and `auto` to take as long as the slowest model (`timeoutSec` per backend).
+NPCs in a location's view now carry a `type`.

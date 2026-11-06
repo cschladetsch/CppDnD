@@ -158,6 +158,7 @@ MonsterDef ParseMonster(const json& j) {
     m.xp = j.at("xp").get<int>();
     CharacterSheet& s = m.sheet;
     s.name = m.name;
+    s.monsterId = id;
     s.level = j.value("level", 1);
     s.proficiency = j.value("proficiency", 2);
     s.armorClass = j.at("ac").get<int>();
@@ -275,6 +276,7 @@ ModuleDef ParseModule(const json& j, const std::string& file) {
                 npc.id = n.at("id").get<std::string>();
                 npc.name = n.value("name", npc.id);
                 npc.description = n.value("description", "");
+                npc.type = n.value("type", "commoner");
                 if (n.contains("topics"))
                     for (const auto& t : n.at("topics"))
                         npc.topics.push_back(TopicDef{t.at("id").get<std::string>(), t.value("text", ""), Strs(t, "requires"), Strs(t, "setsFlags"), t.value("potions", 0)});

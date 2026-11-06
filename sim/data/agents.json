@@ -1,0 +1,43 @@
+/* Who thinks for whom. Every actor in a game that uses agents is its own mind with its own model.
+   Models are names served by the backend (Ollama tags here); "requireStore": true additionally demands the
+   model exists in the CppLmmModelStore, and POST /api/games/:id/agents/model can switch any of them mid-game.
+   Inheritance (later wins):
+     DM        defaults, dm
+     monsters  dm, monsterTypes["*"], monsterTypes[<creature type>], monsters[<monster id>]
+     players   defaults, players["*"], players[<character id or name>]
+     NPCs      defaults, npcTypes["*"], npcTypes[<npc type>], npcs[<npc id or name>]
+   An actor with "enabled": false (or no model, for NPCs) falls back to the built-in AI or its written lines. */
+{
+  "backends": {
+    "ollama": { "url": "http://127.0.0.1:11434", "timeoutSec": 120 }
+  },
+
+  "defaults": { "backend": "ollama", "model": "qwen2.5:7b", "temperature": 0.7, "maxTokens": 400 },
+
+  "dm": { "persona": "A fair, dramatic Dungeon Master who plays monsters the way they would really fight." },
+
+  "monsterTypes": {
+    "undead":   { "model": "dolphin-llama3:8b", "persona": "Relentless and hungry. Undead do not retreat, flinch or bargain." },
+    "beast":    { "model": "gemma2:2b",         "persona": "Animal cunning: pack tactics, going for the weak and the wounded, fleeing when badly hurt." },
+    "humanoid": { "model": "phi3:mini",         "persona": "Thinking fighters: use cover, focus fire on casters, retreat when the fight is lost." },
+    "giant":    { "model": "gemma2:2b",         "persona": "Brutal and simple: smash the nearest threat." }
+  },
+  "monsters": {
+    "vampire_spawn": { "model": "qwen2.5:7b", "persona": "Predatory and patient, savours the kill." }
+  },
+
+  "players": {
+    "*":      { "persona": "A capable adventurer." },
+    "thorin": { "model": "dolphin-llama3:8b", "persona": "A gruff, loyal dwarf fighter. Protects the weak, leads from the front, speaks bluntly." },
+    "elara":  { "model": "qwen2.5:7b",        "persona": "A curious, precise elven wizard. Keeps out of melee and wants to understand everything." },
+    "aldric": { "model": "gemma2:2b",         "persona": "A warm, steadfast cleric. Heals the fallen first and encourages the others." },
+    "finn":   { "model": "phi3:mini",         "persona": "A wry, cautious rogue. Looks for the angle, strikes from advantage and jokes under pressure." }
+  },
+
+  "npcTypes": {
+    "*":         { "model": "gemma2:2b", "temperature": 0.8, "maxTokens": 200 },
+    "innkeeper": { "model": "phi3:mini", "persona": "Tired, shrewd, protective of her village and wary of strangers." },
+    "villain":   { "model": "qwen2.5:7b", "persona": "Cultured, patient and menacing." }
+  },
+  "npcs": {}
+}

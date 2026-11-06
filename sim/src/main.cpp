@@ -8,6 +8,7 @@
 
 #include "dnd/Content.hpp"
 #include "dnd/Game.hpp"
+#include "dnd/Agents.hpp"
 #include "dnd/Human.hpp"
 #include "dnd/Llm.hpp"
 
@@ -31,6 +32,7 @@ void Usage() {
         "  --load <file> / --save <file>   resume / write a save file\n"
         "  --llm-narration / --llm-dm      use the model from DND_LLM_URL / DND_LLM_MODEL\n"
         "  --llm-say                 type plain English at the prompt (same model settings)\n"
+        "  --agents [file]           every actor is its own model (default file: <data>/agents.json or DND_AGENTS)\n"
         "  --quiet                   no narration\n"
         "  --list                    list modules, characters and monsters\n"
         "In exploration type 'help'; in a fight type 'help' at your turn. 'swap player|dm|auto' changes role mid-fight.\n";
@@ -138,7 +140,8 @@ int main(int argc, char** argv) {
     cfg.role = Role::Spectator;
     cfg.seed = std::random_device{}();
     std::string dataDir = Content::DefaultDataDir(), loadPath, savePath;
-    bool quiet = false, list = false, llmSay = false, interactive = false;
+    bool quiet = false, list = false, llmSay = false, interactive = false, useAgents = false;
+    std::string agentsPath;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -161,6 +164,7 @@ int main(int argc, char** argv) {
         else if (a == "--llm-narration") cfg.llmNarration = true;
         else if (a == "--llm-dm") cfg.llmDm = true;
         else if (a == "--llm-say") llmSay = true;
+        else if (a == "--agents") { useAgents = true; if (i + 1 < argc && argv[i + 1][0] != '-') agentsPath = argv[++i]; }
         else if (a == "--interactive" || a == "-i") interactive = true;
         else if (a == "--quiet") quiet = true;
         else if (a == "--list") list = true;
@@ -180,6 +184,7 @@ int main(int argc, char** argv) {
             return 0;
         }
         DiceRoller::Seed(cfg.seed);
+        cfg.agents = useAgents;
 
         std::unique_ptr<Game> g;
         if (!loadPath.empty()) {
@@ -203,6 +208,18 @@ int main(int argc, char** argv) {
             if (g->Config().llmNarration) g->SetNarrator(MakeLlmNarrator(llm, *g));
             if (g->Config().llmDm) g->SetMonsterFactory([llm] { return std::make_unique<LlmDmController>(llm); });
             std::cerr << "LLM: " << llm->Describe() << "  model store: " << LocateModel(lc.model).path << "\n";
+        }
+
+        if (g->Config().agents) {
+            if (agentsPath.empty()) agentsPath = std::getenv("DND_AGENTS") && *std::getenv("DND_AGENTS") ? std::getenv("DND_AGENTS") : dataDir + "/agents.json";
+            std::string err;
+            auto acfg = AgentsConfig::Load(agentsPath, err);
+            if (!acfg) { std::cerr << err << "\n"; return 2; }
+            auto table = std::make_shared<AgentTable>(*acfg);
+            AgentTable::Attach(table, *g);
+            std::cerr << "AI table (" << agentsPath << "):\n";
+            for (const auto& a : table->Describe()) std::cerr << "  " << a["name"].get<std::string>() << " [" << a["selector"].get<std::string>() << "] " << a["model"].get<std::string>() << "\n";
+            for (const auto& p : table->Problems()) std::cerr << "  problem: " << p.get<std::string>() << "\n";
         }
 
         // Replay what happened during construction (the intro), now that a listener exists.

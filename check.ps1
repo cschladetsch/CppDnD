@@ -93,6 +93,7 @@ try {
 
 # ---- Ollama
 Head 'Ollama'
+$have = @()
 try {
     $tags = Invoke-RestMethod -Uri 'http://127.0.0.1:11434/api/tags' -TimeoutSec 3
     $have = @($tags.models | ForEach-Object { $_.name })
@@ -106,6 +107,36 @@ try {
     else { Warn 'Ollama is not running; the plain-English prompt will be off (optional)' }
 }
 if ($env:DND_LLM_URL -or $env:DND_LLM_MODEL) { Ok "DND_LLM_URL='$env:DND_LLM_URL' DND_LLM_MODEL='$env:DND_LLM_MODEL'" }
+
+# ---- agents.json: parses, and the models it names are installed in Ollama
+Head 'Agents'
+$agentsFile = if ($env:DND_AGENTS) { $env:DND_AGENTS } else { Join-Path $src 'data\agents.json' }
+if (-not (Test-Path $agentsFile)) {
+    Warn "no agents file at $agentsFile (the AI table is optional)"
+} else {
+    try {
+        $raw = (Get-Content $agentsFile -Raw) -replace '(?s)/\*.*?\*/', '' -replace '(?m)^\s*//.*$', ''
+        $a = $raw | ConvertFrom-Json
+        $models = [ordered]@{}
+        function AddModel($who, $node) { if ($node -and $node.model) { $models[$who] = $node.model } }
+        AddModel 'defaults' $a.defaults
+        AddModel 'dm' $a.dm
+        foreach ($section in 'monsterTypes', 'monsters', 'players', 'npcTypes', 'npcs') {
+            if ($a.$section) { foreach ($p in $a.$section.PSObject.Properties) { AddModel "$section.$($p.Name)" $p.Value } }
+        }
+        Ok "$agentsFile parses; $($models.Count) model setting(s)"
+        if ($have) {
+            foreach ($m in ($models.Values | Sort-Object -Unique)) {
+                if (($have -contains $m) -or ($have -contains "${m}:latest")) { Ok "model '$m' is installed" }
+                else { Warn "model '$m' is named in agents.json but not installed in Ollama (ollama pull $m)" }
+            }
+        } else {
+            Warn 'Ollama models unknown (Ollama not reachable), so agents.json models were not checked'
+        }
+    } catch {
+        Bad "agents.json is not valid: $($_.Exception.Message)"
+    }
+}
 
 # ---- tests
 if ($Test) {

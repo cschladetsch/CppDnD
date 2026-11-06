@@ -6,6 +6,9 @@
 #include <mutex>
 #include <random>
 
+#include <filesystem>
+
+#include "dnd/Agents.hpp"
 #include "dnd/Content.hpp"
 #include "dnd/Game.hpp"
 #include "dnd/Llm.hpp"
@@ -19,6 +22,7 @@ namespace {
 struct Slot {
     std::mutex m;
     std::unique_ptr<Game> game;
+    std::shared_ptr<AgentTable> agents;  // set when the game was created with "agents": true
 };
 
 struct Server {
@@ -27,6 +31,8 @@ struct Server {
     std::shared_ptr<ILlmClient> llm;  // null: LLM features disabled
     LlmConfig llmCfg;
     bool mock = false;
+    std::optional<AgentsConfig> agentsCfg;  // from --agents / DND_AGENTS / <data>/agents.json
+    std::string agentsPath, agentsError;
     std::mt19937_64 idRng{std::random_device{}()};
 
     std::string NewId() {
@@ -54,15 +60,25 @@ Json Body(const httplib::Request& req) {
     return j;
 }
 
-void Wire(Server& s, Game& g) {
+// Attaches whatever model features the game asks for. Returns the agent table when the game uses agents.
+std::shared_ptr<AgentTable> Wire(Server& s, Game& g) {
     const GameConfig& c = g.Config();
-    if (!c.llmDm && !c.llmNarration) return;
+    if (c.agents) {
+        if (!s.agentsCfg) throw HttpError{400, s.agentsError.empty() ? "agents were requested but there is no agents file (use --agents, DND_AGENTS, or data/agents.json)" : s.agentsError};
+        AgentTable::ClientFactory factory;
+        if (s.mock) factory = [](const std::string&, const BackendDef&, const AgentDef&) { return std::make_shared<MockLlmClient>(); };
+        auto table = std::make_shared<AgentTable>(*s.agentsCfg, factory);
+        AgentTable::Attach(table, g);
+        return table;
+    }
+    if (!c.llmDm && !c.llmNarration) return nullptr;
     if (!s.llm) throw HttpError{400, "LLM features were requested but no model is configured (set DND_LLM_MODEL / DND_LLM_URL, or run with --mock-llm)"};
     if (c.llmNarration) g.SetNarrator(MakeLlmNarrator(s.llm, g));
     if (c.llmDm) {
         auto client = s.llm;
         g.SetMonsterFactory([client] { return std::make_unique<LlmDmController>(client); });
     }
+    return nullptr;
 }
 
 }  // namespace
@@ -88,10 +104,11 @@ int main(int argc, char** argv) {
         else if (a == "--llm-url") S.llmCfg.baseUrl = next();
         else if (a == "--llm-model") S.llmCfg.model = next();
         else if (a == "--mock-llm") S.mock = true;
+        else if (a == "--agents") S.agentsPath = next();
         else if (a == "--ollama") { S.llmCfg.baseUrl = "http://127.0.0.1:11434"; S.llmCfg.model = next(); S.llmCfg.stream = false; }
         else if (a == "--help" || a == "-h") {
             std::cout << "dnd_server [--port 8088] [--host 127.0.0.1] [--data DIR] [--static DIR]\n"
-                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--mock-llm]\n"
+                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--agents FILE] [--mock-llm]\n"
                          "LLM env: DND_LLM_URL DND_LLM_PATH DND_LLM_MODEL DND_LLM_KEY DND_LLM_TIMEOUT DND_LLM_STREAM\n"
                          "Models are looked up in the shared model store (DEEPSEEK_MODEL_HOME).\n";
             return 0;
@@ -106,6 +123,21 @@ int main(int argc, char** argv) {
     }
     if (S.mock) S.llm = std::make_shared<MockLlmClient>();
     else if (!S.llmCfg.model.empty() || std::getenv("DND_LLM_URL")) S.llm = std::make_shared<HttpLlmClient>(S.llmCfg);
+
+    {   // the global agents file: explicit path must load; the default one is optional
+        namespace fs = std::filesystem;
+        const bool explicitPath = !S.agentsPath.empty() || (std::getenv("DND_AGENTS") && *std::getenv("DND_AGENTS"));
+        if (S.agentsPath.empty()) S.agentsPath = std::getenv("DND_AGENTS") && *std::getenv("DND_AGENTS") ? std::getenv("DND_AGENTS") : (fs::path(dataDir) / "agents.json").string();
+        if (explicitPath || fs::exists(S.agentsPath)) {
+            std::string err;
+            S.agentsCfg = AgentsConfig::Load(S.agentsPath, err);
+            if (!S.agentsCfg) {
+                S.agentsError = err;
+                if (explicitPath) { std::cerr << err << "\n"; return 2; }
+                std::cerr << "warning: " << err << " (agents disabled)\n";
+            }
+        }
+    }
 
     httplib::Server svr;
     svr.set_default_headers({{"Access-Control-Allow-Origin", "*"}, {"Access-Control-Allow-Headers", "Content-Type"}, {"Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"}});
@@ -163,8 +195,15 @@ int main(int argc, char** argv) {
 
     svr.Get("/api/llm", guarded([&](const httplib::Request&, httplib::Response& res) {
         const ModelInfo mi = LocateModel(S.llmCfg.model);
-        Reply(res, 200, {{"enabled", S.llm != nullptr}, {"client", S.llm ? S.llm->Describe() : ""}, {"url", S.llmCfg.baseUrl}, {"model", S.llmCfg.model},
+        Reply(res, 200, {{"enabled", S.llm != nullptr}, {"agents", Json{{"available", S.agentsCfg.has_value()}, {"file", S.agentsPath}, {"error", S.agentsError}}}, {"client", S.llm ? S.llm->Describe() : ""}, {"url", S.llmCfg.baseUrl}, {"model", S.llmCfg.model},
                          {"modelStore", {{"home", mi.home}, {"path", mi.path}, {"exists", mi.exists}, {"weights", mi.weights}}}});
+    }));
+
+    // Models in the shared store (CppLmmModelStore) that an agent can be switched to.
+    svr.Get("/api/models", guarded([&](const httplib::Request&, httplib::Response& res) {
+        Json arr = Json::array();
+        for (const auto& m : ListModels()) arr.push_back({{"name", m.name}, {"path", m.path}, {"weights", m.weights}});
+        Reply(res, 200, {{"home", LocateModel("").home}, {"models", arr}});
     }));
 
     svr.Get("/api/games", guarded([&](const httplib::Request&, httplib::Response& res) {
@@ -187,6 +226,7 @@ int main(int argc, char** argv) {
         c.pace = b.value("pace", "normal");
         c.llmDm = b.value("llmDm", false);
         c.llmNarration = b.value("llmNarration", false);
+        c.agents = b.value("agents", false);
         const auto role = ParseRole(b.value("role", "player"));
         if (!role) throw HttpError{400, "role must be player, dm or spectator"};
         c.role = *role;
@@ -194,9 +234,10 @@ int main(int argc, char** argv) {
         std::unique_ptr<Game> g;
         try { g = std::make_unique<Game>(c); }
         catch (const std::runtime_error& e) { throw HttpError{400, e.what()}; }
-        Wire(S, *g);
+        auto table = Wire(S, *g);
         auto [id, slot] = add(std::move(g));
         std::lock_guard<std::mutex> lk(slot->m);
+        slot->agents = table;
         Reply(res, 201, {{"id", id}, {"view", slot->game->View(0)}});
     }));
 
@@ -206,9 +247,10 @@ int main(int argc, char** argv) {
         try { g = Game::Load(b.contains("save") ? b.at("save") : b); }
         catch (const Json::exception& e) { throw HttpError{400, std::string("invalid save file: ") + e.what()}; }
         catch (const std::runtime_error& e) { throw HttpError{400, e.what()}; }
-        Wire(S, *g);
+        auto table = Wire(S, *g);
         auto [id, slot] = add(std::move(g));
         std::lock_guard<std::mutex> lk(slot->m);
+        slot->agents = table;
         Reply(res, 201, {{"id", id}, {"view", slot->game->View(0)}});
     }));
 
@@ -259,6 +301,26 @@ int main(int argc, char** argv) {
         std::lock_guard<std::mutex> lk(slot->m);
         const SayResult r = Say(*S.llm, *slot->game, Body(req).value("text", ""));
         Reply(res, 200, {{"ok", r.ok}, {"message", r.message}, {"steps", r.steps}, {"view", slot->game->View(sinceOf(req))}});
+    }));
+
+    // The agents of this game, their models, and the JSON messages they have exchanged.
+    svr.Get("/api/games/:id/agents", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        if (!slot->agents) { Reply(res, 200, {{"enabled", false}, {"agents", Json::array()}, {"messages", Json::array()}, {"lastSeq", 0}}); return; }
+        Reply(res, 200, {{"enabled", true}, {"agents", slot->agents->Describe()}, {"problems", slot->agents->Problems()}, {"messages", slot->agents->Hub().LogJson(sinceOf(req))}, {"lastSeq", slot->agents->Hub().LastSeq()}});
+    }));
+
+    // Switch the model of one actor, or of a whole kind of enemy, mid-game.
+    // {"selector":"type:undead","model":"phi3:mini","backend":"ollama","fromStore":false}
+    svr.Post("/api/games/:id/agents/model", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        if (!slot->agents) throw HttpError{409, "this game was not created with agents"};
+        const Json b = Body(req);
+        std::string err;
+        const bool ok = slot->agents->SetModel(b.value("selector", ""), b.value("model", ""), b.value("backend", ""), b.value("fromStore", false), err);
+        Reply(res, ok ? 200 : 422, {{"ok", ok}, {"error", err}, {"agents", slot->agents->Describe()}, {"problems", slot->agents->Problems()}});
     }));
 
     svr.Post("/api/games/:id/role", guarded([&](const httplib::Request& req, httplib::Response& res) {

@@ -11,6 +11,7 @@
 #include "dnd/Game.hpp"
 #include "dnd/Human.hpp"
 #include "dnd/Json.hpp"
+#include "dnd/Agents.hpp"
 #include "dnd/Llm.hpp"
 
 using namespace dnd;
@@ -432,6 +433,163 @@ static void TestSay() {
     CHECK(!Say(broken, g, "hello").ok);
 }
 
+static void TestAgents() {
+    // ---- the shipped agents.json parses and resolves as documented
+    std::string err;
+    auto cfg = AgentsConfig::Load(std::string(DND_DATA_DIR) + "/agents.json", err);
+    CHECK(cfg.has_value());
+    if (!cfg) { std::cerr << err << "\n"; return; }
+    CHECK(cfg->ForPlayer("thorin", "Thorin").model == "dolphin-llama3:8b");
+    CHECK(cfg->ForPlayer("nobody", "Nobody").model == "qwen2.5:7b");
+    auto undead = cfg->ForMonster("zombie", {"undead"});
+    CHECK(undead.first == "type:undead" && undead.second.model == "dolphin-llama3:8b");
+    auto vamp = cfg->ForMonster("vampire_spawn", {"undead"});
+    CHECK(vamp.first == "monster:vampire_spawn" && vamp.second.model == "qwen2.5:7b");
+    CHECK(cfg->ForMonster("goblin", {"humanoid"}).second.model == "phi3:mini");
+    CHECK(cfg->ForMonster("mystery", {"aberration"}).first == "dm");
+    CHECK(cfg->ForNpc("marta", "Marta Hollin", "innkeeper").model == "phi3:mini");
+    CHECK(cfg->ForNpc("x", "X", "villain").model == "qwen2.5:7b");
+    CHECK(cfg->ForNpc("x", "X", "mystery").model == "gemma2:2b");
+    CHECK(!AgentsConfig::Parse(Json::parse(R"({"defaults":{"model":"m","backend":"nope"}})"), err) && err.find("backend") != std::string::npos);
+    CHECK(!AgentsConfig::Parse(Json::parse(R"({"backends":{"o":{}},"defaults":{"backend":"o"}})"), err) && err.find("model") != std::string::npos);
+
+    // ---- every actor is its own mind: own client, own persona, own model
+    struct Mind { std::string model, system; int made = 0, calls = 0; };
+    std::map<std::string, Mind> minds;
+    std::function<std::string(const std::string&, const std::string&)> replyFn;
+    AgentTable::ClientFactory factory = [&](const std::string& name, const BackendDef&, const AgentDef& def) {
+        minds[name].model = def.model;
+        ++minds[name].made;
+        return std::make_shared<MockLlmClient>([&minds, &replyFn, name](const std::string& sys, const std::string& user, bool) {
+            minds[name].system = sys;
+            ++minds[name].calls;
+            LlmReply r;
+            r.ok = true;
+            r.content = replyFn(name, user);
+            return r;
+        });
+    };
+    auto makeGame = [&](bool agents, GameConfig c) {
+        c.agents = agents;
+        return std::make_unique<Game>(c);
+    };
+    GameConfig dc;
+    dc.rooms = 1; dc.difficulty = "easy"; dc.seed = 3; dc.role = Role::Spectator;
+
+    replyFn = [](const std::string&, const std::string&) { return std::string(R"({"say":"For the Mist!","actions":[{"type":"end_turn"}]})"); };
+    {
+        auto g = makeGame(true, dc);
+        auto table = std::make_shared<AgentTable>(*cfg, factory);
+        AgentTable::Attach(table, *g);
+        int guard = 0;
+        while (g->GetMode() == Mode::Combat && guard++ < 500) g->AdvanceCombat();
+        CHECK(g->GetMode() != Mode::Combat);
+        CHECK(minds.count("Thorin") && minds.count("Elara") && minds.count("DM"));
+        CHECK(minds["Thorin"].calls > 0 && minds["Elara"].calls > 0);
+        CHECK(minds["Thorin"].model == "dolphin-llama3:8b" && minds["Elara"].model == "qwen2.5:7b" && minds["Finn"].model == "phi3:mini");
+        CHECK(minds["Thorin"].system.find("gruff") != std::string::npos && minds["Thorin"].system.find("curious") == std::string::npos);
+        CHECK(minds["Elara"].system.find("curious") != std::string::npos && minds["Elara"].system.find("gruff") == std::string::npos);
+        bool said = false;
+        for (const auto& m : table->Hub().LogJson(0)) said = said || (m["from"] == "Thorin" && m["kind"] == "say");
+        CHECK(said);
+        bool inLog = false;
+        for (const auto& e : g->Log()) inLog = inLog || e.text.find("Thorin: \"For the Mist!\"") != std::string::npos;
+        CHECK(inLog);
+        CHECK(table->Describe().size() >= 5);
+    }
+
+    // ---- garbage from every model leaves the built-in AI in charge: same result as a plain run
+    replyFn = [](const std::string&, const std::string&) { return std::string("no idea, sorry"); };
+    {
+        auto plain = makeGame(false, dc);
+        int guard = 0;
+        while (plain->GetMode() == Mode::Combat && guard++ < 500) plain->AdvanceCombat();
+        auto g = makeGame(true, dc);
+        auto table = std::make_shared<AgentTable>(*cfg, factory);
+        AgentTable::Attach(table, *g);
+        guard = 0;
+        while (g->GetMode() == Mode::Combat && guard++ < 500) g->AdvanceCombat();
+        CHECK(g->Save()["rng"] == plain->Save()["rng"] && g->Save()["party"] == plain->Save()["party"]);
+    }
+
+    // ---- each kind of enemy has its own mind, and its model can be switched (now and for later spawns)
+    {
+        minds.clear();
+        auto g = makeGame(true, dc);
+        auto table = std::make_shared<AgentTable>(*cfg, factory);
+        AgentTable::Attach(table, *g);
+        GameActor zombie;
+        zombie.team = Team::Monsters;
+        zombie.sheet.monsterId = "zombie";
+        zombie.sheet.tags = {"undead"};
+        GameActor wolf = GameActor{};
+        wolf.team = Team::Monsters;
+        wolf.sheet.monsterId = "wolf";
+        wolf.sheet.tags = {"beast"};
+        auto z1 = table->MonsterAgent(zombie), w1 = table->MonsterAgent(wolf);
+        CHECK(z1 && w1 && z1 != w1 && z1->Def().model == "dolphin-llama3:8b" && w1->Def().model == "gemma2:2b");
+        CHECK(table->MonsterAgent(zombie) == z1);  // one mind per kind of enemy
+        CHECK(table->SetModel("type:undead", "phi3:mini", "", false, err));
+        CHECK(z1->Def().model == "phi3:mini" && minds["Undead"].model == "phi3:mini" && minds["Undead"].made == 2);
+        CHECK(w1->Def().model == "gemma2:2b");  // the others are untouched
+        CHECK(table->SetModel("type:giant", "qwen2.5:7b", "", false, err));  // not made yet: applies when the first giant appears
+        GameActor ogre;
+        ogre.team = Team::Monsters;
+        ogre.sheet.monsterId = "ogre";
+        ogre.sheet.tags = {"giant"};
+        CHECK(table->MonsterAgent(ogre)->Def().model == "qwen2.5:7b");
+        CHECK(!table->SetModel("type:unicorn", "x", "", false, err) && err.find("unknown selector") != std::string::npos);
+        CHECK(!table->SetModel("dm", "no-such-model-in-the-store", "", true, err) && err.find("model store") != std::string::npos);
+        CHECK(!table->SetModel("dm", "x", "nope", false, err));
+        CHECK(table->SetModel("monster:goblin", "phi3:mini", "", false, err));
+    }
+
+    // ---- NPCs: typed, each with its own mind; the written line is the fallback
+    {
+        GameConfig mc;
+        mc.moduleId = "ravenmoor"; mc.seed = 5; mc.role = Role::Player; mc.agents = true;
+        replyFn = [](const std::string& who, const std::string&) {
+            return who == "Marta Hollin" ? std::string(R"({"say":"Folk say the Countess walks at night."})") : std::string(R"({"actions":[{"type":"end_turn"}]})");
+        };
+        minds.clear();
+        Game g(mc);
+        auto table = std::make_shared<AgentTable>(*cfg, factory);
+        AgentTable::Attach(table, g);
+        CHECK(g.Travel("greywick").ok);
+        CHECK(g.Talk("marta", "rumours").ok);
+        CHECK(minds.count("Marta Hollin") && minds["Marta Hollin"].model == "phi3:mini");
+        CHECK(minds["Marta Hollin"].system.find("innkeeper") != std::string::npos);
+        bool spoke = false;
+        for (const auto& e : g.Log()) spoke = spoke || e.text == "Marta Hollin: Folk say the Countess walks at night.";
+        CHECK(spoke);
+
+        replyFn = [](const std::string&, const std::string&) { return std::string("garbled"); };
+        Game g2(mc);
+        auto table2 = std::make_shared<AgentTable>(*cfg, factory);
+        AgentTable::Attach(table2, g2);
+        CHECK(g2.Travel("greywick").ok);
+        const size_t before = g2.Log().size();
+        CHECK(g2.Talk("marta", "rumours").ok);
+        CHECK(g2.Log().size() > before && g2.Log().back().text.rfind("Marta Hollin: ", 0) == 0);
+        CHECK(g2.Log().back().text.find("Countess walks") == std::string::npos);  // the module's own text, not the mock's
+    }
+
+    // ---- the party decides where to go by talking it over
+    {
+        GameConfig mc;
+        mc.moduleId = "ravenmoor"; mc.seed = 5; mc.role = Role::Spectator; mc.agents = true;
+        replyFn = [](const std::string& who, const std::string&) {
+            if (who == "Finn") return std::string(R"({"say":"Search first?","propose":{"cmd":"search"}})");
+            return std::string(R"({"say":"To the village.","propose":{"cmd":"travel","to":"greywick"}})");
+        };
+        Game g(mc);
+        auto table = std::make_shared<AgentTable>(*cfg, factory);
+        AgentTable::Attach(table, g);
+        CHECK(g.AutoStep().ok);
+        CHECK(g.LocationId() == "greywick");  // three votes beat one
+    }
+}
+
 int main() {
     try {
         Content::Load(DND_DATA_DIR);
@@ -444,7 +602,7 @@ int main() {
                        {"Rng", TestRng}, {"JsonRoundTrip", TestJsonRoundTrip}, {"AdjustDamage", TestAdjustDamage},
                        {"ExtraAttackAndConcentration", TestExtraAttackAndConcentration}, {"RemoteCombat", TestRemoteCombat},
                        {"GameModule", TestGameModule}, {"SaveLoadDeterminism", TestSaveLoadDeterminism},
-                       {"ProceduralDelve", TestProceduralDelve}, {"RoleSwap", TestRoleSwap}, {"Llm", TestLlm}, {"Say", TestSay}};
+                       {"ProceduralDelve", TestProceduralDelve}, {"RoleSwap", TestRoleSwap}, {"Llm", TestLlm}, {"Say", TestSay}, {"Agents", TestAgents}};
     for (const auto& t : tests) {
         try {
             t.fn();

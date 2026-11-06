@@ -111,6 +111,20 @@ void Game::SetMonsterFactory(ControllerFactory f) {
     AssignControllers();
 }
 
+void Game::SetMonsterControllerFactory(ActorFactory f) {
+    monsterFor_ = std::move(f);
+    AssignControllers();
+}
+
+void Game::SetPartyFactory(PartyFactory f) {
+    partyFactory_ = std::move(f);
+    AssignControllers();
+}
+
+void Game::Say(const std::string& who, const std::string& text) {
+    Emit(EventType::Narration, Cat(who, ": \"", text, "\""));
+}
+
 void Game::SetRole(Role r, const std::string& hero) {
     cfg_.role = r;
     if (!hero.empty()) {
@@ -133,9 +147,13 @@ void Game::AssignControllers() {
     for (const auto& a : combat_->Actors()) {
         if (a->team == Team::Party) {
             const bool human = cfg_.role == Role::Player && a.get() == heroActor;
-            a->controller = human ? humanFactory_() : std::make_unique<AIController>();
+            if (human) a->controller = humanFactory_();
+            else if (partyFactory_) a->controller = partyFactory_(a->Name());
+            else a->controller = std::make_unique<AIController>();
         } else {
-            a->controller = cfg_.role == Role::DungeonMaster ? humanFactory_() : monsterFactory_();
+            if (cfg_.role == Role::DungeonMaster) a->controller = humanFactory_();
+            else if (monsterFor_) a->controller = monsterFor_(*a);
+            else a->controller = monsterFactory_();
         }
     }
 }
@@ -396,7 +414,11 @@ CmdResult Game::Talk(const std::string& npcId, const std::string& topicId) {
     for (const auto& t : npc->topics)
         if (Lower(t.id) == Lower(topicId)) topic = &t;
     if (!topic || !Satisfied(topic->needs)) return {false, Cat(npc->name, " has nothing to say about that.")};
-    Emit(EventType::Narration, Cat(npc->name, ": ", topic->text));
+    std::string spoken;
+    if (npcVoice_) {
+        try { spoken = npcVoice_(*npc, *topic); } catch (...) { spoken.clear(); }
+    }
+    Emit(EventType::Narration, Cat(npc->name, ": ", spoken.empty() ? topic->text : spoken));
     const std::string key = "topic:" + npc->id + "/" + topic->id;
     if (fired_.insert(key).second) {
         SetFlags(topic->setsFlags);

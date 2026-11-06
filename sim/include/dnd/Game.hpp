@@ -2,6 +2,7 @@
 #include <functional>
 #include <map>
 #include <memory>
+#include <optional>
 #include <set>
 #include <string>
 #include <vector>
@@ -26,6 +27,7 @@ struct GameConfig {
     std::string pace = "normal";      // slow | normal | fast
     bool llmDm = false;               // recorded so a loaded game knows how it was wired
     bool llmNarration = false;
+    bool agents = false;              // every actor is its own model-driven agent (see Agents.hpp)
 };
 
 enum class Mode { Exploring, Combat, Complete, Defeated };
@@ -54,6 +56,13 @@ public:
     using Narrator = std::function<std::string(const Event&)>;
     using ControllerFactory = std::function<std::unique_ptr<IController>()>;
     using Listener = std::function<void(const Event&)>;
+    using PartyFactory = std::function<std::unique_ptr<IController>(const std::string& heroName)>;
+    // Decides the party's next exploration move for AutoStep; nullopt means "no opinion", and the built-in autopilot runs.
+    // Speaks a topic in the NPC's own voice; an empty result means "use the written text".
+    // Picks the controller for one monster (so each kind of enemy can have its own mind); overrides the plain factory.
+    using ActorFactory = std::function<std::unique_ptr<IController>(const GameActor&)>;
+    using NpcVoice = std::function<std::string(const NpcDef&, const TopicDef&)>;
+    using Council = std::function<std::optional<CmdResult>(Game&)>;
 
     explicit Game(GameConfig cfg);  // throws std::runtime_error on unknown ids
     ~Game();
@@ -65,7 +74,12 @@ public:
     void SetHumanFactory(ControllerFactory f);    // default: RemoteController (never blocks)
     void SetMonsterFactory(ControllerFactory f);  // default: AIController; an LLM DM plugs in here
     void SetListener(Listener l) { listener_ = std::move(l); }
+    void SetPartyFactory(PartyFactory f);         // default: AIController for every non-human party member
+    void SetCouncil(Council c) { council_ = std::move(c); }
+    void SetNpcVoice(NpcVoice v) { npcVoice_ = std::move(v); }
+    void SetMonsterControllerFactory(ActorFactory f);
     void SetRole(Role r, const std::string& hero = "");
+    void Say(const std::string& who, const std::string& text);  // table talk, recorded as a narration event
 
     // ---- exploration
     CmdResult Travel(const std::string& to);
@@ -161,6 +175,10 @@ private:
     Narrator narrator_;
     Listener listener_;
     ControllerFactory humanFactory_, monsterFactory_;
+    PartyFactory partyFactory_;
+    Council council_;
+    NpcVoice npcVoice_;
+    ActorFactory monsterFor_;
     DungeonMasterEngine dm_;
 
     Mode mode_ = Mode::Exploring;

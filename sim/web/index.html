@@ -65,17 +65,21 @@ async function showStart() {
   gid = null; view = null; lastSeq = 0;
   $("#saveBtn").hidden = $("#newBtn").hidden = true; $("#sub").textContent = "";
   if (!content) content = (await api("GET", "/api/content")).data;
-  llmOn = !!((await api("GET", "/api/llm")).data.enabled);
+  const llmInfo = (await api("GET", "/api/llm")).data;
+  llmOn = !!llmInfo.enabled;
+  agentsOn = !!(llmInfo.agents && llmInfo.agents.available);
   const mods = el("select", { id: "mod" }, el("option", { value: "", textContent: "Procedural delve (3 rooms)" }));
   for (const m of content.modules || []) mods.append(el("option", { value: m.id, textContent: `${m.name} (level ${m.recommendedLevel})` }));
   mods.value = (content.modules || [])[0]?.id || "";
   const role = el("select", { id: "role" }, ...[["player", "Player (one hero)"], ["dm", "Dungeon Master (all monsters)"], ["spectator", "Spectator (AI plays)"]].map(([v, t]) => el("option", { value: v, textContent: t })));
   const hero = el("select", { id: "hero" }, ...(content.characters || []).filter(c => ["thorin", "elara", "aldric", "finn"].includes(c.id)).map(c => el("option", { value: c.id, textContent: `${c.name} (${c.class})` })));
+  const agentsBox = el("input", { type: "checkbox", id: "agents", disabled: !agentsOn });
   const seed = el("input", { id: "seed", type: "number", placeholder: "random" });
   const file = el("input", { type: "file", accept: ".json" });
   const go = el("button", { className: "primary", textContent: "Begin", onclick: async () => {
     const body = { module: mods.value, role: role.value, hero: hero.value };
     if (seed.value) body.seed = Number(seed.value);
+    if (agentsBox.checked) body.agents = true;
     const { status, data } = await api("POST", "/api/games", body);
     if (status !== 201) return toast(data.error || "could not start");
     startGame(data.id, data.view);
@@ -88,6 +92,8 @@ async function showStart() {
   };
   $("#app").replaceChildren(el("div", { className: "panel start" }, el("h2", { textContent: "New game" }),
     el("label", { textContent: "Module" }), mods, el("label", { textContent: "Role" }), role, el("label", { textContent: "Hero" }), hero,
+    el("label", { textContent: "AI table" }), el("label", { style: "display:flex;gap:8px;align-items:center;color:var(--text)" }, agentsBox,
+      el("span", { textContent: agentsOn ? "every actor is its own model (agents.json); slower" : "not available: no agents.json found" })),
     el("label", { textContent: "Seed (optional, reproducible)" }), seed, el("div", { className: "row" }, go),
     el("label", { textContent: "Or load a save file" }), file));
 }
@@ -96,13 +102,13 @@ function startGame(id, v) {
   gid = id; lastSeq = 0;
   $("#app").replaceChildren(el("main", {},
     el("div", {}, el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" }), sayBox()),
-    el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }))));
+    el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }))));
   $("#saveBtn").hidden = $("#newBtn").hidden = false;
   apply(v);
 }
 
 // ---------------------------------------------------------------- plain English
-let llmOn = false;
+let llmOn = false, agentsOn = false;
 function sayBox() {
   const input = el("input", { id: "sayText", type: "text", autocomplete: "off", style: "flex:1;min-width:0",
     placeholder: llmOn ? "Say or do something, in English (e.g. go to the village and ask Marta about rumours)" : "English prompt is off: start the server with --ollama MODEL" , disabled: !llmOn });
@@ -136,7 +142,7 @@ function logEvents(events) {
 function apply(v) {
   view = v; logEvents(v.events || []);
   $("#sub").textContent = `${v.module.name}  |  day ${v.clock.day}, ${String(v.clock.clockHour).padStart(2, "0")}:00${v.clock.night ? " (night)" : ""}  |  ${v.mode}`;
-  renderMap(); renderScene(); renderParty(); renderQuests(); renderCombat();
+  renderMap(); renderScene(); renderParty(); renderQuests(); renderCombat(); refreshTable();
   if (v.mode === "combat" && v.combat && !v.combat.finished && v.combat.awaiting < 0 && !busy) setTimeout(advance, 120);
 }
 async function advance() {
@@ -151,6 +157,31 @@ async function cmd(path, body = {}) {
   if (data.ok === false && data.message) toast(data.message);
   if (data.ok === false && data.reason) toast(data.reason);
   if (data.view) apply(data.view); else if (data.error) toast(data.error);
+}
+
+// ---------------------------------------------------------------- AI table (agents)
+let tableBusy = false;
+async function refreshTable() {
+  const box = $("#table"); if (!box) return;
+  if (!view.llm || !view.llm.agents) { box.hidden = true; return; }
+  if (tableBusy) return; tableBusy = true;
+  const { data } = await api("GET", `/api/games/${gid}/agents`); tableBusy = false;
+  if (!data.enabled) { box.hidden = true; return; }
+  box.hidden = false;
+  const rows = data.agents.map(a => el("div", { className: "small", style: "padding:2px 0", title: a.persona,
+    textContent: `${a.name}  [${a.selector}]  ${a.model}  ${a.calls} call(s)${a.failures ? `, ${a.failures} failed` : ""}${a.modelStore && a.modelStore.exists ? "  (in store)" : ""}` }));
+  const sels = [...new Set([...data.agents.map(a => a.selector), "type:undead", "type:beast", "type:humanoid", "type:giant"])];
+  const sel = el("select", {}, ...sels.map(s => el("option", { value: s, textContent: s })));
+  const model = el("input", { type: "text", placeholder: "model name", style: "flex:1;min-width:0" });
+  const store = el("input", { type: "checkbox" });
+  const go = el("button", { textContent: "Switch", onclick: async () => {
+    const r = await api("POST", `/api/games/${gid}/agents/model`, { selector: sel.value, model: model.value.trim(), fromStore: store.checked });
+    if (!r.data.ok) toast(r.data.error || "could not switch"); else { model.value = ""; refreshTable(); }
+  } });
+  const kids = [el("h2", { textContent: "AI table" }), ...rows];
+  for (const p of data.problems || []) kids.push(el("div", { className: "small", style: "color:var(--bad)", textContent: p }));
+  kids.push(el("div", { className: "row", style: "flex-wrap:nowrap;align-items:center;margin-top:8px" }, sel, model, el("label", { className: "small dim", title: "must exist in the model store" }, store, " store"), go));
+  box.replaceChildren(...kids);
 }
 
 // ---------------------------------------------------------------- world map

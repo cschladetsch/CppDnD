@@ -102,6 +102,7 @@ Json ToJson(const CharacterSheet& s) {
     j["name"] = s.name;
     j["classId"] = s.classId;
     j["tags"] = s.tags;
+    j["monsterId"] = s.monsterId;
     j["level"] = s.level;
     j["scores"] = s.scores;
     j["saveProficient"] = s.saveProficient;
@@ -156,6 +157,7 @@ CharacterSheet SheetFromJson(const Json& j) {
     s.name = j.value("name", "");
     s.classId = j.value("classId", "");
     s.tags = j.value("tags", std::vector<std::string>{});
+    s.monsterId = j.value("monsterId", "");
     s.level = j.value("level", 1);
     s.scores = j.value("scores", s.scores);
     s.saveProficient = j.value("saveProficient", s.saveProficient);
