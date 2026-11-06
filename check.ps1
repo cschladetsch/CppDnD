@@ -13,7 +13,7 @@ param(
 )
 $ErrorActionPreference = 'Continue'
 $src   = Join-Path $PSScriptRoot 'sim'
-$build = Join-Path $src 'build'
+$buildDir = Join-Path $src 'build'
 $script:failed = 0
 $script:warned = 0
 
@@ -52,21 +52,21 @@ if ($env:DND_DATA) {
 # ---- build
 Head 'Build'
 if ($Build -or $Test) {
-    if (-not (Test-Path (Join-Path $build 'build.ninja'))) {
-        cmake -S $src -B $build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ | Out-Null
+    if (-not (Test-Path (Join-Path $buildDir 'build.ninja'))) {
+        cmake -S $src -B $buildDir -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++ | Out-Null
         if ($LASTEXITCODE) { Bad 'cmake configure failed' }
     }
-    cmake --build $build
+    cmake --build $buildDir
     if ($LASTEXITCODE) { Bad 'build failed' } else { Ok 'build succeeded' }
 }
 foreach ($exe in 'dnd_sim', 'dnd_server', 'dnd_tests') {
-    $p = Join-Path $build "$exe.exe"
+    $p = Join-Path $buildDir "$exe.exe"
     if (Test-Path $p) { Ok "$exe.exe  ($((Get-Item $p).LastWriteTime.ToString('yyyy-MM-dd HH:mm')))" }
     else { Warn "$exe.exe not built yet (run .\run.ps1, .\web.ps1 or .\check.ps1 -Build)" }
 }
 
 # ---- content loads (the program validates every file at startup)
-$sim = Join-Path $build 'dnd_sim.exe'
+$sim = Join-Path $buildDir 'dnd_sim.exe'
 if (Test-Path $sim) {
     Head 'Content'
     $out = & $sim --list 2>&1
@@ -110,7 +110,7 @@ if ($env:DND_LLM_URL -or $env:DND_LLM_MODEL) { Ok "DND_LLM_URL='$env:DND_LLM_URL
 # ---- tests
 if ($Test) {
     Head 'Tests'
-    ctest --test-dir $build --output-on-failure
+    ctest --test-dir $buildDir --output-on-failure
     if ($LASTEXITCODE) { Bad 'tests failed' } else { Ok 'all tests passed' }
 }
 
