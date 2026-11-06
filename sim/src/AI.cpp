@@ -303,12 +303,34 @@ Action Offence(const Combat& c, const GameActor& me) {
 
     if (canAct) {
         const Plan burst = BestBurst(c, me);
+        // Compare the best attack on every target, favouring the preferred targets only mildly, so a
+        // disadvantaged throw at a far foe never beats a clean melee swing at the adjacent one.
+        Plan best;
+        int rank = 0;
         for (const auto& [score, t] : ranked) {
             const Plan p = BestSingle(c, me, *t);
-            if (!p.valid()) continue;
-            return (burst.valid() && burst.score > p.score) ? burst.act : p.act;
+            if (p.valid()) Consider(best, p.act, p.score * (1.0 - 0.08 * rank));
+            ++rank;
         }
-        if (burst.valid()) return burst.act;
+        // Close in and swing: worth it when no foe is adjacent (so no opportunity attacks) and a
+        // melee weapon would do better than what is available from here (e.g. a long-range throw).
+        if (eco.action && eco.attacksLeft == 0 && !EnemyNear(c, me, 5) && UsableMovement(me) >= 5) {
+            int r = 0;
+            for (const auto& [score, t] : ranked) {
+                if (r++ >= 3) break;
+                double melee = 0;
+                for (const auto& w : me.sheet.attacks)
+                    if (!w.IsRanged()) melee = std::max(melee, HitChance(w.toHit, t->EffectiveAc(), RollMode::Normal) * w.damage.Average() * std::max(1, me.sheet.attacksPerAction));
+                if (melee <= 0 || melee * 0.9 * (1.0 - 0.08 * (r - 1)) <= best.score) continue;
+                const auto cell = ApproachCell(c, me, t->pos, 5);
+                if (!cell) continue;
+                const auto path = c.Grid().ComputePaths(me.pos, c.PassableFor(me)).PathTo(*cell);
+                int cost = 0;
+                for (const Pos& step : path) cost += c.Grid().EnterCostFt(step);
+                if (!path.empty() && cost <= UsableMovement(me)) return MakeMove(*cell);
+            }
+        }
+        if (best.valid() || burst.valid()) return (burst.valid() && burst.score > best.score) ? burst.act : best.act;
     }
 
     // Nothing hits from here: close the distance on the top-ranked target.
@@ -318,7 +340,7 @@ Action Offence(const Combat& c, const GameActor& me) {
     if (!cell) return Action::End();
     // Only move if at least the first step is affordable (difficult terrain costs double).
     const auto path = c.Grid().ComputePaths(me.pos, c.PassableFor(me)).PathTo(*cell);
-    if (!path.empty() && c.Grid().EnterCostFt(path.front()) <= UsableMovement(me) && c.Grid().OccupantAt(path.front()) < 0)
+    if (!path.empty() && c.Grid().EnterCostFt(path.front()) <= UsableMovement(me))
         return MakeMove(*cell);
     if (eco.action && !me.dashedThisTurn && eco.attacksLeft == 0) {
         Action a;
