@@ -99,17 +99,24 @@ Reasoning models are supported: `reasoning_content` and `<think>` blocks are str
 
 ## Layout
 
+Each folder has its own README.
+
 ```
-run.ps1, test.ps1   build and run, build and test
-sim/
-  data/           classes, weapons, spells, monsters, characters, modules/*.json   (README inside)
-  include/dnd/    Dice, Types, Grid, Actor, Combat, AI, Human, DM, Content, Json, Game, Llm
-  src/            implementation, main.cpp (terminal), server_main.cpp (HTTP)
-  web/            single-page browser client                                       (README inside)
-  tests/          tests.cpp (unit and integration), api_smoke.py (HTTP end to end) (README inside)
-  third_party/    nlohmann/json, cpp-httplib (vendored, MIT)
-  docs/API.md     HTTP reference
+run.ps1     build if needed, then run the terminal client (or the server with -Server)
+web.ps1     build if needed, start the server, open the browser
+test.ps1    build, then run every test
+check.ps1   report what is missing: tools, files, content, port, Ollama
+sim/                                                        engine, clients, content, tests
+  data/          classes, weapons, spells, monsters, characters, modules/*.json
+  include/dnd/   public headers (the engine's API)
+  src/           implementation, main.cpp (terminal), server_main.cpp (HTTP)
+  web/           single-page browser client
+  tests/         tests.cpp (unit and integration), api_smoke.py (HTTP end to end)
+  docs/          API.md, the HTTP reference
+  third_party/   nlohmann/json, cpp-httplib (vendored, MIT)
 ```
+
+[sim/README.md](sim/README.md) explains how the pieces fit together.
 
 ## Authoring content
 
