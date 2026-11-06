@@ -10,7 +10,7 @@ Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_
 .\run.ps1                              # build if needed, then watch the AI play a 3 room delve
 .\run.ps1 --interactive                # play it yourself (one hero, you choose each action)
 .\run.ps1 --module ravenmoor --role player --hero elara --seed 7
-.\run.ps1 -Server --port 8088          # web client at http://127.0.0.1:8088/
+.\web.ps1          # web client at http://127.0.0.1:8088/
 .\test.ps1                           # build, then run every test
 ```
 
@@ -59,10 +59,12 @@ Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `res
 ## Web server and client
 
 ```powershell
-.\run.ps1 -Server --port 8088
+.\web.ps1
 ```
 
-Open http://127.0.0.1:8088/ for the bundled client, or talk to the JSON API directly:
+`web.ps1` checks for cmake, ninja and clang++, that the port is free, and (with `-Model`) that Ollama is running and has the model; builds if needed; starts `dnd_server`; waits until it answers; and opens the browser. Ctrl-C stops it. Options: `-Port`, `-Model`, `-Rebuild`, `-NoBrowser`; anything else is passed to `dnd_server`.
+
+The client is at http://127.0.0.1:8088/ . You can also talk to the JSON API directly:
 
 ```powershell
 curl -X POST localhost:8088/api/games -d '{"module":"ravenmoor","role":"player","hero":"elara","seed":7}'
@@ -76,7 +78,7 @@ All model features go through one OpenAI-compatible client. Pick a backend:
 
 ```powershell
 ollama pull llama3.1
-.\run.ps1 -Server --port 8088 --ollama llama3.1       # Ollama on :11434, streaming off
+.\web.ps1 -Model llama3.1          # Ollama on :11434, streaming off
 ```
 
 or, for any other server (llama.cpp's `llama-server` defaults to :8080):
@@ -84,7 +86,7 @@ or, for any other server (llama.cpp's `llama-server` defaults to :8080):
 ```powershell
 $env:DND_LLM_URL   = "http://127.0.0.1:8080"
 $env:DND_LLM_MODEL = "deepseek-r1"
-.\run.ps1 -Server --port 8088
+.\web.ps1
 ```
 
 Other variables: `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STREAM=0|1`. With a model configured:

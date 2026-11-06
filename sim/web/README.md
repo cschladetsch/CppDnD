@@ -3,7 +3,7 @@
 `index.html` is the whole client: HTML, CSS and vanilla JavaScript in one file, no build step and no dependencies. `dnd_server` serves it at `/`.
 
 ```powershell
-.\run.ps1 -Server --port 8088        # then open http://127.0.0.1:8088/
+.\web.ps1                         # builds if needed, starts the server, opens the browser
 ```
 
 ## What it does
@@ -19,7 +19,7 @@
 The server only needs a folder of static files:
 
 ```powershell
-.\run.ps1 -Server --static C:\path\to\my-client       # or set DND_WEB
+.\web.ps1 --static C:\path\to\my-client          # or set DND_WEB
 ```
 
 Your client talks to the same `/api` routes; see [../docs/API.md](../docs/API.md). Pass `?since=<lastSeq>` on calls to receive only new events. CORS is open, so a client on another origin (a dev server, say) works too.
