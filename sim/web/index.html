@@ -150,12 +150,13 @@ const ICONS = {
   beast: "M7 4c2 0 3 2 3 4S9 11 7 11 4 9 4 7s1-3 3-3zm10 0c2 0 3 1 3 3s-1 4-3 4-3-1-3-3 1-4 3-4zM12 12c4 0 7 4 7 7 0 2-2 2-4 1-1-.5-2-.5-3-.5s-2 0-3 .5c-2 1-4 1-4-1 0-3 3-7 7-7z",
   humanoid: "M12 3a4 4 0 110 8 4 4 0 010-8zM5 21c0-5 3-8 7-8s7 3 7 8z",
   giant: "M3 9l4 3 2-6 3 4 3-4 2 6 4-3-2 12H5z",
+  construct: "M12 2l2 3h4l1 4 3 2-3 2-1 4h-4l-2 3-2-3H6l-1-4-3-2 3-2 1-4h4z",
   other: "M12 3l9 18H3z",
 };
 function iconFor(a) {
   if (a.team === "party" && ICONS[a.classId]) return a.classId;
   const tags = a.tags || [];
-  for (const t of ["undead", "beast", "giant", "humanoid"]) if (tags.includes(t)) return t;
+  for (const t of ["undead", "beast", "giant", "construct", "humanoid"]) if (tags.includes(t)) return t;
   return ICONS[a.classId] ? a.classId : "other";
 }
 // a round token: team colour, class or creature icon, a health ring, and a pip for each condition
