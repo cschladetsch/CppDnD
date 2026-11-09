@@ -22,7 +22,7 @@ Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_
 - **Data-driven content.** Monsters, spells, classes, weapons, characters and modules are JSON under `sim/data/`. Load-time validation reports the file and field of any mistake. See [sim/data/README.md](sim/data/README.md).
 - **Classes.** Fighter, barbarian, rogue, ranger, wizard, cleric, built from class tables at any level 1 to 20: hit points, proficiency, spell slots, Extra Attack, sneak attack, Rage, Second Wind.
 - **Rules.** Advantage and disadvantage, crits, cover, opportunity attacks, death saves, conditions (blinded, frightened, incapacitated, paralyzed, poisoned, prone, restrained, stunned), concentration with damage saves, resistance and vulnerability, exhaustion, short and long rests with Hit Dice, travel pace and forced marches.
-- **Modules.** A module is the space for a long-running session: a graph of locations on a clock, with scripted and random encounters, NPC dialogue, flags, quests, seeded secrets and an end condition. `ravenmoor` is an original gothic-horror module in the spirit of Ravenloft.
+- **Modules.** A module is the space for a long-running session: a graph of locations on a clock, with scripted and random encounters, NPC dialogue, flags, quests, seeded secrets and an end condition. Two ship: `ravenmoor`, an original gothic-horror module in the spirit of Ravenloft (8 locations), and `cyberhood`, an 11-scene cyberpunk module set in 2040 (a vertical neon district ruled by a rogue maintenance AI, with its own sci-fi creatures; try `.\run.ps1 --module cyberhood`).
 - **Step-driven combat.** `Advance` runs until a remote human must act; `Submit` answers. Nothing blocks, so a web server can drive many games.
 - **Save and load.** The complete state, including the RNG stream, round-trips through JSON. A reloaded game plays out identically.
 - **Web client.** A single-page client in [sim/web/](sim/web/README.md), served by the server at `/`.
@@ -185,7 +185,7 @@ sim/                                                        engine, clients, con
 
 ## Authoring content
 
-Content is read from `sim/data/` (or `--data <dir>` / `DND_DATA`); games and saves are not stored there, see the data README. Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/content`. The format is described in [sim/data/README.md](sim/data/README.md); `ravenmoor.json` uses every feature.
+Content is read from `sim/data/` (or `--data <dir>` / `DND_DATA`); games and saves are not stored there, see the data README. Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/content`. The format is described in [sim/data/README.md](sim/data/README.md); `ravenmoor.json` uses every feature, and `cyberhood.json` adds route choices (a staff pass or the rooftop skybridge), a seeded secret with two possible hiding places and conditional events.
 
 ## Limitations
 

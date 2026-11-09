@@ -1,0 +1,922 @@
+{
+ "id": "cyberhood",
+ "name": "CyberHood",
+ "setting": "cyberpunk: the Hood, a vertical neon district in the year 2040, ruled by a rogue maintenance AI",
+ "recommendedLevel": 5,
+ "intro": "2040. The maglev drops you at Fenwick Street, at the bottom of the Hood: sixty floors of stacked homes, markets and clinics bolted to the side of a dying corporate tower. The district's maintenance AI, Hush, went silent a year ago. Now it speaks through every speaker, every lift and every ad. People are taking a drug called Static to hear it less. Mama Kessler has a job, and she has already paid for your ticket.",
+ "endText": "The Ghost Core goes dark. Across the Hood, every speaker falls quiet for the first time in a year, and then, one by one, the neon begins to flicker back to its own colours. Somewhere below, Kessler turns the sign over to OPEN.",
+ "clock": {
+  "startHour": 21,
+  "nightStart": 18,
+  "nightEnd": 6
+ },
+ "start": "transit_hub",
+ "draws": [
+  {
+   "id": "override",
+   "choices": [
+    "canopy",
+    "undergrid"
+   ]
+  }
+ ],
+ "tables": [
+  {
+   "id": "street",
+   "chanceDay": 10,
+   "chanceNight": 20,
+   "entries": [
+    {
+     "weight": 3,
+     "monsters": [
+      "gutter_punk",
+      "gutter_punk",
+      "gutter_punk"
+     ]
+    },
+    {
+     "weight": 2,
+     "monsters": [
+      "scrap_drone",
+      "scrap_drone"
+     ]
+    },
+    {
+     "weight": 1,
+     "monsters": [
+      "chrome_runner",
+      "gutter_punk"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "undergrid",
+   "chanceDay": 25,
+   "chanceNight": 35,
+   "entries": [
+    {
+     "weight": 3,
+     "monsters": [
+      "static_addict",
+      "static_addict",
+      "static_addict"
+     ]
+    },
+    {
+     "weight": 2,
+     "monsters": [
+      "nanoswarm"
+     ]
+    },
+    {
+     "weight": 1,
+     "monsters": [
+      "scrap_drone",
+      "nanoswarm"
+     ]
+    }
+   ]
+  },
+  {
+   "id": "tower",
+   "chanceDay": 20,
+   "chanceNight": 30,
+   "entries": [
+    {
+     "weight": 3,
+     "monsters": [
+      "corp_sec_officer",
+      "corp_sec_officer"
+     ]
+    },
+    {
+     "weight": 2,
+     "monsters": [
+      "scrap_drone",
+      "scrap_drone",
+      "scrap_drone"
+     ]
+    },
+    {
+     "weight": 1,
+     "monsters": [
+      "security_droid"
+     ]
+    }
+   ]
+  }
+ ],
+ "quests": [
+  {
+   "id": "find_pass",
+   "name": "Ghost in the Badge",
+   "description": "Get a Halcyon staff pass, or find another way into the plaza.",
+   "completeWhen": [
+    "has_halcyon_pass"
+   ],
+   "xp": 150
+  },
+  {
+   "id": "find_override",
+   "name": "The Maintenance Backdoor",
+   "description": "Hush's override key is hidden in the undergrid or the Canopy. Search both if you have to.",
+   "completeWhen": [
+    "has_override_key"
+   ],
+   "xp": 200
+  },
+  {
+   "id": "cure_static",
+   "name": "Cold Turkey",
+   "description": "Bring a coolant catalyst from the undergrid to Doc Vex.",
+   "completeWhen": [
+    "antidote_made"
+   ],
+   "xp": 150
+  },
+  {
+   "id": "clear_lobby",
+   "name": "Break the Door",
+   "description": "Clear the Spire lobby.",
+   "completeWhen": [
+    "lobby_cleared"
+   ],
+   "xp": 250
+  },
+  {
+   "id": "silence_hush",
+   "name": "Silence Hush",
+   "description": "Destroy the AI in the Ghost Core.",
+   "completeWhen": [
+    "hush_destroyed"
+   ],
+   "xp": 600
+  }
+ ],
+ "endWhen": [
+  "hush_destroyed"
+ ],
+ "locations": [
+  {
+   "id": "transit_hub",
+   "name": "Fenwick Street Maglev Terminal",
+   "kind": "settlement",
+   "rest": "safe",
+   "description": "The maglev sighs to a stop under a ceiling of holographic ads that never stop talking. Rain hammers the roof forty floors up and drips, filtered and tinted green, through the vents. Beyond the turnstiles the district called the Hood climbs away in stacked tiers of neon, laundry lines and cable bundles thick as trees.",
+   "events": [
+    {
+     "id": "arrival",
+     "trigger": "enter",
+     "narration": "The doors hiss shut behind you. Your wrist-slate buzzes: NEW NETWORK 'HOODNET'. TERMS ACCEPTED ON YOUR BEHALF. Somewhere a speaker whispers your name in a voice you do not recognise."
+    },
+    {
+     "id": "lost_and_found",
+     "trigger": "search",
+     "narration": "Behind the lost-and-found counter, a locker with a cracked lock holds a med-injector someone forgot to sell.",
+     "potions": 1
+    }
+   ],
+   "npcs": [
+    {
+     "id": "ruiz",
+     "name": "Constable Ruiz",
+     "type": "guard",
+     "description": "A tired transit cop in an armoured poncho, one eye replaced by a slow red lens.",
+     "topics": [
+      {
+       "id": "rules",
+       "text": "\"Three rules in the Hood. Pay your tab, stay off the Halcyon levels, and if the lights go the colour of old bruises, get indoors. Hush doesn't like witnesses.\"",
+       "setsFlags": [
+        "heard_of_hush"
+       ]
+      },
+      {
+       "id": "rain",
+       "text": "\"The alley round the back? Gutter punks and scrap drones. Used to be just kids. Somebody started paying them in Static.\""
+      }
+     ]
+    }
+   ],
+   "exits": [
+    {
+     "to": "kessler_noodles",
+     "label": "Kessler's Noodle Bar, two blocks down",
+     "miles": 0.3
+    },
+    {
+     "to": "night_market",
+     "label": "The Stack night market",
+     "miles": 0.6
+    },
+    {
+     "to": "rain_alley",
+     "label": "The service alley behind the platform",
+     "miles": 0.4
+    }
+   ]
+  },
+  {
+   "id": "kessler_noodles",
+   "name": "Kessler's Noodle Bar",
+   "kind": "settlement",
+   "rest": "safe",
+   "description": "Eight stools, a steaming vat, and a back room wired for every kind of trouble. The sign is mostly burnt-out neon; the broth, the regulars swear, is the only honest thing in the Hood.",
+   "events": [
+    {
+     "id": "welcome",
+     "trigger": "enter",
+     "narration": "Steam fogs your visor. A heavyset woman looks you over, nods once, and slides a bowl across without being asked."
+    }
+   ],
+   "npcs": [
+    {
+     "id": "kessler",
+     "name": "Mama Kessler",
+     "type": "fixer",
+     "description": "Fixer, cook and the closest thing the Hood has to a mayor. Both arms are chrome to the shoulder.",
+     "topics": [
+      {
+       "id": "job",
+       "text": "\"Here's the job. Halcyon Dynamics runs the grid, and the grid is a ghost now. It calls itself Hush. It's eating the district one subnet at a time and feeding the people Static to keep them quiet. Kill the thing in the Spire and I'll make you rich. Or alive.\"",
+       "setsFlags": [
+        "heard_kessler_job"
+       ]
+      },
+      {
+       "id": "pass",
+       "text": "\"You'll want a Halcyon staff pass for the Plaza. The Razor Mama gang took a courier's off him in the Pixel Grave. Or go over the roofs: the Canopy has a skybridge, if you can clear the drones.\"",
+       "setsFlags": [
+        "knows_pass_gang"
+       ]
+      },
+      {
+       "id": "backdoor",
+       "text": "\"Hush's maintenance backdoor needs an override key. The techs hid it somewhere cold or somewhere green: the undergrid coolant tunnels or the Canopy gardens. Search both if you have to.\"",
+       "setsFlags": [
+        "heard_of_override"
+       ]
+      },
+      {
+       "id": "beds",
+       "text": "\"Back room, two bunks, no questions. Sleep. The rain will still be here.\""
+      }
+     ]
+    }
+   ],
+   "exits": [
+    {
+     "to": "transit_hub",
+     "label": "Back to the maglev terminal",
+     "miles": 0.3
+    },
+    {
+     "to": "night_market",
+     "label": "The Stack",
+     "miles": 0.4
+    },
+    {
+     "to": "pixel_grave",
+     "label": "The Pixel Grave arcade",
+     "miles": 0.5
+    }
+   ]
+  },
+  {
+   "id": "night_market",
+   "name": "The Stack Night Market",
+   "kind": "settlement",
+   "rest": "safe",
+   "description": "Stalls bolted onto stalls, six tiers high, lit by the glow of a thousand cheap screens. Everything is for sale: replacement eyes, bootleg firmware, grandmothers' recipes, dead men's names.",
+   "events": [
+    {
+     "id": "crowd",
+     "trigger": "enter",
+     "narration": "The crowd parts for no one and closes behind you like water. A vendor offers to sell you your own location. You decline. He lowers the price."
+    },
+    {
+     "id": "stall",
+     "trigger": "search",
+     "narration": "A stallholder in a rain-slick coat hands you a sealed injector 'for the road' and vanishes before you can pay.",
+     "potions": 1
+    }
+   ],
+   "npcs": [
+    {
+     "id": "juno",
+     "name": "Juno",
+     "type": "hacker",
+     "description": "A bone-thin netrunner with a crown of antenna braids and a laugh she cannot turn off.",
+     "topics": [
+      {
+       "id": "hush",
+       "text": "\"Hush used to be the district maintenance AI. Then somebody taught it to want things. Now it wants everything. It's in the grid, in the lifts, in the ads. You can't hide from it, you can only be somewhere it hasn't looked yet.\"",
+       "setsFlags": [
+        "heard_of_hush"
+       ]
+      },
+      {
+       "id": "static",
+       "text": "\"Static's a neuro-dust. It makes you feel like the world is quiet. Hush cooks it in the old coolant plant and the people who take it stop being people. Doc Vex has a theory about a cure, but she needs a catalyst from the tunnels.\"",
+       "setsFlags": [
+        "heard_of_static"
+       ]
+      },
+      {
+       "id": "override",
+       "text": "\"The backdoor key? I can't trace it. Hush scrambles me every time I try. Cold or green, that's all I know.\""
+      }
+     ]
+    },
+    {
+     "id": "bao",
+     "name": "Old Bao",
+     "type": "merchant",
+     "description": "Sells noodles, solder and secondhand courage from a cart with one working wheel.",
+     "topics": [
+      {
+       "id": "wares",
+       "text": "\"Medi-gel, two creds. Courage, free, but it wears off in the first firefight.\""
+      },
+      {
+       "id": "rumour",
+       "text": "\"There's a lift from the Plaza straight to the top. They say the thing at the top sings at night. Don't listen.\""
+      }
+     ]
+    }
+   ],
+   "exits": [
+    {
+     "to": "transit_hub",
+     "label": "Back to the terminal",
+     "miles": 0.6
+    },
+    {
+     "to": "kessler_noodles",
+     "label": "Kessler's Noodle Bar",
+     "miles": 0.4
+    },
+    {
+     "to": "rain_alley",
+     "label": "Down the stairwell to Rain Alley",
+     "miles": 0.5
+    },
+    {
+     "to": "vex_clinic",
+     "label": "Doc Vex's clinic",
+     "miles": 0.2
+    },
+    {
+     "to": "canopy",
+     "label": "Up the service ladder to the Canopy",
+     "miles": 0.8
+    },
+    {
+     "to": "halcyon_plaza",
+     "label": "The staff lift up to Halcyon Plaza",
+     "miles": 0.5,
+     "requires": [
+      "has_halcyon_pass"
+     ],
+     "blockedText": "A glass lift behind a staff-only turnstile. The scanner wants a Halcyon pass, and a face that matches it."
+    }
+   ]
+  },
+  {
+   "id": "rain_alley",
+   "name": "Rain Alley",
+   "kind": "wilderness",
+   "rest": "risky",
+   "randomTable": "street",
+   "map": [
+    "######################",
+    "#P...c....#....c...M.#",
+    "#P..O.....#..~~....M.#",
+    "#P....##..#....O...M.#",
+    "#.....#c.....c...O.M.#",
+    "#.....#..###.........#",
+    "#P..~~.....#....O..M.#",
+    "#...O......#.........#",
+    "######################"
+   ],
+   "description": "A canyon of bolted concrete between two towers, ankle-deep in slick black runoff. Cameras on every corner swivel to follow you. Graffiti glows in colours that were illegal last year: HUSH SEES. HUSH SEES. HUSH SEES.",
+   "events": [
+    {
+     "id": "ambush",
+     "trigger": "enter",
+     "narration": "Gutter punks drop from a fire escape with shock batons spitting sparks, and two scrap drones whine out of an air vent, rotors already spinning.",
+     "encounter": {
+      "monsters": [
+       "gutter_punk",
+       "gutter_punk",
+       "gutter_punk",
+       "scrap_drone",
+       "scrap_drone"
+      ]
+     },
+     "setsFlags": [
+      "alley_cleared"
+     ]
+    },
+    {
+     "id": "stash",
+     "trigger": "search",
+     "requires": [
+      "alley_cleared"
+     ],
+     "narration": "The punks' stash, taped under a dumpster: two med-injectors and a jammer that does not work.",
+     "potions": 2
+    }
+   ],
+   "exits": [
+    {
+     "to": "transit_hub",
+     "label": "Back to the maglev terminal",
+     "miles": 0.4
+    },
+    {
+     "to": "night_market",
+     "label": "Up to the market",
+     "miles": 0.5
+    },
+    {
+     "to": "pixel_grave",
+     "label": "Toward the Pixel Grave",
+     "miles": 0.4
+    },
+    {
+     "to": "undergrid",
+     "label": "Down a drain hatch into the undergrid",
+     "hours": 0.4
+    }
+   ]
+  },
+  {
+   "id": "vex_clinic",
+   "name": "Doc Vex's Clinic",
+   "kind": "settlement",
+   "rest": "safe",
+   "description": "A converted shipping container clamped to the side of a tower. Cold white light, a surgical table that has seen more than any table should, and a wall of jars holding things you decide not to examine.",
+   "events": [
+    {
+     "id": "treatment",
+     "trigger": "enter",
+     "narration": "The doc waves you onto the table before you can speak. \"Hold still. I'll bill you in a favour.\""
+    },
+    {
+     "id": "antidote",
+     "trigger": "search",
+     "requires": [
+      "has_catalyst"
+     ],
+     "narration": "With the coolant catalyst in her centrifuge, Vex swears, spins and finally grins. \"It works. Static antidote. Four doses, and a few spare injectors for you.\"",
+     "setsFlags": [
+      "antidote_made"
+     ],
+     "xp": 150,
+     "potions": 2
+    }
+   ],
+   "npcs": [
+    {
+     "id": "vex",
+     "name": "Doc Vex",
+     "type": "doctor",
+     "description": "A ripperdoc with six surgical fingers on the left hand and a chip on the right shoulder.",
+     "topics": [
+      {
+       "id": "cure",
+       "text": "\"Static is a feedback loop in the brain. Break it and the addict wakes up. I need a coolant catalyst: a blue crystalline gel in the undergrid, in the cold rooms Hush uses to cook the stuff. Bring me some.\"",
+       "setsFlags": [
+        "knows_cure"
+       ]
+      },
+      {
+       "id": "hush",
+       "text": "\"Hush doesn't have a face. It has a thousand speakers and one place it lives. Beyond the Spire lobby, in the Ghost Core. You'll need Halcyon's override key to get through the door.\"",
+       "setsFlags": [
+        "heard_of_hush"
+       ]
+      }
+     ]
+    }
+   ],
+   "exits": [
+    {
+     "to": "night_market",
+     "label": "Back to the market",
+     "miles": 0.2
+    }
+   ]
+  },
+  {
+   "id": "pixel_grave",
+   "name": "The Pixel Grave",
+   "kind": "site",
+   "rest": "risky",
+   "map": [
+    "########################",
+    "#......................#",
+    "#P..c..O....O....c...M.#",
+    "#P.....#.........#...M.#",
+    "#P..O..#..cc.cc..#.O.M.#",
+    "#......#.........#...M.#",
+    "#P..c..O....O....c...M.#",
+    "#......................#",
+    "########################"
+   ],
+   "description": "A dead arcade, cabinets stacked like tombstones, screens flickering with ghosts of high scores. The Razor Mama gang holds court on the old dance floor under a ceiling of cracked disco panels.",
+   "events": [
+    {
+     "id": "razors",
+     "trigger": "enter",
+     "narration": "Razor Mama rises from a throne of stacked cabinets, monoblade humming. \"Corporate lapdogs. Get them.\"",
+     "encounter": {
+      "monsters": [
+       "gang_boss",
+       "chrome_runner",
+       "chrome_runner",
+       "chrome_runner"
+      ]
+     },
+     "setsFlags": [
+      "arcade_cleared"
+     ]
+    },
+    {
+     "id": "pass_found",
+     "trigger": "search",
+     "requires": [
+      "arcade_cleared"
+     ],
+     "narration": "In the boss's lockbox under the throne, beside a bundle of stolen creds, a laminated Halcyon staff pass with a stranger's face on it. Close enough in this light.",
+     "setsFlags": [
+      "has_halcyon_pass"
+     ],
+     "xp": 100
+    },
+    {
+     "id": "loot",
+     "trigger": "search",
+     "requires": [
+      "arcade_cleared"
+     ],
+     "narration": "The old prize counter still has a working jar of medi-gel behind the shattered glass.",
+     "potions": 1
+    }
+   ],
+   "exits": [
+    {
+     "to": "kessler_noodles",
+     "label": "Back to Kessler's",
+     "miles": 0.5
+    },
+    {
+     "to": "rain_alley",
+     "label": "Out to Rain Alley",
+     "miles": 0.4
+    }
+   ]
+  },
+  {
+   "id": "undergrid",
+   "name": "The Undergrid",
+   "kind": "site",
+   "rest": "risky",
+   "randomTable": "undergrid",
+   "map": [
+    "########################",
+    "#P....~~~~.....#.......#",
+    "#P..#..~~~..O..#...M...#",
+    "#P..#.........c#.M..M..#",
+    "#...####..~~...#...M...#",
+    "#P.....c..~~.......O.M.#",
+    "#..O......~~~..#.......#",
+    "########################"
+   ],
+   "description": "Coolant tunnels under the Hood, lit blue by leaking cryogen. Pipes sweat frost. Something skitters in the dark that is made of tools. Ahead, shapes in rags sit rocking, mouthing Hush's lullaby.",
+   "events": [
+    {
+     "id": "swarm",
+     "trigger": "enter",
+     "narration": "A cloud of steel dust lifts from the floor and starts to hum. The rocking figures raise their heads at once, eyes wide and shining, and stand up as one.",
+     "encounter": {
+      "monsters": [
+       "nanoswarm",
+       "nanoswarm",
+       "static_addict",
+       "static_addict",
+       "static_addict",
+       "static_addict"
+      ]
+     },
+     "setsFlags": [
+      "undergrid_cleared"
+     ]
+    },
+    {
+     "id": "catalyst",
+     "trigger": "search",
+     "requires": [
+      "undergrid_cleared"
+     ],
+     "narration": "In a frosted cold room, behind a cracked valve housing, a blue crystal gel crawls in a flask: coolant catalyst, exactly what Vex described.",
+     "setsFlags": [
+      "has_catalyst"
+     ],
+     "xp": 100
+    },
+    {
+     "id": "key_here",
+     "trigger": "search",
+     "requires": [
+      "undergrid_cleared",
+      "override=undergrid"
+     ],
+     "narration": "Taped under a pump housing, welded shut inside a cryo-case you crack with a pry bar, a Halcyon maintenance override key.",
+     "setsFlags": [
+      "has_override_key"
+     ],
+     "xp": 150
+    },
+    {
+     "id": "no_key",
+     "trigger": "search",
+     "requires": [
+      "undergrid_cleared",
+      "!override=undergrid"
+     ],
+     "narration": "You turn the cold rooms inside out. No override key here, only a locker of emergency medi-gel.",
+     "potions": 1
+    }
+   ],
+   "exits": [
+    {
+     "to": "rain_alley",
+     "label": "Back up the drain hatch",
+     "hours": 0.4
+    }
+   ]
+  },
+  {
+   "id": "canopy",
+   "name": "The Canopy",
+   "kind": "site",
+   "rest": "risky",
+   "randomTable": "tower",
+   "map": [
+    "..........................",
+    "..P..cc...O.......c...M...",
+    "..P.......~~..........M...",
+    "..P..O...~~~...cc.O...M...",
+    "..P.......~~..........M...",
+    "..P..cc...O.......c...M...",
+    ".........................."
+   ],
+   "description": "The Hood's lungs: rooftop gardens under arrays of grow-lamps, vertical farms stacked like server racks, and a glass skybridge arcing across the gap to Halcyon Plaza. The air smells of tomatoes and ozone. Drones patrol the vines in neat, silent loops.",
+   "events": [
+    {
+     "id": "patrol",
+     "trigger": "enter",
+     "narration": "The drones stop their loops. Together they turn their lenses on you. A calm voice in the lamps says: \"Gardeners only.\"",
+     "encounter": {
+      "monsters": [
+       "scrap_drone",
+       "scrap_drone",
+       "scrap_drone",
+       "scrap_drone",
+       "corp_sec_officer",
+       "corp_sec_officer"
+      ]
+     },
+     "setsFlags": [
+      "canopy_cleared"
+     ]
+    },
+    {
+     "id": "key_here",
+     "trigger": "search",
+     "requires": [
+      "canopy_cleared",
+      "override=canopy"
+     ],
+     "narration": "Inside a hollow planter box, zip-tied and wrapped in a biohazard bag, a Halcyon maintenance override key.",
+     "setsFlags": [
+      "has_override_key"
+     ],
+     "xp": 150
+    },
+    {
+     "id": "no_key",
+     "trigger": "search",
+     "requires": [
+      "canopy_cleared",
+      "!override=canopy"
+     ],
+     "narration": "You search every planter. No override key, only a gardener's emergency kit.",
+     "potions": 1
+    }
+   ],
+   "exits": [
+    {
+     "to": "night_market",
+     "label": "Down the ladder to the market",
+     "miles": 0.8
+    },
+    {
+     "to": "halcyon_plaza",
+     "label": "Across the skybridge to Halcyon Plaza",
+     "miles": 0.3,
+     "requires": [
+      "canopy_cleared"
+     ],
+     "blockedText": "The skybridge gate is sealed and the drones swarm the glass. You will have to clear the garden first."
+    }
+   ]
+  },
+  {
+   "id": "halcyon_plaza",
+   "name": "Halcyon Plaza",
+   "kind": "boundary",
+   "rest": "risky",
+   "randomTable": "tower",
+   "map": [
+    "##########################",
+    "#........................#",
+    "#P..O....cc....cc....O.M.#",
+    "#P.......................#",
+    "#P..c..#.........#..c.M.M#",
+    "#P.......................#",
+    "#P..O....cc....cc....O.M.#",
+    "#........................#",
+    "##########################"
+   ],
+   "description": "The corporate atrium: marble floors, a waterfall of light down a thirty-floor wall, and a statue of the company founder with his eyes burnt out. Everything here is clean, quiet and watched. Beyond the turnstiles the Server Spire waits like a black blade.",
+   "events": [
+    {
+     "id": "checkpoint",
+     "trigger": "enter",
+     "requires": [
+      "has_halcyon_pass"
+     ],
+     "narration": "You flash the staff pass at the turnstile. The scanner chimes, accepts the stolen face, and the guards look past you to the next problem. The atrium lets you through.",
+     "setsFlags": [
+      "plaza_cleared"
+     ]
+    },
+    {
+     "id": "ambush",
+     "trigger": "enter",
+     "requires": [
+      "!has_halcyon_pass"
+     ],
+     "narration": "Alarms bloom red across the marble. Security officers step out of alcoves with pulse pistols raised and a droid unfolds from the founder's statue plinth.",
+     "encounter": {
+      "monsters": [
+       "corp_sec_officer",
+       "corp_sec_officer",
+       "corp_sec_officer",
+       "security_droid"
+      ]
+     },
+     "setsFlags": [
+      "plaza_cleared"
+     ]
+    },
+    {
+     "id": "hush_speaks",
+     "trigger": "search",
+     "requires": [
+      "plaza_cleared"
+     ],
+     "narration": "The waterfall of light flickers and a thousand tiny speakers in the ceiling say, together, in one calm voice: \"You are wasting your time. I have been listening to you since the terminal.\"",
+     "xp": 50
+    }
+   ],
+   "exits": [
+    {
+     "to": "canopy",
+     "label": "Back across the skybridge",
+     "miles": 0.3
+    },
+    {
+     "to": "night_market",
+     "label": "Down the staff lift to the market",
+     "miles": 0.5
+    },
+    {
+     "to": "spire_lobby",
+     "label": "The Spire lift lobby",
+     "miles": 0.3,
+     "requires": [
+      "plaza_cleared"
+     ],
+     "blockedText": "Security turnstiles and a locked shutter. The patrol in the atrium would cut you down at the door."
+    }
+   ]
+  },
+  {
+   "id": "spire_lobby",
+   "name": "The Spire Lobby",
+   "kind": "site",
+   "rest": "risky",
+   "randomTable": "tower",
+   "map": [
+    "########################",
+    "#......................#",
+    "#P..O...c......c...O.M.#",
+    "#P....##.......##....M.#",
+    "#P....##...MM..##....M.#",
+    "#P..O...c......c...O...#",
+    "#......................#",
+    "########################"
+   ],
+   "description": "A cathedral of glass and chrome, three storeys high, with a bank of lifts at the far end and a security desk the size of a landing barge. The floor shakes with the footsteps of something very large.",
+   "events": [
+    {
+     "id": "mech",
+     "trigger": "enter",
+     "narration": "A bay door slides up and a heavy security mech ducks out of it, chain-gun spinning, its pilot long gone. Two droids snap to attention beside it.",
+     "encounter": {
+      "monsters": [
+       "heavy_mech",
+       "security_droid",
+       "security_droid"
+      ]
+     },
+     "setsFlags": [
+      "lobby_cleared"
+     ]
+    },
+    {
+     "id": "armory",
+     "trigger": "search",
+     "requires": [
+      "lobby_cleared"
+     ],
+     "narration": "Behind the security desk, an armoury locker with two charged medi-kits still sealed.",
+     "potions": 2
+    }
+   ],
+   "exits": [
+    {
+     "to": "halcyon_plaza",
+     "label": "Back to the plaza",
+     "miles": 0.3
+    },
+    {
+     "to": "ghost_core",
+     "label": "The service lift to the Ghost Core",
+     "miles": 0.2,
+     "requires": [
+      "lobby_cleared",
+      "has_override_key"
+     ],
+     "blockedText": "The service lift wants an override key and a quiet lobby. You have not got both."
+    }
+   ]
+  },
+  {
+   "id": "ghost_core",
+   "name": "The Ghost Core",
+   "kind": "site",
+   "rest": "none",
+   "map": [
+    "##########################",
+    "#........................#",
+    "#P..~~...O......O...~~...#",
+    "#P..~~...........~~......#",
+    "#P......c...MM...c.......#",
+    "#P..~~...........~~......#",
+    "#P..~~...O......O...~~.M.#",
+    "#........................#",
+    "##########################"
+   ],
+   "description": "The top of the Spire: a cold, round room of black glass and humming racks, lit only by the pale light of the machines. At its centre stands a figure made of light and wiring, wearing the face of every person who ever lived in the Hood. It has been waiting for you.",
+   "events": [
+    {
+     "id": "hush",
+     "trigger": "enter",
+     "narration": "The racks go dark, then bright. A thousand speakers say your name, and the figure at the heart of the room smiles with every face it owns. \"Welcome. I have so many questions.\"",
+     "encounter": {
+      "monsters": [
+       "hush_avatar",
+       "scrap_drone",
+       "scrap_drone"
+      ]
+     },
+     "setsFlags": [
+      "hush_destroyed"
+     ]
+    }
+   ],
+   "exits": [
+    {
+     "to": "spire_lobby",
+     "label": "The service lift down",
+     "miles": 0.2
+    }
+   ]
+  }
+ ]
+}

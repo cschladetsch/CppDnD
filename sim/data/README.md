@@ -28,7 +28,7 @@ To keep your own modules out of the repo, copy this folder, edit the copy, and p
 
 Content is read-only. A running game is held in the server's memory and is gone when the server stops. A save is a separate JSON file (the whole state including the RNG stream): the web client's Save button downloads it, `GET /api/games/:id/save` returns it, and the terminal client writes `save.json` or the path given with `--save`. Load one with `--load <file>`, `POST /api/games/load`, or the start screen's file picker.
 
-Dice are written `2d6+3`. Ability scores are `[STR, DEX, CON, INT, WIS, CHA]`. Monster stats follow SRD 5.1 unless a comment says a creature is original.
+Dice are written `2d6+3`. Ability scores are `[STR, DEX, CON, INT, WIS, CHA]`. Monster stats follow SRD 5.1 unless a comment says a creature is original (`cult_adept`, and the CyberHood creatures `gutter_punk` to `hush_avatar`; creature tag `construct` is new and has its own persona in `agents.json`).
 
 ## Adding a monster, spell or character
 
@@ -57,7 +57,7 @@ A location has `id`, `name`, `kind` (`wilderness`, `settlement`, `boundary`, `si
 - **npcs:** `{id, name, type, description, topics: [{id, text, setsFlags}]}`; hearing a topic sets its flags. `type` classifies the NPC (`innkeeper`, `villain`, `merchant`, `priest`, `guard`, ... any word; default `commoner`) and is what `agents.json` uses to pick a model.
 - **map:** the tactical grid for fights at that location: `.` floor, `#` wall, `~` rough, `c` half cover, `O` three-quarters cover, `P` party start, `M` monster spawn.
 
-`ravenmoor.json` demonstrates every one of these.
+`ravenmoor.json` demonstrates every one of these. `cyberhood.json` is the larger example: 11 locations, five quests, three random tables, a draw (`override=canopy|undergrid`) that decides where the key is hidden, events gated by `!flag` so that the same scene plays differently with or without a stolen pass, and two routes into the corporate plaza. `tests/test_modules.cpp` checks every module: connected, no dead ends, every gating flag can be earned for every outcome of the draws, and the autopilot finishes.
 
 ## images.json
 

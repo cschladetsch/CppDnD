@@ -43,6 +43,10 @@ The HTTP routes are in [../docs/API.md](../docs/API.md#images).
 
 `POST /api/games/:id/viewpoint` (the main-screen button and the camera editor) draws what a camera sees into `art/views/<id>.png`; the newest 60 are kept. The prompt is `prefix, camera words, place, who is in view, suffix`: the camera words come from pitch and field of view (eye level, high or low angle, bird's eye, wide or telephoto lens), the place from the location's name and first sentence, and who is in view from projecting everyone in the scene through the camera (in the foreground, middle distance or distance, on the left, center or right). With an AUTOMATIC1111 server the live preview is sent as the `init_images` of `/sdapi/v1/img2img`, with the "Freedom" slider as the denoising strength (0.72 by default), so the composition follows the camera; an OpenAI-style server draws from the words alone. The picture size is 768x432. Style, model and negative prompt are the same as for the other pictures; `framing` and `prompts.json` do not apply to views.
 
+### Modules with another look
+
+The default style is gothic horror. For CyberHood (cyberpunk, 2040) put a replacement `prefix` in `art/style.json`, or per picture in `art/prompts.json` (for example `"locations/night_market": "neon cyberpunk night market, rain, holograms, cinematic"`), otherwise its locations are drawn in the gothic style.
+
 ### Gallery and git
 
 The web client's Gallery panel lists every picture in this folder (characters, monsters, NPCs, locations, modules and camera views), newest first, from `GET /api/art/list`; click one to see it full size. The pictures themselves are not tracked: `art/.gitignore` ignores `*.png`, `*.jpg`, `*.jpeg`, `*.webp`, `*.part` and `views/`, while `style.json`, `prompts.json` and this file stay.

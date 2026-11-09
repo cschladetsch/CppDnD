@@ -89,7 +89,7 @@ endif()
 include(GoogleTest)
 
 add_executable(dnd_tests
-    tests/main.cpp tests/test_core.cpp tests/test_game.cpp tests/test_llm.cpp tests/test_history.cpp tests/test_images.cpp tests/test_scene.cpp tests/test_camera.cpp tests/test_art.cpp)
+    tests/main.cpp tests/test_core.cpp tests/test_game.cpp tests/test_llm.cpp tests/test_history.cpp tests/test_images.cpp tests/test_scene.cpp tests/test_camera.cpp tests/test_art.cpp tests/test_modules.cpp)
 target_link_libraries(dnd_tests PRIVATE dnd_core GTest::gtest)
 if(MSVC)
     target_compile_options(dnd_tests PRIVATE /wd4389 /wd4018)
