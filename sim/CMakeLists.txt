@@ -73,9 +73,30 @@ target_link_libraries(dnd_server PRIVATE dnd_core)
 target_compile_definitions(dnd_server PRIVATE "DND_WEB_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/web\"" "DND_ART_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/art\"" "DND_HISTORY_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/history\"")
 
 enable_testing()
-add_executable(dnd_tests tests/tests.cpp)
-target_link_libraries(dnd_tests PRIVATE dnd_core)
-add_test(NAME dnd_tests COMMAND dnd_tests)
+
+# GoogleTest: an installed copy if there is one, otherwise fetched (needs network on the first configure).
+find_package(GTest QUIET)
+if(NOT GTest_FOUND)
+    include(FetchContent)
+    if(POLICY CMP0135)
+        cmake_policy(SET CMP0135 NEW)
+    endif()
+    set(INSTALL_GTEST OFF CACHE BOOL "" FORCE)
+    set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
+    FetchContent_Declare(googletest URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz)
+    FetchContent_MakeAvailable(googletest)
+endif()
+include(GoogleTest)
+
+add_executable(dnd_tests
+    tests/main.cpp tests/test_core.cpp tests/test_game.cpp tests/test_llm.cpp tests/test_history.cpp tests/test_images.cpp tests/test_scene.cpp tests/test_camera.cpp tests/test_art.cpp)
+target_link_libraries(dnd_tests PRIVATE dnd_core GTest::gtest)
+if(MSVC)
+    target_compile_options(dnd_tests PRIVATE /wd4389 /wd4018)
+else()
+    target_compile_options(dnd_tests PRIVATE -Wno-sign-compare)   # EXPECT_EQ(container.size(), 3)
+endif()
+gtest_discover_tests(dnd_tests DISCOVERY_MODE PRE_TEST)   # every TEST() is its own CTest entry
 
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_FOUND)

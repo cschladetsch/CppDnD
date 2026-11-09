@@ -1,2 +1,7 @@
+# Pictures are made on your machine (see README.md) and are not committed.
 *.part
+*.png
+*.jpg
+*.jpeg
+*.webp
 views/

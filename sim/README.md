@@ -24,7 +24,7 @@ The simulator: a rules engine, a terminal client, an HTTP server with a browser 
 | `dnd_core` | the engine library (everything except the two `main` files) |
 | `dnd_sim` | terminal client |
 | `dnd_server` | HTTP server; also serves `web/` at `/` |
-| `dnd_tests` | unit and integration tests; CTest also runs `tests/api_smoke.py` against a spawned server |
+| `dnd_tests` | GoogleTest unit and integration tests (one CTest entry per test); CTest also runs `tests/api_smoke.py` against a spawned server |
 
 ## Folders
 

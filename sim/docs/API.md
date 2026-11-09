@@ -128,6 +128,12 @@ Every game view carries `map`: `{start, current, nodes: [{id, name, kind, visite
 
 Ids are `kind/id` where kind is `characters`, `monsters`, `npcs`, `locations` or `modules`. A server that cannot be reached fails the first picture and drops the rest of the queue.
 
+### Stored pictures
+
+| Route | Response |
+|---|---|
+| `GET /api/art/list` | `{enabled, count, items: [{kind, id, url, bytes, mtime}]}`, newest first, over `characters`, `monsters`, `npcs`, `locations`, `modules` and `views` (png, jpg, jpeg, webp). `url` is under `/art/` |
+
 ## History
 
 Every game keeps a record of what was said and done, in two forms.

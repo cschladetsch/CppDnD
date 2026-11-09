@@ -1,4 +1,5 @@
 // dnd_server: HTTP/JSON backend for a web front end. See docs/API.md.
+#include <algorithm>
 #include <atomic>
 #include <chrono>
 #include <csignal>
@@ -6,6 +7,7 @@
 #include <map>
 #include <mutex>
 #include <random>
+#include <vector>
 
 #include <filesystem>
 
@@ -420,6 +422,26 @@ int main(int argc, char** argv) {
             out[kind] = m;
         }
         Reply(res, 200, out);
+    });
+    // Every stored picture, newest first (what the Gallery panel shows). "mtime" is an opaque sort key, not a date.
+    svr.Get("/api/art/list", [&](const httplib::Request&, httplib::Response& res) {
+        namespace fs = std::filesystem;
+        struct Row { std::string kind, id, file; std::uintmax_t bytes; long long mtime; };
+        std::vector<Row> rows;
+        std::error_code ec;
+        for (const char* kind : {"characters", "monsters", "npcs", "locations", "modules", "views"}) {
+            const fs::path d = fs::path(artDir) / kind;
+            if (artDir.empty() || !fs::is_directory(d, ec)) continue;
+            for (const auto& e : fs::directory_iterator(d, ec)) {
+                const std::string ext = e.path().extension().string();
+                if (!e.is_regular_file(ec) || !(ext == ".png" || ext == ".jpg" || ext == ".jpeg" || ext == ".webp")) continue;
+                rows.push_back({kind, e.path().stem().string(), e.path().filename().string(), e.file_size(ec), static_cast<long long>(e.last_write_time(ec).time_since_epoch().count())});
+            }
+        }
+        std::sort(rows.begin(), rows.end(), [](const Row& a, const Row& b) { return a.mtime != b.mtime ? a.mtime > b.mtime : a.kind + a.id < b.kind + b.id; });
+        Json items = Json::array();
+        for (const auto& r : rows) items.push_back(Json{{"kind", r.kind}, {"id", r.id}, {"url", "/art/" + r.kind + "/" + r.file + "?v=" + std::to_string(r.mtime % 100000000)}, {"bytes", r.bytes}, {"mtime", r.mtime}});
+        Reply(res, 200, {{"enabled", !artDir.empty()}, {"count", items.size()}, {"items", items}});
     });
     // ---- image generation: draws into the art folder, one picture at a time, in the background
     std::shared_ptr<ArtService> art;

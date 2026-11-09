@@ -176,7 +176,7 @@ sim/                                                        engine, clients, con
   src/           implementation, main.cpp (terminal), server_main.cpp (HTTP)
   web/           single-page browser client
   history/       written at run time: per-game x-y.json and group-history.json (git-ignored)
-  tests/         tests.cpp (unit and integration), api_smoke.py (HTTP end to end)
+  tests/         test_*.cpp (GoogleTest unit and integration), api_smoke.py (HTTP end to end)
   docs/          API.md, the HTTP reference
   third_party/   nlohmann/json, cpp-httplib (vendored, MIT)
 ```
