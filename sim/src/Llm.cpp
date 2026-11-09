@@ -368,6 +368,90 @@ CmdResult RunExplorationStep(Game& game, const Json& st) {
     return CmdResult{false, "unknown command '" + cmd + "'"};
 }
 
+namespace {
+std::string Low(std::string s) {
+    for (char& c : s) c = static_cast<char>(std::tolower(static_cast<unsigned char>(c)));
+    return s;
+}
+bool Has(const std::string& hay, const std::string& needle) { return !needle.empty() && hay.find(needle) != std::string::npos; }
+// Does the clause mention this name (whole, or any word of it longer than 3 letters)?
+bool Mentions(const std::string& clause, const std::string& name) {
+    const std::string n = Low(name);
+    if (Has(clause, n)) return true;
+    std::string w;
+    for (std::size_t i = 0; i <= n.size(); ++i) {
+        if (i < n.size() && std::isalnum(static_cast<unsigned char>(n[i]))) { w += n[i]; continue; }
+        if (w.size() > 3 && w != "the" && Has(clause, w)) return true;
+        w.clear();
+    }
+    return false;
+}
+}  // namespace
+
+SayResult SayOffline(Game& game, const std::string& text) {
+    SayResult out;
+    if (game.GetMode() != Mode::Exploring) {
+        out.message = game.GetMode() == Mode::Combat ? "A fight is on: use the combat buttons. Typed commands work while exploring." : "The tale is over.";
+        return out;
+    }
+    std::string t = Low(text);
+    for (const char* sep : {" and then ", " then ", " and ", ";", ","}) {
+        std::size_t p;
+        while ((p = t.find(sep)) != std::string::npos) t.replace(p, std::string(sep).size(), "|");
+    }
+    std::vector<std::string> clauses;
+    for (std::size_t s = 0, e; s <= t.size(); s = e + 1) {
+        e = t.find('|', s);
+        if (e == std::string::npos) e = t.size();
+        if (e > s) clauses.push_back(t.substr(s, e - s));
+    }
+    auto fail = [&](const std::string& why) { out.ok = false; out.message = why; return out; };
+    if (clauses.empty()) return fail("Say something like: go to the village, ask Marta about rumours, search, long rest, wait 3 hours.");
+    for (const auto& c : clauses) {
+        const LocationDef& here = *game.Module().FindLocation(game.LocationId());
+        CmdResult r{false, ""};
+        std::string did;
+        const bool wantTalk = Has(c, "ask") || Has(c, "talk") || Has(c, "speak") || Has(c, "chat");
+        const NpcDef* npc = nullptr;
+        for (const auto& n : here.npcs) if (Mentions(c, n.name) || Mentions(c, n.id)) npc = &n;
+        if (wantTalk || (npc && !Has(c, "go ") && !Has(c, "travel"))) {
+            if (!npc) return fail("Nobody here by that name. People here: " + [&] { std::string s; for (const auto& n : here.npcs) s += (s.empty() ? "" : ", ") + n.name; return s.empty() ? std::string("nobody") : s; }() + ".");
+            const TopicDef* pick = nullptr;
+            for (const auto& tp : npc->topics) if (Mentions(c, tp.id) || Mentions(c, tp.text.substr(0, 40))) pick = &tp;
+            if (pick) r = game.Talk(npc->id, pick->id);
+            else for (const auto& tp : npc->topics) { r = game.Talk(npc->id, tp.id); if (r.ok) break; }
+            did = "talk to " + npc->name;
+        } else if (Has(c, "search") || Has(c, "look") || Has(c, "explore") || Has(c, "investigate")) {
+            r = game.Search(); did = "search";
+        } else if (Has(c, "rest") || Has(c, "sleep") || Has(c, "camp")) {
+            const bool lng = Has(c, "long") || Has(c, "sleep") || Has(c, "night") || Has(c, "camp");
+            r = game.Rest(lng ? "long" : "short"); did = lng ? "long rest" : "short rest";
+        } else if (Has(c, "wait")) {
+            int h = 1;
+            for (std::size_t i = 0; i < c.size(); ++i) if (std::isdigit(static_cast<unsigned char>(c[i]))) { h = std::atoi(c.c_str() + i); break; }
+            r = game.Wait(std::clamp(h, 1, 24)); did = "wait " + std::to_string(std::clamp(h, 1, 24)) + " hour(s)";
+        } else {
+            const ExitDef* dest = nullptr;
+            for (const auto& x : here.exits) {
+                const LocationDef* l = game.Module().FindLocation(x.to);
+                if (Mentions(c, x.label) || Mentions(c, x.to) || (l && Mentions(c, l->name))) dest = &x;
+            }
+            if (!dest) {
+                std::string s;
+                for (const auto& x : here.exits) s += (s.empty() ? "" : ", ") + (x.label.empty() ? x.to : x.label);
+                return fail("I did not understand \"" + c + "\". From here you can go to: " + (s.empty() ? "nowhere" : s) + ". Or search, ask someone, rest, wait.");
+            }
+            r = game.Travel(dest->to); did = "travel to " + dest->to;
+        }
+        if (!r.ok) { out.message = r.message.empty() ? "That did not work: " + did : r.message; return out; }
+        out.steps.push_back(did);
+        out.message = r.message;
+        if (game.GetMode() != Mode::Exploring) break;
+    }
+    out.ok = true;
+    return out;
+}
+
 SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
     SayResult out;
     if (Trim(text).empty()) { out.message = "Say something first."; return out; }

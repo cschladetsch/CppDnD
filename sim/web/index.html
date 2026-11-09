@@ -197,8 +197,8 @@ installTiles();
 let llmOn = false, agentsOn = false;
 function sayBox() {
   const input = el("input", { id: "sayText", type: "text", autocomplete: "off", style: "flex:1;min-width:0",
-    placeholder: llmOn ? "Say or do something, in English (e.g. go to the village and ask Marta about rumours)" : "English prompt is off: start the server with --ollama MODEL" , disabled: !llmOn });
-  const btn = el("button", { className: "primary", textContent: "Send", disabled: !llmOn });
+    placeholder: llmOn ? "Say or do something, in English (e.g. go to the village and ask Marta about rumours)" : "Type a command: go to the village, ask Marta, search, long rest, wait 3 hours (start with --ollama MODEL for free-form English)" });
+  const btn = el("button", { className: "primary", textContent: "Send" });
   const form = el("form", { className: "panel row", id: "say", style: "flex-wrap:nowrap;align-items:center" }, input, btn);
   form.onsubmit = async e => {
     e.preventDefault();

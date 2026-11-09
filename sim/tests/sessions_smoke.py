@@ -57,6 +57,7 @@ try:
     assert st == 201 and c["name"] == "The Dread of Ravenmoor #2", c
     assert len(files()) == 3, files()
 
+    time.sleep(1.1)  # timestamps have one-second resolution
     # play one of them, rename another
     for _ in range(6):
         st, r = call("POST", f"/api/games/{a['id']}/auto", {"steps": 2})

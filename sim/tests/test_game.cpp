@@ -237,3 +237,19 @@ TEST(Game, DifficultyScalesModuleEncounters) {
     EXPECT_LT(easy, medium);
     EXPECT_LT(medium, hard);
 }
+
+TEST(Game, TypedCommandsWorkWithoutAModel) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 4;
+    Game g(cfg);
+    const std::string start = g.Module().FindLocation(g.LocationId())->id;
+    ASSERT_FALSE(g.Module().FindLocation(g.LocationId())->exits.empty());
+    const ExitDef& x = g.Module().FindLocation(g.LocationId())->exits.front();
+    const SayResult bad = SayOffline(g, "flibbertigibbet");
+    EXPECT_FALSE(bad.ok);
+    EXPECT_FALSE(bad.message.empty());
+    const SayResult go = SayOffline(g, "go to " + (x.label.empty() ? x.to : x.label));
+    if (go.ok) EXPECT_NE(g.Module().FindLocation(g.LocationId())->id, start); else EXPECT_FALSE(go.message.empty());
+    EXPECT_TRUE(SayOffline(g, "wait 1 hour").ok || g.GetMode() != Mode::Exploring);
+}

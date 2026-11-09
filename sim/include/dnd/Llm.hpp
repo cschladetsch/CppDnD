@@ -131,6 +131,10 @@ struct SayResult {
 };
 SayResult Say(ILlmClient& client, Game& game, const std::string& text);
 
+// The same box with no model: a small rule-based reader for exploration commands ("go to the village and
+// ask Marta about rumours", "search", "long rest", "wait 3 hours"). Fights are played with the buttons.
+SayResult SayOffline(Game& game, const std::string& text);
+
 // The exploration state as JSON (exits, people, topics, party, fight if any), as given to models.
 Json ObserveWorld(const Game& game);
 // Runs one exploration step {"cmd":"travel","to":..} | search | talk | rest | wait | pace.

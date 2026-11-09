@@ -414,10 +414,10 @@ int main(int argc, char** argv) {
 
     // Plain English: the model turns the text into commands or actions, the engine validates each one.
     svr.Post("/api/games/:id/say", guarded([&](const httplib::Request& req, httplib::Response& res) {
-        if (!S.llm) throw HttpError{400, "no model configured (start the server with --ollama MODEL, or set DND_LLM_URL / DND_LLM_MODEL)"};
         auto slot = find(req);
         std::lock_guard<std::mutex> lk(slot->m);
-        const SayResult r = Say(*S.llm, *slot->game, Body(req).value("text", ""));
+        const std::string text = Body(req).value("text", "");
+        const SayResult r = S.llm ? Say(*S.llm, *slot->game, text) : SayOffline(*slot->game, text);  // no model: the rule-based reader
         Reply(res, 200, {{"ok", r.ok}, {"message", r.message}, {"steps", r.steps}, {"view", slot->game->View(sinceOf(req))}});
     }));
 
