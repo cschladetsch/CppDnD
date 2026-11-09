@@ -7,7 +7,7 @@
 #                                      (with DND_LLM_URL set and no -Model, the server there is used and Ollama is left alone)
 #   .\web.ps1 -NoArt                   no Stable Diffusion (no generated pictures)
 #   .\web.ps1 -Rebuild -NoBrowser
-#   .\web.ps1 --data C:\my\content     unrecognised options go to dnd_server
+#   .\web.ps1 --data .\my-content      unrecognised options go to dnd_server
 # What it checks, in order, and what it does about each:
 #   cmake, ninja, clang++      missing: offers to install with winget
 #   Ollama                     missing: offers to install; installed but not running: starts it
@@ -67,9 +67,9 @@ if ($Port -lt 1 -or $Port -gt 65535) { Fail "invalid port $Port" }
 # ---- 1. build tools
 Head 'Build tools'
 $tools = @(
-    @{ Name = 'cmake';   Id = 'Kitware.CMake';     Dir = 'C:\Program Files\CMake\bin' },
+    @{ Name = 'cmake';   Id = 'Kitware.CMake';     Dir = (Join-Path $env:ProgramFiles 'CMake\bin') },
     @{ Name = 'ninja';   Id = 'Ninja-build.Ninja'; Dir = '' },
-    @{ Name = 'clang++'; Id = 'LLVM.LLVM';         Dir = 'C:\Program Files\LLVM\bin' }
+    @{ Name = 'clang++'; Id = 'LLVM.LLVM';         Dir = (Join-Path $env:ProgramFiles 'LLVM\bin') }
 )
 foreach ($t in $tools) {
     if (-not (Have $t.Name)) { Add-PathIfThere $t.Dir }
