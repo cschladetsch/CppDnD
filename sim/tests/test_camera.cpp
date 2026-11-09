@@ -5,6 +5,7 @@
 #include <cmath>
 #include <set>
 #include <limits>
+#include <numbers>
 #include <regex>
 #include <string>
 #include <vector>
@@ -132,7 +133,7 @@ TEST_P(Projection, TheRightHandSideIsOnTheRight) {
     const Camera cam = At(10, 10, f.yaw, 0, 70, 1);
     double sx = 0, sy = 0, depth = 0;
     ASSERT_TRUE(Project(cam, kAspect, 10 + 5 * f.ax + f.rx, 10 + 5 * f.ay + f.ry, 1, sx, sy, depth));
-    EXPECT_NEAR(sx, 1.0 / (5.0 * std::tan(35.0 * M_PI / 180.0) * kAspect), 1e-9);
+    EXPECT_NEAR(sx, 1.0 / (5.0 * std::tan(35.0 * std::numbers::pi / 180.0) * kAspect), 1e-9);
     ASSERT_TRUE(Project(cam, kAspect, 10 + 5 * f.ax - f.rx, 10 + 5 * f.ay - f.ry, 1, sx, sy, depth));
     EXPECT_LT(sx, 0);
 }
