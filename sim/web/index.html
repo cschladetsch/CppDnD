@@ -30,6 +30,10 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .bar { height:6px; background:#0e0c14; border-radius:3px; overflow:hidden; } .bar > i { display:block; height:100%; background:var(--ok); }
 .member { padding:6px 0; border-top:1px solid var(--edge); } .member:first-of-type { border-top:0; }
 .member.dead { opacity:.45; text-decoration:line-through; }
+.member.you { border-left:3px solid var(--accent); padding-left:8px; }
+.focus { display:flex; gap:8px; align-items:center; margin:2px 0 8px; } .focus select { flex:1; }
+.hist { max-height:260px; overflow:auto; font-size:13px; margin-top:6px; }
+.hist div { padding:2px 0; } .hist .meta { color:var(--dim); font-size:11px; } .hist .from { color:var(--accent); }
 #grid { display:grid; gap:1px; background:#0c0a12; width:max-content; max-width:100%; overflow:auto; border:1px solid var(--edge); }
 .cell { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font:700 13px ui-monospace, monospace; background:#262235 var(--tile-floor) center/100% 100%; user-select:none; position:relative; }
 .cell.wall { background:#08070c var(--tile-wall) center/100% 100%; } .cell.rough { background:#322c3f var(--tile-rough) center/100% 100%; } .cell.half, .cell.three { background:#3a3326 var(--tile-cover) center/100% 100%; }
@@ -106,7 +110,7 @@ function startGame(id, v) {
   gid = id; lastSeq = 0;
   $("#app").replaceChildren(el("main", {},
     el("div", {}, el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" }), sayBox()),
-    el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }))));
+    el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }), historyPanel())));
   $("#saveBtn").hidden = $("#newBtn").hidden = false;
   loadArt().then(() => { if (view) { renderScene(); renderParty(); renderCombat(); } });
   apply(v);
@@ -202,7 +206,7 @@ function logEvents(events) {
 function apply(v) {
   view = v; logEvents(v.events || []);
   $("#sub").textContent = `${v.module.name}  |  day ${v.clock.day}, ${String(v.clock.clockHour).padStart(2, "0")}:00${v.clock.night ? " (night)" : ""}  |  ${v.mode}`;
-  renderMap(); renderScene(); renderParty(); renderQuests(); renderCombat(); refreshTable();
+  renderMap(); renderScene(); renderParty(); renderQuests(); renderCombat(); refreshTable(); refreshHistory();
   if (v.mode === "combat" && v.combat && !v.combat.finished && v.combat.awaiting < 0 && !busy) setTimeout(advance, 120);
 }
 async function advance() {
@@ -329,11 +333,16 @@ function renderScene() {
 }
 function renderParty() {
   const box = $("#party"); box.replaceChildren(el("h2", { textContent: "Party" }));
+  const mine = view.role === "player";
+  const focus = el("select", { id: "focus", title: "Which party member you control", onchange: e => e.target.value && setHero(e.target.value) },
+    ...(mine ? [] : [el("option", { value: "", textContent: view.role === "dm" ? "(you are the DM)" : "(spectating)", selected: true })]),
+    ...view.party.map(m => el("option", { value: m.id, textContent: `${m.name} (${m.class} ${m.level})${m.dead ? " - dead" : ""}`, disabled: m.dead, selected: mine && m.name === view.hero })));
+  box.append(el("div", { className: "focus" }, el("span", { className: "dim small", textContent: "You control:" }), focus));
   for (const m of view.party) {
     const pct = Math.max(0, Math.round(100 * m.hp / m.maxHp));
     const slots = m.slots.map((n, i) => (m.slotsMax[i] ? `L${i}:${n}/${m.slotsMax[i]}` : "")).filter(Boolean).join(" ");
     const tok = picOrToken("characters", m.id, { team: "party", classId: m.class, hp: m.hp, maxHp: m.maxHp, effects: [] }, "portrait");
-    box.append(el("div", { className: "member" + (m.dead ? " dead" : "") },
+    box.append(el("div", { className: "member" + (m.dead ? " dead" : "") + (mine && m.name === view.hero ? " you" : ""), title: mine && m.name === view.hero ? "you control this character" : "" },
       el("div", { className: "who" }, tok.nodeType === 1 && tok.tagName.toLowerCase() === "svg" ? (tok.style.width = "34px", tok.style.height = "34px", tok) : tok, el("span", {}, el("b", { textContent: m.name }), el("span", { className: "dim small", textContent: `  ${m.class} ${m.level}  AC ${m.ac}  HP ${m.hp}/${m.maxHp}` }))),
       el("div", { className: "bar" }, el("i", { style: `width:${pct}%` })),
       el("div", { className: "dim small", textContent: `XP ${m.xp}${m.nextLevelXp ? "/" + m.nextLevelXp : ""}  potions ${m.potions}  dice ${m.hitDice}${m.exhaustion ? "  exhaustion " + m.exhaustion : ""}${slots ? "  " + slots : ""}` })));
@@ -405,6 +414,45 @@ async function doAction(a) {
   const { data } = await api("POST", `/api/games/${gid}/action?since=${lastSeq}`, a); busy = false;
   if (data.ok === false) toast(data.reason || "refused");
   if (data.view) apply(data.view); else if (data.error) toast(data.error);
+}
+async function setHero(id) {
+  const { status, data } = await api("POST", `/api/games/${gid}/hero?since=${lastSeq}`, { hero: id });
+  if (status === 200 && data.view) apply(data.view); else { toast(data.error || "cannot switch"); renderParty(); }
+}
+
+// ---------------------------------------------------------------- history: group chat, and each actor's private record of another
+let histOpen = false, histPick = { owner: "", with: "" }, histBusy = false;
+async function refreshHistory() {
+  const box = $("#history"); if (!box || !histOpen || histBusy) return;
+  histBusy = true;
+  const idx = (await api("GET", `/api/games/${gid}/history`)).data || {};
+  const owners = [...new Set((idx.pairs || []).map(p => p.owner))].sort();
+  if (histPick.owner && !owners.includes(histPick.owner)) histPick = { owner: "", with: "" };
+  const partners = (idx.pairs || []).filter(p => p.owner === histPick.owner).map(p => p.with).sort();
+  if (histPick.owner && !partners.includes(histPick.with)) histPick.with = partners[0] || "";
+  let rows = [];
+  if (!histPick.owner) rows = ((await api("GET", `/api/games/${gid}/history/group?limit=80`)).data.entries || []).map(e => ({ who: e.speaker, kind: e.kind, text: e.text, e }));
+  else rows = ((await api("GET", `/api/games/${gid}/history/${encodeURIComponent(histPick.owner)}/${encodeURIComponent(histPick.with)}?limit=80`)).data.entries || []).map(e => ({ who: e.speaker, kind: e.kind, text: e.text, dir: e.dir, e }));
+  histBusy = false;
+  const pick = (owner, withWho) => { histPick = { owner, with: withWho }; refreshHistory(); };
+  const ownerSel = el("select", { onchange: ev => pick(ev.target.value, "") },
+    el("option", { value: "", textContent: "Group chat (everyone)", selected: !histPick.owner }), ...owners.map(o => el("option", { value: o, textContent: `${o}'s private record`, selected: o === histPick.owner })));
+  const kids = [el("div", { className: "row" }, ownerSel)];
+  if (histPick.owner) kids[0].append(el("span", { className: "dim small", textContent: "with" }),
+    el("select", { onchange: ev => pick(histPick.owner, ev.target.value) }, ...partners.map(w => el("option", { value: w, textContent: w, selected: w === histPick.with }))));
+  const list = el("div", { className: "hist" });
+  for (const r of rows) {
+    const mine = r.dir === "to", theirs = r.dir === "from";
+    list.append(el("div", {}, el("span", { className: "meta", textContent: `d${r.e.day} ${String(r.e.hour).padStart(2, "0")}:00 ${r.kind} ` }),
+      el("span", { className: theirs ? "from" : "", textContent: (mine ? "\u2192 " : theirs ? "\u2190 " : "") + r.who + ": " }), el("span", { textContent: r.text })));
+  }
+  if (!rows.length) list.append(el("div", { className: "dim", textContent: "Nothing yet." }));
+  box.replaceChildren(el("div", {}, ...kids, list)); list.scrollTop = list.scrollHeight;
+}
+function historyPanel() {
+  const d = el("details", { className: "panel", style: "margin-top:12px", ontoggle: e => { histOpen = e.target.open; refreshHistory(); } },
+    el("summary", { textContent: "History" }), el("div", { id: "history" }));
+  return d;
 }
 async function swapRole(r) {
   const { data } = await api("POST", `/api/games/${gid}/role?since=${lastSeq}`, { role: r });

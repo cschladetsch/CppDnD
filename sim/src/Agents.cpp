@@ -32,6 +32,7 @@ void Overlay(AgentDef& d, const Json& j) {
 Json Schema(const std::string& task) {
     if (task == "choose_party_move")
         return Json{{"say", "optional: one short in-character line to the party (max 25 words)"},
+                    {"tell", "optional: private lines to individual companions, [{\"to\": \"companion name\", \"text\": \"...\"}] (max 2)"},
                     {"propose", Json{{"cmd", "travel|search|talk|rest|wait|pace"}, {"to", "exit id (travel)"}, {"npc", "npc id (talk)"}, {"topic", "topic id (talk)"},
                                      {"kind", "short|long (rest)"}, {"hours", "number (wait)"}}},
                     {"note", "propose exactly one move for the whole party; prefer unvisited places and unheard topics; use only ids from the observation"}};
@@ -39,6 +40,7 @@ Json Schema(const std::string& task) {
         return Json{{"say", "what you say aloud, in character, 1 to 3 sentences (max 60 words)"},
                     {"note", "convey the facts and nothing more; do not reveal anything not in facts; do not describe other people's actions"}};
     return Json{{"say", "optional: one short in-character line (max 25 words)"},
+                {"tell", "optional: private lines to individual companions, [{\"to\": \"companion name\", \"text\": \"...\"}] (max 2)"},
                 {"actions", Json::array({Json{{"type", "move"}, {"dest", "[x,y]"}}, Json{{"type", "attack"}, {"target", "creature id"}, {"attack", "attack index"}},
                                          Json{{"type", "cast"}, {"spell", "spell id"}, {"target", "creature id"}, {"slot", "level"}}, Json{{"type", "dash"}},
                                          Json{{"type", "dodge"}}, Json{{"type", "potion"}, {"target", "creature id"}}, Json{{"type", "feature"}, {"feature", "id"}},
@@ -215,7 +217,9 @@ LlmConfig AgentsConfig::ToLlmConfig(const AgentDef& d) const {
 
 void AgentHub::Post(std::string from, std::string to, std::string kind, Json body) {
     log_.push_back(AgentMessage{++seq_, std::move(from), std::move(to), std::move(kind), std::move(body)});
+    const AgentMessage posted = log_.back();
     if (log_.size() > 2000) log_.erase(log_.begin(), log_.begin() + 500);
+    if (observer_) observer_(posted);
 }
 
 Json AgentHub::Inbox(const std::string& agent, int& cursor) const {
@@ -277,6 +281,10 @@ std::optional<Json> Agent::Ask(const std::string& task, const Json& observation,
     msg["role"] = role_;
     msg["table"] = hub_->Inbox(name_, cursor_);
     if (!memory_.empty()) msg["your_recent_decisions"] = memory_;
+    if (history_) {
+        Json h = history_(name_);
+        if (h.is_object() && !h.empty()) msg["history"] = h;
+    }
     msg["observation"] = observation;
     msg["reply_schema"] = Schema(task);
     const LlmReply r = client_->Chat(System(), msg.dump(), true);
@@ -299,6 +307,18 @@ std::optional<Json> Agent::Ask(const std::string& task, const Json& observation,
         if (!text.empty()) {
             hub_->Post(name_, "all", "say", Json{{"text", text}});
             if (say_) say_(name_, text);
+        }
+    }
+    if (j.contains("tell")) {
+        Json tells = j["tell"].is_array() ? j["tell"] : Json::array({j["tell"]});
+        int n = 0;
+        for (const auto& t : tells) {
+            if (++n > 2) break;
+            if (!t.is_object() || !t.contains("to") || !t["to"].is_string() || !t.contains("text") || !t["text"].is_string()) continue;
+            std::string to = t["to"].get<std::string>(), text = t["text"].get<std::string>();
+            if (text.size() > 300) text.resize(300);
+            std::replace(text.begin(), text.end(), '\n', ' ');
+            if (!text.empty() && !to.empty() && to != name_) hub_->Post(name_, to, "tell", Json{{"text", text}});
         }
     }
     return j;
@@ -399,7 +419,9 @@ std::shared_ptr<Agent> AgentTable::Make(const std::string& name, const std::stri
         problems_.push_back(Cat(name, ": model '", def.model, "' is not in the model store (", LocateModel(def.model).path, "); using the built-in AI"));
         return nullptr;
     }
-    return std::make_shared<Agent>(name, role, def, MakeClient(name, def), hub_, role == "npc" ? nullptr : say_);
+    auto a = std::make_shared<Agent>(name, role, def, MakeClient(name, def), hub_, role == "npc" ? nullptr : say_);
+    a->SetHistory(history_);
+    return a;
 }
 
 std::shared_ptr<Agent> AgentTable::Dm() {
@@ -561,8 +583,18 @@ private:
 void AgentTable::Attach(const std::shared_ptr<AgentTable>& t, Game& g) {
     t->say_ = [&g](const std::string& who, const std::string& text) { g.Say(who, text); };
     // Agents created before Attach (or by tests) pick up the same speaker.
-    for (auto& [k, a] : t->players_) if (a) a->SetSay(t->say_);
-    if (t->dm_) t->dm_->SetSay(t->say_);
+    t->history_ = [&g](const std::string& who) { return g.Hist().Recent(who); };
+    for (auto& [k, a] : t->players_) if (a) { a->SetSay(t->say_); a->SetHistory(t->history_); }
+    if (t->dm_) { t->dm_->SetSay(t->say_); t->dm_->SetHistory(t->history_); }
+    // The game keeps the histories: announcements and proposals go to the group's, private lines to the pair's.
+    t->hub_->SetObserver([&g](const AgentMessage& m) {
+        if (m.kind == "narrate") g.Hist().Group(m.from, "narrate", m.body.value("text", ""), g.Now());
+        else if (m.kind == "proposal") g.Hist().Group(m.from, "proposal", m.body.dump(), g.Now());
+        else if (m.kind == "tell") {
+            for (const auto& pm : g.Party())
+                if (Lower(pm.sheet.name) == Lower(m.to)) { g.Say(m.from, m.body.value("text", ""), pm.sheet.name); break; }
+        }
+    });
     for (const auto& pm : g.Party()) t->Player(pm.charId, pm.sheet.name);  // create them all now, so they are visible
 
     if (auto dm = t->Dm()) {

@@ -27,6 +27,7 @@ Json PartyJson(const PartyMember& pm) {
 }  // namespace
 
 Json Game::View(int sinceSeq) const {
+    FlushHistory();
     Json v;
     v["mode"] = std::string(ToString(mode_));
     v["role"] = std::string(ToString(cfg_.role));
@@ -122,6 +123,7 @@ Json Game::Save() const {
     for (const auto& pm : party_) party.push_back(Json{{"charId", pm.charId}, {"sheet", ToJson(pm.sheet)}, {"xp", pm.xp}, {"dead", pm.dead}});
     j["party"] = party;
     j["hero"] = hero_;
+    j["history"] = history_.Dump();
     j["rng"] = rng_.State();
     j["seq"] = seq_;
     Json log = Json::array();
@@ -179,6 +181,7 @@ std::unique_ptr<Game> Game::Load(const Json& j) {
         g->party_.push_back(std::move(pm));
     }
     g->hero_ = j.value("hero", "");
+    if (j.contains("history")) g->history_ = History::Restore(j.at("history"));
     if (!g->rng_.SetState(j.value("rng", ""))) throw std::runtime_error("save file has a corrupt RNG state");
     g->seq_ = j.value("seq", 0);
     if (j.contains("log"))

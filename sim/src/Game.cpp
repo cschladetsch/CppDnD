@@ -97,6 +97,7 @@ void Game::OnBusEvent(const Event& in) {
             default: break;
         }
     }
+    if (!loading_) RecordEvent(e);
     log_.push_back(e);
     if (log_.size() > 4000) log_.erase(log_.begin(), log_.begin() + 1000);
     if (listener_) listener_(e);
@@ -121,8 +122,54 @@ void Game::SetPartyFactory(PartyFactory f) {
     AssignControllers();
 }
 
-void Game::Say(const std::string& who, const std::string& text) {
+void Game::Say(const std::string& who, const std::string& text, const std::string& to) {
+    if (!to.empty()) {
+        history_.Between(who, to, "tell", text, Now());
+        return;
+    }
     Emit(EventType::Narration, Cat(who, ": \"", text, "\""));
+    history_.Group(who, "say", text, Now());
+}
+
+bool Game::SetHero(const std::string& who, std::string& err) {
+    const std::string want = Lower(who);
+    const PartyMember* found = nullptr;
+    for (const auto& pm : party_)
+        if (Lower(pm.charId) == want || Lower(pm.sheet.name) == want) found = &pm;
+    if (!found) { err = "nobody in the party is called '" + who + "'"; return false; }
+    if (found->dead) { err = found->sheet.name + " is dead"; return false; }
+    const bool changed = hero_ != found->sheet.name || cfg_.role != Role::Player;
+    hero_ = found->sheet.name;
+    cfg_.role = Role::Player;
+    AssignControllers();
+    if (changed) Emit(EventType::Info, Cat("[you now control ", hero_, "]"));
+    return true;
+}
+
+std::string Game::ActorName(int id) const {
+    if (!combat_ || id < 0) return "";
+    for (const auto& a : combat_->Actors())
+        if (a->id == id) return a->Name();
+    return "";
+}
+
+// Mirrors rule events into the histories: who did what to whom (pair files), and what the whole table was told.
+void Game::RecordEvent(const Event& e) {
+    switch (e.type) {
+        case EventType::Attack: case EventType::Spell: case EventType::Heal: {
+            const char* kind = e.type == EventType::Attack ? "attack" : e.type == EventType::Spell ? "spell" : "heal";
+            history_.Between(ActorName(e.actor), ActorName(e.target), kind, e.text, Now());
+            break;
+        }
+        case EventType::Down: case EventType::Death:  // the event's actor is the victim and its target the one who did it
+            history_.Between(ActorName(e.target), ActorName(e.actor), e.type == EventType::Down ? "down" : "death", e.text, Now());
+            break;
+        case EventType::Scene: history_.Group("DM", "scene", e.text, Now()); break;
+        case EventType::Travel: history_.Group("DM", "travel", e.text, Now()); break;
+        case EventType::Quest: history_.Group("DM", "quest", e.text, Now()); break;
+        case EventType::CombatStart: case EventType::CombatEnd: history_.Group("DM", "combat", e.text, Now()); break;
+        default: break;
+    }
 }
 
 void Game::SetRole(Role r, const std::string& hero) {
@@ -418,6 +465,8 @@ CmdResult Game::Talk(const std::string& npcId, const std::string& topicId) {
     if (npcVoice_) {
         try { spoken = npcVoice_(*npc, *topic); } catch (...) { spoken.clear(); }
     }
+    history_.Between(hero_, npc->name, "ask", Cat("asks about ", topic->id), Now());
+    history_.Between(npc->name, hero_, "reply", spoken.empty() ? topic->text : spoken, Now());
     Emit(EventType::Narration, Cat(npc->name, ": ", spoken.empty() ? topic->text : spoken));
     const std::string key = "topic:" + npc->id + "/" + topic->id;
     if (fired_.insert(key).second) {

@@ -72,7 +72,10 @@ struct AgentMessage {
 // The table everybody talks across. Agents never see each other's prompts, only what is posted here.
 class AgentHub {
 public:
+    using Observer = std::function<void(const AgentMessage&)>;
     void Post(std::string from, std::string to, std::string kind, Json body);
+    // Called for every message as it is posted (the game uses this to keep its histories).
+    void SetObserver(Observer o) { observer_ = std::move(o); }
     // Unread messages for `agent` (not its own), advancing `cursor`. At most the last 12.
     Json Inbox(const std::string& agent, int& cursor) const;
     Json LogJson(int sinceSeq = 0) const;
@@ -81,6 +84,7 @@ public:
 private:
     std::vector<AgentMessage> log_;
     int seq_ = 0;
+    Observer observer_;
 };
 
 // ---------------------------------------------------------------- agent
@@ -105,6 +109,9 @@ public:
     int Calls() const { return calls_; }
     int Failures() const { return failures_; }
     void SetSay(SayFn s) { say_ = std::move(s); }
+    // What this agent remembers of past conversations: called as history(name) before each ask, sent as "history".
+    using HistoryFn = std::function<Json(const std::string& who)>;
+    void SetHistory(HistoryFn f) { history_ = std::move(f); }
     // Switches the model (and client) this agent uses; memory and what it has heard are kept.
     void Rebind(AgentDef def, std::shared_ptr<ILlmClient> client) { def_ = std::move(def); client_ = std::move(client); streak_ = skip_ = 0; }
 
@@ -115,6 +122,7 @@ private:
     std::shared_ptr<ILlmClient> client_;
     std::shared_ptr<AgentHub> hub_;
     SayFn say_;
+    HistoryFn history_;
     int cursor_ = 0, calls_ = 0, failures_ = 0, streak_ = 0, skip_ = 0;
     std::vector<Json> memory_;
 };
@@ -177,6 +185,7 @@ private:
     ClientFactory factory_;
     std::shared_ptr<AgentHub> hub_;
     Agent::SayFn say_;
+    Agent::HistoryFn history_;
     std::shared_ptr<Agent> dm_;
     bool dmMade_ = false;
     std::map<std::string, std::shared_ptr<Agent>> players_;

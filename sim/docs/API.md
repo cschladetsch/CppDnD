@@ -64,7 +64,8 @@ Time rules: travel hours come from `miles` and pace (2, 3 or 4 mph) or the exit'
 |---|---|---|
 | `POST /api/games/:id/advance` | | run until a human must act or the fight ends |
 | `POST /api/games/:id/action` | an action | answer the awaited actor, then run on |
-| `POST /api/games/:id/role` | `{"role": "dm", "hero": "elara"}` | change who plays what, at any time |
+| `POST /api/games/:id/hero` | `{"hero": "elara"}` (character id or name) | change which party member you control, at any time, even mid-turn; makes you a player if you were the DM or a spectator. 422 for an unknown or dead character. Returns `{view}`; `view.hero` is the name you control |
+| `POST /api/games/:id/role` | `{"role": "dm", "hero": "elara"}` | change who plays what, at any time (`/hero` changes only the character) |
 
 Actions:
 
@@ -109,6 +110,23 @@ Using Ollama: `ollama pull llama3.1`, then `.\web.ps1 -Model llama3.1`. This set
 ## World map
 
 Every game view carries `map`: `{start, current, nodes: [{id, name, kind, visited, current}], edges: [{from, to, miles, hours, open}]}`. Nodes are the places the party has been plus the places their exits lead to, so it never reveals more than the next step. `open` is false while an exit's requirements are unmet. Layout is up to the client; the bundled one lays it out in columns by distance from `start`.
+
+## History
+
+Every game keeps a record of what was said and done, in two forms.
+
+- **Pair history**, one private list per ordered pair, written from the owner's point of view. When x speaks to or acts on y, x's list about y holds it as `dir: "to"` and y's list about x holds it as `dir: "from"`. Nobody else's list sees it. Kinds: `ask`, `reply` (you and an NPC), `tell` (a private line between party members), `attack`, `spell`, `heal`, `down`, `death` (who did it to whom in a fight).
+- **Group history**: what the whole table was told or said: `say`, `narrate`, `proposal` (the party's moves), `scene`, `travel`, `quest`, `combat`.
+
+| Route | Returns |
+|---|---|
+| `GET /api/games/:id/history` | `{group, groupFile, dir, pairs: [{owner, with, count, file}]}` |
+| `GET /api/games/:id/history/group?since=SEQ&limit=N` | `{entries: [{seq, day, hour, speaker, kind, text}]}` |
+| `GET /api/games/:id/history/:x/:y?since=SEQ&limit=N` | `{owner, with, perspective, entries: [{seq, day, hour, speaker, dir, kind, text}]}`, x's private record of y (names match without regard to case; use the full name, `Marta%20Hollin`) |
+
+The server also writes these as files, one per ordered pair and one for the group, in `<history dir>/<game id>/`: `thorin-marta_hollin.json` (Thorin's side), `marta_hollin-thorin.json` (Marta's side) and `group-history.json`. The folder defaults to `sim/history/` (`--history DIR` or `DND_HISTORY`; `--history ""` turns files off). History is also part of the save file, so a loaded game keeps it. Each list keeps its newest 2000 entries.
+
+With agents on, an agent is shown a digest of its own history in every prompt (`history: {group: [...], with: {<name>: [...]}}`), and its reply may include `"tell": [{"to": "Elara", "text": "..."}]` for private lines to a companion. Those go to the pair histories and are not shown in the public log.
 
 ## Agents (every actor its own model)
 

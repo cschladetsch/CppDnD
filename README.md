@@ -56,7 +56,7 @@ Offline or already have the model store checked out: add `-DDND_MODELSTORE_DIR=<
 .\run.ps1 --module ravenmoor --role player --hero elara --llm-say # plain English at the prompt
 ```
 
-Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `rest short|long`, `wait <hours>`, `pace slow|normal|fast`, `party`, `quests`, `auto [n]`, `save <file>`, `quit`. In a fight, `help` lists the turn commands (`m`, `a`, `c`, `f rage|second_wind`, `p`, `dash`, `dodge`, `e`, `swap player|dm|auto`). Resume with `--load <file>`.
+Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `rest short|long`, `wait <hours>`, `pace slow|normal|fast`, `party`, `hero [name]`, `quests`, `auto [n]`, `save <file>`, `quit`. In a fight, `help` lists the turn commands (`m`, `a`, `c`, `f rage|second_wind`, `p`, `dash`, `dodge`, `e`, `swap player|dm|auto`). Resume with `--load <file>`.
 
 ## Web server and client
 
@@ -108,6 +108,12 @@ Reasoning models are supported: `reasoning_content` and `<think>` blocks are str
 
 `sim/data/agents.json` says which model plays the DM, each creature type, each character and each NPC type, and what personality each has. In the web client the AI table panel lists them and lets you switch one mid-game; over HTTP it is `POST /api/games/:id/agents/model`. The CppLmmModelStore resolves and checks model names (`requireStore`, `GET /api/models`); the backend (Ollama, llama.cpp, vLLM) serves them. Details in [sim/data/README.md](sim/data/README.md) and [sim/docs/API.md](sim/docs/API.md).
 
+## History
+
+Everything said and done is recorded. Each actor has a private record of every other actor it dealt with, from its own side (`thorin-marta_hollin.json` is Thorin's view of Marta; `marta_hollin-thorin.json` is hers), and `group-history.json` holds what the whole table was told. The server writes them to `sim/history/<game id>/` (`--history DIR` to move them, `--history ""` to turn files off; the terminal client takes `--history DIR` too). The web client has a History panel, and AI-table agents are shown their own history in every prompt. Details in [sim/docs/API.md](sim/docs/API.md).
+
+Switch which character you play at any time with the "You control" dropdown in the web client's Party panel, or `hero NAME` in the terminal.
+
 ## Art
 
 There is no bundled artwork, and none is needed. The web client draws its own tokens (a class or creature icon, a health ring, a pip per condition) and terrain tiles, and shows a picture wherever one exists in `sim/art/<kind>/<id>.png`. To make pictures from the game data with a local Stable Diffusion server (AUTOMATIC1111, Forge or SD.Next, started with `--api`):
@@ -134,6 +140,7 @@ sim/                                                        engine, clients, con
   include/dnd/   public headers (the engine's API)
   src/           implementation, main.cpp (terminal), server_main.cpp (HTTP)
   web/           single-page browser client
+  history/       written at run time: per-game x-y.json and group-history.json (git-ignored)
   tests/         tests.cpp (unit and integration), api_smoke.py (HTTP end to end)
   docs/          API.md, the HTTP reference
   third_party/   nlohmann/json, cpp-httplib (vendored, MIT)

@@ -32,6 +32,7 @@ void Usage() {
         "  --load <file> / --save <file>   resume / write a save file\n"
         "  --llm-narration / --llm-dm      use the model from DND_LLM_URL / DND_LLM_MODEL\n"
         "  --llm-say                 type plain English at the prompt (same model settings)\n"
+        "  --history DIR             write each pair's private x-y.json and group-history.json to DIR\n"
         "  --agents [file]           every actor is its own model (default file: <data>/agents.json or DND_AGENTS)\n"
         "  --quiet                   no narration\n"
         "  --list                    list modules, characters and monsters\n"
@@ -96,11 +97,12 @@ void RunCombat(Game& g) {
 }
 
 void Explore(Game& g, const std::string& savePath, ILlmClient* say) {
-    std::cout << "Commands: look, go <place>, search, talk <npc> [topic], rest short|long, wait <hours>, pace <slow|normal|fast>, party, quests, auto [n], save <file>, quit\n";
+    std::cout << "Commands: look, go <place>, search, talk <npc> [topic], rest short|long, wait <hours>, pace <slow|normal|fast>, party, hero [name], quests, auto [n], save <file>, quit\n";
     ShowLocation(g);
     std::string line;
     while (g.GetMode() == Mode::Exploring || g.GetMode() == Mode::Combat) {
         if (g.GetMode() == Mode::Combat) { RunCombat(g); if (g.GetMode() == Mode::Exploring) ShowLocation(g); continue; }
+        g.FlushHistory();
         std::cout << "\n> " << std::flush;
         if (!std::getline(std::cin, line)) break;
         std::istringstream ss(line);
@@ -112,6 +114,12 @@ void Explore(Game& g, const std::string& savePath, ILlmClient* say) {
         else if (cmd == "help") std::cout << "see the list above; 'look' shows exits and people\n";
         else if (cmd == "look") ShowLocation(g);
         else if (cmd == "party") ShowParty(g);
+        else if (cmd == "hero") {
+            std::string err;
+            if (a.empty()) std::cout << "  you control " << g.Hero() << "; 'hero NAME' to switch\n";
+            else if (!g.SetHero(a, err)) std::cout << "  (" << err << ")\n";
+            else std::cout << "  you now control " << g.Hero() << "\n";
+        }
         else if (cmd == "quests") ShowQuests(g);
         else if (cmd == "go") r = g.Travel(a);
         else if (cmd == "search") r = g.Search();
@@ -141,7 +149,7 @@ int main(int argc, char** argv) {
     cfg.seed = std::random_device{}();
     std::string dataDir = Content::DefaultDataDir(), loadPath, savePath;
     bool quiet = false, list = false, llmSay = false, interactive = false, useAgents = false;
-    std::string agentsPath;
+    std::string agentsPath, historyDir;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -166,6 +174,7 @@ int main(int argc, char** argv) {
         else if (a == "--llm-say") llmSay = true;
         else if (a == "--agents") { useAgents = true; if (i + 1 < argc && argv[i + 1][0] != '-') agentsPath = argv[++i]; }
         else if (a == "--interactive" || a == "-i") interactive = true;
+        else if (a == "--history") historyDir = (i + 1 < argc) ? argv[++i] : "";
         else if (a == "--quiet") quiet = true;
         else if (a == "--list") list = true;
         else if (a == "--help" || a == "-h") { Usage(); return 0; }
@@ -196,6 +205,7 @@ int main(int argc, char** argv) {
         }
 
         if (interactive && g->Config().role == Role::Spectator) g->SetRole(Role::Player, cfg.hero);
+        if (!historyDir.empty()) g->SetHistoryDir(historyDir);
 
         const auto human = [] { return std::make_unique<HumanController>(std::cin, std::cout); };
         g->SetHumanFactory(human);

@@ -85,7 +85,11 @@ std::shared_ptr<AgentTable> Wire(Server& s, Game& g) {
 
 int main(int argc, char** argv) {
     std::string dataDir = Content::DefaultDataDir();
-    std::string staticDir, artDir, host = "127.0.0.1";
+    std::string staticDir, artDir, histDir, host = "127.0.0.1";
+#ifdef DND_HISTORY_DIR
+    histDir = DND_HISTORY_DIR;  // x-y.json and group-history.json per game, in <dir>/<game id>/; --history overrides, --history "" turns files off
+#endif
+    if (const char* h = std::getenv("DND_HISTORY"); h) histDir = h;
 #ifdef DND_ART_DIR
     artDir = DND_ART_DIR;  // generated or hand-made pictures; --art overrides
 #endif
@@ -106,6 +110,7 @@ int main(int argc, char** argv) {
         else if (a == "--data") dataDir = next();
         else if (a == "--static") staticDir = next();
         else if (a == "--art") artDir = next();
+        else if (a == "--history") histDir = next();
         else if (a == "--llm-url") S.llmCfg.baseUrl = next();
         else if (a == "--llm-model") S.llmCfg.model = next();
         else if (a == "--mock-llm") S.mock = true;
@@ -243,6 +248,7 @@ int main(int argc, char** argv) {
         auto [id, slot] = add(std::move(g));
         std::lock_guard<std::mutex> lk(slot->m);
         slot->agents = table;
+        if (!histDir.empty()) slot->game->SetHistoryDir((std::filesystem::path(histDir) / id).string());
         Reply(res, 201, {{"id", id}, {"view", slot->game->View(0)}});
     }));
 
@@ -256,6 +262,7 @@ int main(int argc, char** argv) {
         auto [id, slot] = add(std::move(g));
         std::lock_guard<std::mutex> lk(slot->m);
         slot->agents = table;
+        if (!histDir.empty()) slot->game->SetHistoryDir((std::filesystem::path(histDir) / id).string());
         Reply(res, 201, {{"id", id}, {"view", slot->game->View(0)}});
     }));
 
@@ -328,6 +335,32 @@ int main(int argc, char** argv) {
         Reply(res, ok ? 200 : 422, {{"ok", ok}, {"error", err}, {"agents", slot->agents->Describe()}, {"problems", slot->agents->Problems()}});
     }));
 
+    svr.Post("/api/games/:id/hero", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        std::string err;
+        if (!slot->game->SetHero(Body(req).value("hero", ""), err)) throw HttpError{422, err};
+        Reply(res, 200, {{"view", slot->game->View(sinceOf(req))}});
+    }));
+
+    // Histories: GET /history (what exists), /history/group, /history/:x/:y (x's private record of y). ?since=SEQ&limit=N
+    auto limitOf = [](const httplib::Request& req) { return req.has_param("limit") ? std::clamp(std::atoi(req.get_param_value("limit").c_str()), 1, 2000) : 200; };
+    svr.Get("/api/games/:id/history", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        Reply(res, 200, slot->game->Hist().Index());
+    }));
+    svr.Get("/api/games/:id/history/group", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        Reply(res, 200, slot->game->Hist().GroupJson(sinceOf(req), limitOf(req)));
+    }));
+    svr.Get("/api/games/:id/history/:x/:y", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        Reply(res, 200, slot->game->Hist().Pair(req.path_params.at("x"), req.path_params.at("y"), sinceOf(req), limitOf(req)));
+    }));
+
     svr.Post("/api/games/:id/role", guarded([&](const httplib::Request& req, httplib::Response& res) {
         auto slot = find(req);
         std::lock_guard<std::mutex> lk(slot->m);
@@ -389,7 +422,7 @@ int main(int argc, char** argv) {
         staticDir.clear();
     }
 
-    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  web=" << (staticDir.empty() ? "off" : staticDir) << "  art=" << (artDir.empty() ? "off" : artDir) << "  modules=" << Content::Modules().size()
+    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  web=" << (staticDir.empty() ? "off" : staticDir) << "  art=" << (artDir.empty() ? "off" : artDir) << "  history=" << (histDir.empty() ? "off" : histDir) << "  modules=" << Content::Modules().size()
               << "  llm=" << (S.llm ? S.llm->Describe() : "off") << std::endl;
     if (!svr.listen(host, port)) {
         std::cerr << "cannot listen on " << host << ":" << port << "\n";

@@ -11,6 +11,7 @@
 #include "dnd/Content.hpp"
 #include "dnd/DM.hpp"
 #include "dnd/Events.hpp"
+#include "dnd/History.hpp"
 #include "dnd/Json.hpp"
 
 namespace dnd {
@@ -79,7 +80,18 @@ public:
     void SetNpcVoice(NpcVoice v) { npcVoice_ = std::move(v); }
     void SetMonsterControllerFactory(ActorFactory f);
     void SetRole(Role r, const std::string& hero = "");
-    void Say(const std::string& who, const std::string& text);  // table talk, recorded as a narration event
+    // Change which party member the user controls (and make the user a player). Fails for an unknown or dead member.
+    bool SetHero(const std::string& who, std::string& err);
+    const std::string& Hero() const { return hero_; }
+    // Table talk. Empty `to`: said to the whole table (shown in the log, kept in group history). Otherwise a
+    // private line to one actor, kept only in that pair's histories.
+    void Say(const std::string& who, const std::string& text, const std::string& to = "");
+    // ---- history (see History.hpp)
+    History& Hist() { return history_; }
+    const History& Hist() const { return history_; }
+    void SetHistoryDir(const std::string& dir) { history_.SetDir(dir); }
+    void FlushHistory() const { history_.Flush(); }
+    Stamp Now() const { return Stamp{Day(), ClockHour()}; }
 
     // ---- exploration
     CmdResult Travel(const std::string& to);
@@ -168,6 +180,9 @@ private:
     double Mph() const;
     int LivingCount() const;
 
+    std::string ActorName(int combatId) const;
+    void RecordEvent(const Event& e);
+
     GameConfig cfg_;
     ModuleDef module_;
     Rng rng_;
@@ -197,6 +212,7 @@ private:
     std::unique_ptr<Combat> combat_;
     std::string hero_;                 // name of the human-controlled hero
 
+    mutable History history_;  // mutable so View() can flush files
     std::vector<Event> log_;
     int seq_ = 0;
     bool loading_ = false;
