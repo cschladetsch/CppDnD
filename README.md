@@ -64,7 +64,16 @@ Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `res
 .\web.ps1
 ```
 
-`web.ps1` checks for cmake, ninja and clang++, that the port is free, and (with `-Model`) that Ollama is running and has the model; builds if needed; starts `dnd_server`; waits until it answers; and opens the browser. Ctrl-C stops it. It also starts Stable Diffusion in the background for the Pictures panel (see below); if it is not installed yet it asks whether to set it up now (`y` runs `sd.ps1 -Install`; anything else skips it and the game starts without pictures). Options: `-Port`, `-Model`, `-NoArt` (do not start Stable Diffusion), `-Rebuild`, `-NoBrowser`; anything else is passed to `dnd_server`.
+`web.ps1` checks every dependency in order and does something about each one that is not ready. Where it would install or download, it asks first (`-Yes` answers yes to everything):
+
+| Dependency | Missing | Installed but not running |
+| --- | --- | --- |
+| cmake, ninja, clang++ | offers `winget install` | |
+| Ollama | offers `winget install Ollama.Ollama` | starts `ollama serve` |
+| Ollama models (the prompt model and every model in `sim/data/agents.json`) | offers `ollama pull` | |
+| Stable Diffusion (AUTOMATIC1111 and the SD 1.5 model, see below) | offers `sd.ps1 -Install` | starts it in the background |
+
+Then it builds `dnd_server` if needed, starts it, waits until it answers, opens the browser and prints what is on and what is off. Ctrl-C stops everything it started (Ollama, Stable Diffusion, the server). Anything it cannot set up, or that you decline, is reported and the game starts without that feature. Options: `-Yes`, `-Port`, `-Model` (default: the model in `agents.json`), `-NoLlm` (no Ollama), `-NoArt` (no Stable Diffusion), `-Rebuild`, `-NoBrowser`; anything else is passed to `dnd_server`. With `DND_LLM_URL` set and no `-Model`, the server named there is used and Ollama is left alone.
 
 The client is at http://127.0.0.1:8088/ . You can also talk to the JSON API directly:
 
@@ -79,8 +88,8 @@ Server flags: `--port`, `--host`, `--data <dir>`, `--static <dir>` (serve a diff
 All model features go through one OpenAI-compatible client. Pick a backend:
 
 ```powershell
-ollama pull llama3.1
-.\web.ps1 -Model llama3.1          # Ollama on :11434, streaming off
+.\web.ps1                          # Ollama on :11434 (started and the model pulled if needed), streaming off
+.\web.ps1 -Model llama3.1          # a different prompt model
 ```
 
 or, for any other server (llama.cpp's `llama-server` defaults to :8080):
@@ -102,7 +111,7 @@ Reasoning models are supported: `reasoning_content` and `<think>` blocks are str
 
 ```powershell
 .\check.ps1 -Model qwen2.5:7b     # is Ollama up, and are the models in sim\data\agents.json installed?
-.\web.ps1 -Model qwen2.5:7b       # start, then tick "AI table" on the start screen
+.\web.ps1                         # starts Ollama, pulls missing models, then tick "AI table" on the start screen
 .\run.ps1 --agents                # terminal: same, using the default agents file
 ```
 
@@ -146,7 +155,7 @@ Each folder has its own README.
 
 ```
 run.ps1     build if needed, then run the terminal client (or the server with -Server)
-web.ps1     build if needed, start the server and Stable Diffusion, open the browser (-NoArt: server only)
+web.ps1     check and set up every dependency, build if needed, start the server, Ollama and Stable Diffusion, open the browser
 sd.ps1      check, install, start and stop Stable Diffusion (the image server)
 art.ps1     draw every missing picture from a shell
 test.ps1    build, then run every test

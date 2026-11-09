@@ -3,7 +3,7 @@
 `index.html` is the whole client: HTML, CSS and vanilla JavaScript in one file, no build step and no dependencies. `dnd_server` serves it at `/`.
 
 ```powershell
-.\web.ps1                         # builds if needed, starts the server and Stable Diffusion, opens the browser (-NoArt: no Stable Diffusion)
+.\web.ps1                         # checks and sets up cmake/ninja/clang++, Ollama and its models, Stable Diffusion; builds; starts the server; opens the browser
 ```
 
 ## What it does
