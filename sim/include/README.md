@@ -18,6 +18,7 @@ Public headers, all under `dnd/`, namespace `dnd`. Each has a matching `.cpp` in
 | `Content.hpp` | class, weapon, spell, monster, character and module definitions, and the loader |
 | `Game.hpp` | `Game`: the session (exploration, clock, rests, quests, save and load) |
 | `Json.hpp` | lossless JSON for saves and the API, and `CombatView` for clients |
+| `Scene.hpp` | `Camera`, `BuildScene` (the scene a camera sees, from `Game::View()`), `Project`, `CameraWords`, `DescribeView` |
 | `Images.hpp` | `ImageConfig` (images.json), `ArtSubjects` (what can have a picture), image clients (AUTOMATIC1111 and OpenAI-style), and `ArtService`, the background queue that draws into the art folder using a model from the model store |
 | `History.hpp` | `History`: private per-pair records (x-y.json, from x's side) and the group record, with JSON dump, restore and file output |
 | `Agents.hpp` | `AgentsConfig` (agents.json), `Agent` (own model, persona, memory), `AgentHub` (JSON messages between agents), `AgentTurnController`, and `AgentTable` (one per game: DM, enemy types, players, NPCs, council, model switching) |

@@ -77,6 +77,8 @@ struct ImageRequest {
     std::uint32_t seed = 0;
     int steps = 25, width = 512, height = 512;
     double cfg = 6.5;
+    std::string initB64;      // base64 PNG to start from (img2img); empty: draw from nothing (txt2img)
+    double denoise = 0.7;     // img2img only: 0 keeps the start picture, 1 ignores it
 };
 struct ImageResult {
     bool ok = false;
@@ -106,6 +108,17 @@ private:
     Fn fn_;
 };
 
+// A picture drawn from a camera: what the camera sees (already worded, see DescribeView), optionally a preview picture to
+// start from so that the composition follows the camera. Written to <art dir>/views/<id>.png.
+struct ViewJob {
+    std::string id;           // letters, digits, - and _
+    std::string subject;
+    std::string initB64;      // base64 PNG of the preview, or empty
+    double strength = 0.7;    // how far the picture may depart from the preview (img2img denoising strength)
+    int width = 768, height = 432;
+    std::uint32_t seed = 0;   // 0: derived from the id
+};
+
 // ---------------------------------------------------------------- the art service
 
 // Draws pictures in the background, one at a time, into <art dir>/<kind>/<id>.png (or .jpg), where the server
@@ -127,6 +140,9 @@ public:
     // {"ids": ["characters/thorin", "monsters/zombie"]}; optional "force" (redo existing) and, for one id, "prompt".
     // Returns {queued, skipped} or sets err.
     Json Enqueue(const Json& req, std::string& err);
+    // Queue a picture drawn from a camera. Returns {id, url} (the file appears at url when state is "done") or sets err.
+    Json EnqueueView(const ViewJob& job, std::string& err);
+    Json View(const std::string& id) const;  // {state: unknown|queued|running|done|failed, url, error}
     Json Jobs() const;  // {running, current, queued, done, failed, errors: [...], recent: [...]}
     void Cancel();      // drops everything still queued
     void WaitIdle();    // for tests and shutdown
@@ -138,6 +154,7 @@ private:
         ArtSubject s;
         bool force = false;
         std::string promptOverride;
+        std::shared_ptr<ViewJob> view;  // set for a picture drawn from a camera
     };
     void Worker();
     bool Do(const Item& it, std::string& err);
@@ -154,6 +171,8 @@ private:
     bool busy_ = false, stop_ = false;
     int done_ = 0, failed_ = 0;
     std::vector<std::string> errors_, recent_;
+    std::map<std::string, Json> views_;  // by id: {state, url, error}
+    std::deque<std::string> viewOrder_;
     Json probe_;
     long long probeAt_ = 0;
     std::thread worker_;

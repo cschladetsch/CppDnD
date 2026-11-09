@@ -2,7 +2,7 @@
 
 | File | Covers |
 |---|---|
-| `tests.cpp` | `dnd_tests`: dice and RNG, grid and cover, rules (advantage, concentration, damage adjustment, Extra Attack), content loading, JSON round trips, save and load determinism, modules, rests, role swap, switching the controlled hero mid-fight, picture generation with a mock image server (queue, prompts, seeds, failures, model store resolution), the pair and group histories (files, saves, fights, NPC talk, private agent lines), the LLM pipeline with a mock model, and the plain-English interpreter |
+| `tests.cpp` | `dnd_tests`: dice and RNG, grid and cover, rules (advantage, concentration, damage adjustment, Extra Attack), content loading, JSON round trips, save and load determinism, modules, rests, role swap, switching the controlled hero mid-fight, picture generation with a mock image server (queue, prompts, seeds, failures, model store resolution), the scene camera (projection, scene layout, prompt words, img2img views), the pair and group histories (files, saves, fights, NPC talk, private agent lines), the LLM pipeline with a mock model, and the plain-English interpreter |
 | `api_smoke.py` | plays a whole module through the HTTP API: creating a game, acting as the hero, autopilot, saving and loading |
 
 Both are registered with CTest.

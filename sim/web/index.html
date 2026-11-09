@@ -47,6 +47,16 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 #toast { position:fixed; bottom:16px; left:50%; transform:translateX(-50%); background:#3b1d24; border:1px solid var(--bad); padding:8px 14px; border-radius:6px; display:none; max-width:90vw; }
 .start { max-width:560px; margin:30px auto; } .start label { display:block; margin:10px 0 4px; color:var(--dim); font-size:13px; }
 .start select, .start input { width:100%; }
+.viewbar { display:flex; gap:8px; align-items:center; flex-wrap:wrap; } .viewmsg { flex:1; min-width:120px; } .viewmsg.err { color:var(--bad); }
+.viewimg { width:100%; border-radius:6px; display:block; margin-bottom:6px; }
+.camdlg { position:fixed; inset:0; background:rgba(8,6,12,.88); z-index:20; display:flex; align-items:flex-start; justify-content:center; padding:12px; overflow:auto; }
+.camlay { background:var(--panel); border:1px solid var(--edge); border-radius:10px; padding:12px; width:100%; max-width:1180px; }
+.camgrid { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:14px; } @media (max-width:900px){ .camgrid { grid-template-columns:1fr; } }
+.camcanvas { width:100%; aspect-ratio:16/9; background:#0c0a12; border:1px solid var(--edge); border-radius:6px; touch-action:none; cursor:grab; display:block; outline:none; }
+.camcanvas:focus { border-color:var(--accent); }
+.camnum { display:grid; grid-template-columns:auto 1fr; gap:4px 10px; align-items:center; font-size:13px; } .camnum input { width:100%; }
+.keys { font-size:12px; color:var(--dim); margin-top:6px; line-height:1.9; }
+kbd { background:#2a2638; border:1px solid var(--edge); border-bottom-width:2px; border-radius:4px; padding:0 5px; margin:0 1px; font:11px ui-monospace, monospace; color:var(--text); }
 </style>
 </head>
 <body>
@@ -108,9 +118,9 @@ async function showStart() {
 }
 
 function startGame(id, v) {
-  gid = id; lastSeq = 0;
+  gid = id; lastSeq = 0; lastView = null; viewMsg = { text: "", bad: false };
   $("#app").replaceChildren(el("main", {},
-    el("div", {}, el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" }), sayBox()),
+    el("div", {}, el("div", { className: "panel", id: "viewbar", style: "margin-bottom:12px" }), el("div", { className: "panel", id: "viewport", hidden: true, style: "margin-bottom:12px" }), el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" }), sayBox()),
     el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }), picturesPanel(), historyPanel())));
   $("#saveBtn").hidden = $("#newBtn").hidden = false;
   loadArt().then(() => { if (view) { renderScene(); renderParty(); renderCombat(); } });
@@ -209,7 +219,7 @@ function apply(v) {
   const cb = v.combat, cur = cb && !cb.finished ? cb.actors.find(a => a.id === cb.current) : null;
   const turn = cb ? `  |  round ${cb.round}${cur ? `, turn: ${cur.name}${cb.awaiting === cur.id ? " (waiting for you)" : ""}` : ""}` : "";
   $("#sub").textContent = `${v.module.name}  |  day ${v.clock.day}, ${String(v.clock.clockHour).padStart(2, "0")}:00${v.clock.night ? " (night)" : ""}  |  ${v.mode}${turn}`;
-  renderMap(); renderScene(); renderParty(); renderQuests(); renderCombat(); refreshTable(); refreshHistory();
+  renderMap(); renderViewBar(); renderScene(); renderParty(); renderQuests(); renderCombat(); refreshTable(); refreshHistory();
   if (v.mode === "combat" && v.combat && !v.combat.finished && v.combat.awaiting < 0 && !busy) setTimeout(advance, 120);
 }
 async function advance() {
@@ -522,6 +532,303 @@ $("#saveBtn").onclick = async () => {
 };
 $("#newBtn").onclick = showStart;
 showStart();
+
+// ---------------------------------------------------------------- the view: what the hero sees, and the camera editor
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const CAM_W = 768, CAM_H = 432;   // the picture that gets drawn; the preview has the same shape, so the two line up
+let viewBusy = false, viewMsg = { text: "", bad: false }, lastView = null;
+
+function heroName() {
+  if (!view) return "";
+  const key = String(view.hero || "").toLowerCase();
+  const p = (view.party || []).find(m => m.id === view.hero || m.name.toLowerCase() === key);
+  return p ? p.name : view.hero || "";
+}
+function viewError(err) {
+  err = String(err || "");
+  if (err.startsWith("unreachable:")) return "Stable Diffusion is not answering. .\\web.ps1 starts it with the game (the first start takes 10-20 minutes); .\\sd.ps1 -Check shows what is missing.";
+  return err;
+}
+function setViewMsg(text, bad) {
+  viewMsg = { text, bad: !!bad };
+  for (const m of document.querySelectorAll(".viewmsg")) { m.textContent = text; m.className = "viewmsg small " + (bad ? "err" : "dim"); }
+}
+function renderViewBar() {
+  const box = $("#viewbar"); if (!box || !view) return;
+  const over = view.mode === "complete" || view.mode === "defeated";
+  box.hidden = over;
+  const name = heroName();
+  box.replaceChildren(el("div", { className: "viewbar" },
+    el("button", { className: "primary", textContent: viewBusy ? "Drawing..." : `Show what ${name || "my hero"} sees`, disabled: viewBusy,
+      title: "Draws the scene from this character's eyes with the local image model", onclick: () => showView() }),
+    el("button", { textContent: "Camera...", title: "Place the camera yourself, with a live preview", onclick: openCamera }),
+    el("span", { className: "viewmsg small " + (viewMsg.bad ? "err" : "dim"), textContent: viewMsg.text })));
+}
+function renderViewport() {
+  const box = $("#viewport"); if (!box) return;
+  if (!lastView) { box.hidden = true; return; }
+  box.hidden = false;
+  box.replaceChildren(
+    el("div", { className: "row", style: "justify-content:space-between;align-items:center;margin:0 0 6px" },
+      el("h2", { textContent: lastView.title, style: "margin:0" }), el("button", { textContent: "Hide", onclick: () => { lastView = null; renderViewport(); } })),
+    el("img", { src: lastView.url, alt: "", className: "viewimg" }),
+    el("div", { className: "dim small", textContent: lastView.subject }));
+}
+
+// Draw a view and wait for it. opts: {camera, init (data URL), strength}. Returns {url, subject, camera} or null (the message says why).
+async function drawView(opts = {}) {
+  const body = { width: CAM_W, height: CAM_H };
+  if (opts.camera) body.camera = opts.camera;
+  if (opts.init) body.init = opts.init;
+  if (opts.strength) body.strength = opts.strength;
+  setViewMsg("Asking the image model...");
+  const { status, data } = await api("POST", `/api/games/${gid}/viewpoint`, body);
+  if (status !== 202) { setViewMsg(viewError(status === 503 ? "Picture generation is off (see data/images.json)." : data.error || "cannot draw"), true); return null; }
+  const id = data.id;
+  for (let i = 0; i < 1800; i++) {
+    await sleep(1000);
+    const r = await api("GET", `/api/images/view/${encodeURIComponent(id)}`);
+    if (r.status !== 200) { setViewMsg(viewError(r.data.error || "lost the server"), true); return null; }
+    const st = r.data;
+    if (st.state === "done") { setViewMsg(""); return { url: st.url + "?t=" + Date.now(), subject: data.subject, camera: data.camera, hero: data.hero }; }
+    if (st.state === "failed") { setViewMsg(viewError(st.error), true); return null; }
+    if (st.state === "unknown") { setViewMsg("The server forgot this picture (it was restarted?).", true); return null; }
+    setViewMsg(st.state === "running" ? `Drawing... ${i + 1}s` : `Waiting for the image model... ${i + 1}s`);
+  }
+  setViewMsg("Gave up waiting after 30 minutes.", true);
+  return null;
+}
+async function showView(opts = {}) {
+  if (viewBusy || !gid) return null;
+  viewBusy = true; renderViewBar();
+  let r = null;
+  try { r = await drawView(opts); } finally { viewBusy = false; renderViewBar(); }
+  if (r) { lastView = { url: r.url, subject: r.subject, title: opts.camera ? "Camera view" : `${heroName()}'s view` }; renderViewport(); }
+  return r;
+}
+
+// ---- the camera editor: a live 3D preview of the scene you can fly around in, then draw what it sees
+let cam = null, camScene = null, camLoop = 0, camKeys = new Set(), camDrag = null, camDirty = true, camTime = 0, camOpen = false;
+const CAM_FIELDS = [["x", "x (east)", 0.1], ["y", "y (south)", 0.1], ["z", "height", 0.1], ["yaw", "yaw (0 = north)", 1], ["pitch", "pitch (+ up)", 1], ["fov", "field of view", 1]];
+const camClamp = c => {
+  c.pitch = Math.max(-89, Math.min(89, c.pitch)); c.fov = Math.max(15, Math.min(120, c.fov)); c.z = Math.max(0.05, Math.min(60, c.z));
+  c.x = Math.max(-400, Math.min(800, c.x)); c.y = Math.max(-400, Math.min(800, c.y)); c.yaw = ((c.yaw % 360) + 360) % 360;
+};
+function camBasis(c) {
+  const y = c.yaw * Math.PI / 180, p = c.pitch * Math.PI / 180;
+  const f = [Math.sin(y) * Math.cos(p), -Math.cos(y) * Math.cos(p), Math.sin(p)], r = [Math.cos(y), Math.sin(y), 0];
+  const u = [f[1] * r[2] - f[2] * r[1], f[2] * r[0] - f[0] * r[2], f[0] * r[1] - f[1] * r[0]];
+  return { f, r, u };
+}
+
+// A small software renderer: floor squares, walls and cover as boxes, people as standing figures. No library needed.
+function camRender(ctx, overlay) {
+  const W = CAM_W, H = CAM_H, c = cam, B = camBasis(c), th = Math.tan(c.fov * Math.PI / 360), NEAR = 0.08;
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+  const toCam = (x, y, z) => { const d = [x - c.x, y - c.y, z - c.z]; return [dot(d, B.r), dot(d, B.u), dot(d, B.f)]; };
+  const scr = p => [W / 2 + p[0] / (p[2] * th * (W / H)) * W / 2, H / 2 - p[1] / (p[2] * th) * H / 2];
+  const clip = pts => {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i], b = pts[(i + 1) % pts.length], ain = a[2] >= NEAR, bin = b[2] >= NEAR;
+      if (ain) out.push(a);
+      if (ain !== bin) { const t = (NEAR - a[2]) / (b[2] - a[2]); out.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, NEAR]); }
+    }
+    return out;
+  };
+  const poly = (pts3, fill, stroke) => {
+    const q = clip(pts3.map(p => toCam(p[0], p[1], p[2])));
+    if (q.length < 3) return;
+    ctx.beginPath();
+    q.forEach((p, i) => { const s = scr(p); i ? ctx.lineTo(s[0], s[1]) : ctx.moveTo(s[0], s[1]); });
+    ctx.closePath(); ctx.fillStyle = fill; ctx.fill();
+    if (stroke) { ctx.strokeStyle = stroke; ctx.lineWidth = 1; ctx.stroke(); }
+  };
+
+  const sky = ctx.createLinearGradient(0, 0, 0, H); sky.addColorStop(0, "#14111f"); sky.addColorStop(1, "#1d1a2c");
+  ctx.fillStyle = sky; ctx.fillRect(0, 0, W, H);
+
+  const g = camScene.grid, rows = g.rows, items = [];
+  for (let y = 0; y < g.height; y++) for (let x = 0; x < g.width; x++) {
+    const ch = rows[y][x];
+    if (ch === "#") continue;
+    poly([[x, y, 0], [x + 1, y, 0], [x + 1, y + 1, 0], [x, y + 1, 0]], ch === "~" ? "#3a3550" : (x + y) & 1 ? "#2a263a" : "#252134", "#312d46");
+  }
+  for (let y = 0; y < g.height; y++) for (let x = 0; x < g.width; x++) {
+    const ch = rows[y][x], h = ch === "#" ? 2.0 : ch === "O" ? 0.85 : ch === "c" ? 0.5 : 0;
+    if (h) items.push({ d: (x + .5 - c.x) ** 2 + (y + .5 - c.y) ** 2, box: { x, y, h, wall: ch === "#" } });
+  }
+  for (const p of camScene.props) {
+    if (p.life === "dead") continue;
+    if (p.hero && Math.hypot(p.x + .5 - c.x, p.y + .5 - c.y) < 0.8) continue;   // you are looking out of this one's eyes
+    items.push({ d: (p.x + .5 - c.x) ** 2 + (p.y + .5 - c.y) ** 2, prop: p });
+  }
+  items.sort((a, b) => b.d - a.d);
+  for (const it of items) {
+    if (it.box) {
+      const { x, y, h, wall } = it.box, X = x + 1, Y = y + 1, top = wall ? "#4a4463" : "#6b5a3c", sideA = wall ? "#2f2a42" : "#4a3d28", sideB = wall ? "#262236" : "#3d3222", ln = wall ? "#14111c" : "#241c10";
+      if (c.y > Y) poly([[x, Y, 0], [X, Y, 0], [X, Y, h], [x, Y, h]], sideB, ln);
+      if (c.y < y) poly([[x, y, 0], [X, y, 0], [X, y, h], [x, y, h]], sideB, ln);
+      if (c.x > X) poly([[X, y, 0], [X, Y, 0], [X, Y, h], [X, y, h]], sideA, ln);
+      if (c.x < x) poly([[x, y, 0], [x, Y, 0], [x, Y, h], [x, y, h]], sideA, ln);
+      if (c.z > h) poly([[x, y, h], [X, y, h], [X, Y, h], [x, Y, h]], top, ln);
+      continue;
+    }
+    const p = it.prop, big = /giant|ogre|troll|dragon|golem|wyrm/.test(p.kind || ""), hh = big ? 2.2 : 1.1;
+    const b = toCam(p.x + .5, p.y + .5, 0), t = toCam(p.x + .5, p.y + .5, hh);
+    if (b[2] < NEAR || t[2] < NEAR) continue;
+    const bs = scr(b), ts = scr(t), ph = bs[1] - ts[1], pw = ph * 0.42, down = p.life !== "alive";
+    if (ph < 2 || bs[0] < -pw * 2 || bs[0] > W + pw * 2) continue;
+    const col = p.team === "party" ? "#5b8def" : p.team === "foe" ? "#d05a5a" : "#6fbf73";
+    ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(bs[0], bs[1], pw * 0.7, pw * 0.22, 0, 0, 7); ctx.fill();
+    if (down) { ctx.fillStyle = col; ctx.globalAlpha = .6; ctx.beginPath(); ctx.ellipse(bs[0], bs[1] - ph * 0.08, ph * 0.45, ph * 0.1, 0, 0, 7); ctx.fill(); ctx.globalAlpha = 1; continue; }
+    ctx.fillStyle = col; ctx.strokeStyle = "#101018"; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(bs[0] - pw * 0.5, bs[1]); ctx.lineTo(bs[0] + pw * 0.5, bs[1]); ctx.lineTo(bs[0] + pw * 0.38, ts[1] + ph * 0.3); ctx.lineTo(bs[0] - pw * 0.38, ts[1] + ph * 0.3); ctx.closePath(); ctx.fill(); ctx.stroke();
+    ctx.fillStyle = "#d9b99b"; ctx.beginPath(); ctx.arc(bs[0], ts[1] + ph * 0.15, ph * 0.14, 0, 7); ctx.fill(); ctx.stroke();
+    if (p.hero) { ctx.strokeStyle = "#e0b84a"; ctx.lineWidth = 2; ctx.beginPath(); ctx.ellipse(bs[0], bs[1], pw * 0.8, pw * 0.26, 0, 0, 7); ctx.stroke(); }
+    if (overlay && ph > 26) { ctx.font = "12px system-ui, sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "#ece8f5"; ctx.fillText(p.name, bs[0], ts[1] - 4); }
+  }
+  if (!overlay) return;
+  ctx.strokeStyle = "rgba(236,232,245,.35)"; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.moveTo(W / 2 - 8, H / 2); ctx.lineTo(W / 2 + 8, H / 2); ctx.moveTo(W / 2, H / 2 - 8); ctx.lineTo(W / 2, H / 2 + 8); ctx.stroke();
+  ctx.font = "12px ui-monospace, monospace"; ctx.textAlign = "left"; ctx.fillStyle = "rgba(236,232,245,.8)";
+  ctx.fillText(`x ${c.x.toFixed(1)}  y ${c.y.toFixed(1)}  z ${c.z.toFixed(1)}   yaw ${c.yaw.toFixed(0)}  pitch ${c.pitch.toFixed(0)}  fov ${c.fov.toFixed(0)}`, 8, H - 8);
+}
+
+function camPresets() {
+  const base = camScene.camera, g = camScene.grid, hero = camScene.props.find(p => p.hero);
+  const P = {
+    "Hero's eyes": { ...base },
+    "Over the shoulder": (() => { const c = { ...base }, y = c.yaw * Math.PI / 180; c.x -= Math.sin(y) * 1.4; c.y += Math.cos(y) * 1.4; c.z = 1.7; c.pitch = -10; c.fov = 60; return c; })(),
+    "Overview": { x: g.width / 2, y: g.height + 3, z: 12, yaw: 0, pitch: -50, fov: 60 },
+    "Top down": { x: g.width / 2, y: g.height / 2, z: Math.max(g.width, g.height) * 0.95, yaw: 0, pitch: -89, fov: 60 },
+    "Low and dramatic": { ...base, z: 0.35, pitch: 12, fov: 75 },
+  };
+  if (!hero) delete P["Over the shoulder"];
+  return P;
+}
+function camLookAt(p) {
+  const dx = p.x + .5 - cam.x, dy = p.y + .5 - cam.y, dz = 0.7 - cam.z, flat = Math.hypot(dx, dy);
+  cam.yaw = Math.atan2(dx, -dy) * 180 / Math.PI; cam.pitch = Math.atan2(dz, Math.max(flat, 0.01)) * 180 / Math.PI; camClamp(cam); camDirty = true;
+}
+function camSync() {
+  for (const [k] of CAM_FIELDS) { const i = $("#cam_" + k); if (i && document.activeElement !== i) i.value = cam[k].toFixed(k === "x" || k === "y" || k === "z" ? 2 : 0); }
+}
+function camStep(dt) {
+  const K = camKeys, fast = K.has("ShiftLeft") || K.has("ShiftRight") ? 3 : 1, sp = 4 * fast * dt, turn = 90 * dt;
+  const y = cam.yaw * Math.PI / 180, fx = Math.sin(y), fy = -Math.cos(y), rx = Math.cos(y), ry = Math.sin(y);
+  let moved = false;
+  const mv = (dx, dy, dz) => { cam.x += dx; cam.y += dy; cam.z += dz; moved = true; };
+  if (K.has("KeyW")) mv(fx * sp, fy * sp, 0);
+  if (K.has("KeyS")) mv(-fx * sp, -fy * sp, 0);
+  if (K.has("KeyD")) mv(rx * sp, ry * sp, 0);
+  if (K.has("KeyA")) mv(-rx * sp, -ry * sp, 0);
+  if (K.has("KeyE") || K.has("Space")) mv(0, 0, sp);
+  if (K.has("KeyQ") || K.has("KeyC")) mv(0, 0, -sp);
+  if (K.has("ArrowLeft")) { cam.yaw -= turn; moved = true; }
+  if (K.has("ArrowRight")) { cam.yaw += turn; moved = true; }
+  if (K.has("ArrowUp")) { cam.pitch += turn; moved = true; }
+  if (K.has("ArrowDown")) { cam.pitch -= turn; moved = true; }
+  if (moved) { camClamp(cam); camDirty = true; }
+}
+
+async function openCamera() {
+  if (!gid || camOpen) return;
+  const r = await api("GET", `/api/games/${gid}/scene`);
+  if (r.status !== 200) return toast(r.data.error || "cannot read the scene");
+  camScene = r.data; cam = { ...camScene.camera }; camOpen = true; camDirty = true; camKeys = new Set();
+
+  const canvas = el("canvas", { width: CAM_W, height: CAM_H, className: "camcanvas", tabIndex: 0 });
+  const ctx = canvas.getContext("2d");
+  const strength = el("input", { type: "range", min: 0.3, max: 0.95, step: 0.01, value: 0.72, style: "width:100%" });
+  const strengthVal = el("span", { className: "dim small", textContent: "0.72" });
+  strength.oninput = () => { strengthVal.textContent = (+strength.value).toFixed(2); };
+  const useInit = el("input", { type: "checkbox", checked: true, id: "camInit" });
+  const out = el("div", { className: "camout" }, el("div", { className: "dim small", textContent: "Nothing drawn yet. Move the camera, then press Draw this view. The picture also appears on the main screen." }));
+  const drawBtn = el("button", { className: "primary", textContent: "Draw this view" });
+  drawBtn.onclick = async () => {
+    if (viewBusy) return;
+    let init = ""; if (useInit.checked) { camRender(ctx, false); init = canvas.toDataURL("image/png"); camDirty = true; }
+    drawBtn.disabled = true; viewBusy = true; renderViewBar(); out.replaceChildren(el("div", { className: "viewmsg small dim" }));
+    let res = null;
+    try { res = await drawView({ camera: { ...cam }, init, strength: +strength.value }); } finally { viewBusy = false; drawBtn.disabled = false; renderViewBar(); }
+    if (res) {
+      lastView = { url: res.url, subject: res.subject, title: "Camera view" }; renderViewport();
+      out.replaceChildren(el("img", { src: res.url, className: "viewimg", alt: "" }), el("div", { className: "dim small", textContent: res.subject }));
+    } else out.replaceChildren(el("div", { className: "viewmsg small err", textContent: viewMsg.text }));
+  };
+
+  const fields = el("div", { className: "camnum" });
+  for (const [k, label, step] of CAM_FIELDS) {
+    const inp = el("input", { type: "number", id: "cam_" + k, step, value: cam[k] });
+    inp.oninput = () => { const v = parseFloat(inp.value); if (isFinite(v)) { cam[k] = v; camClamp(cam); camDirty = true; } };
+    fields.append(el("label", { textContent: label, className: "dim" }), inp);
+  }
+  const presets = el("div", { className: "row" });
+  for (const [name, c] of Object.entries(camPresets())) presets.append(el("button", { textContent: name, onclick: () => { cam = { ...cam, ...c }; camClamp(cam); camDirty = true; camSync(); } }));
+  const looks = el("select", { onchange: e => { const p = camScene.props[+e.target.value]; if (p) { camLookAt(p); camSync(); } e.target.value = ""; } },
+    el("option", { value: "", textContent: "Look at..." }), ...camScene.props.map((p, i) => p.hero ? null : el("option", { value: i, textContent: p.name })).filter(Boolean));
+
+  const close = () => { camOpen = false; cancelAnimationFrame(camLoop); window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", onBlur); dlg.remove(); };
+  const dlg = el("div", { className: "camdlg", onmousedown: e => { if (e.target === dlg) close(); } },
+    el("div", { className: "camlay" },
+      el("div", { className: "row", style: "justify-content:space-between;align-items:center;margin:0 0 8px" },
+        el("h2", { textContent: `Camera  |  ${camScene.location.name || "scene"}  |  ${camScene.mode}`, style: "margin:0" }), el("button", { textContent: "Close (Esc)", onclick: close })),
+      el("div", { className: "camgrid" },
+        el("div", {}, canvas,
+          el("div", { className: "keys", innerHTML: "<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> move &nbsp; <kbd>Q</kbd><kbd>E</kbd> or <kbd>C</kbd><kbd>Space</kbd> down / up &nbsp; <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> look &nbsp; <kbd>Shift</kbd> faster<br>Mouse: drag to look, right-drag to slide, wheel to move forward and back, Shift+wheel to zoom the lens" }),
+          el("h2", { textContent: "Picture", style: "margin-top:12px" }), out),
+        el("div", {},
+          el("h2", { textContent: "Position" }), fields, el("h2", { textContent: "Presets", style: "margin-top:10px" }), presets, el("div", { className: "row" }, looks),
+          el("h2", { textContent: "Draw", style: "margin-top:10px" }),
+          el("label", { className: "small" }, useInit, " start from the live preview (the picture follows what you see)"),
+          el("div", { className: "small dim", style: "margin-top:6px" }, "Freedom ", strengthVal, ": low keeps close to the preview, high lets the model invent more"), strength,
+          el("div", { className: "row" }, drawBtn, el("span", { className: "viewmsg small dim", textContent: viewMsg.text })),
+          el("div", { className: "dim small", textContent: "The preview is a plain stand-in: blue is your party, red is foes, green is other people. The model paints over it." })))));
+
+  const onKey = e => {
+    if (!camOpen) return;
+    const tag = (e.target && e.target.tagName) || "";
+    if (e.code === "Escape" && tag !== "SELECT") { close(); return; }
+    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
+    if (/^(Key[WASDQEC]|Space|Arrow(Left|Right|Up|Down)|Shift(Left|Right))$/.test(e.code)) { camKeys.add(e.code); e.preventDefault(); }
+  };
+  const onKeyUp = e => { camKeys.delete(e.code); if (e.code === "Space" && camOpen) e.preventDefault(); };
+  const onBlur = () => camKeys.clear();
+  window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("blur", onBlur);
+
+  canvas.addEventListener("contextmenu", e => e.preventDefault());
+  canvas.addEventListener("pointerdown", e => { camDrag = { x: e.clientX, y: e.clientY, pan: e.button !== 0 }; canvas.setPointerCapture(e.pointerId); canvas.focus(); canvas.style.cursor = "grabbing"; });
+  canvas.addEventListener("pointermove", e => {
+    if (!camDrag) return;
+    const k = CAM_W / canvas.getBoundingClientRect().width, dx = (e.clientX - camDrag.x) * k, dy = (e.clientY - camDrag.y) * k;
+    camDrag.x = e.clientX; camDrag.y = e.clientY;
+    if (camDrag.pan) {
+      const y = cam.yaw * Math.PI / 180; cam.x += Math.cos(y) * -dx * 0.012; cam.y += Math.sin(y) * -dx * 0.012; cam.z += dy * 0.012;
+    } else { cam.yaw += dx * 0.15 * (cam.fov / 70); cam.pitch -= dy * 0.15 * (cam.fov / 70); }
+    camClamp(cam); camDirty = true; camSync();
+  });
+  const endDrag = () => { camDrag = null; canvas.style.cursor = "grab"; };
+  canvas.addEventListener("pointerup", endDrag); canvas.addEventListener("pointercancel", endDrag);
+  canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    if (e.shiftKey) cam.fov += e.deltaY * 0.05;
+    else { const B = camBasis(cam), s = -e.deltaY * 0.01; cam.x += B.f[0] * s; cam.y += B.f[1] * s; cam.z += B.f[2] * s; }
+    camClamp(cam); camDirty = true; camSync();
+  }, { passive: false });
+
+  document.body.append(dlg);
+  camTime = performance.now();
+  const frame = t => {
+    if (!camOpen) return;
+    const dt = Math.min(0.1, (t - camTime) / 1000); camTime = t;
+    camStep(dt);
+    if (camDirty) { camRender(ctx, true); camDirty = false; camSync(); }
+    camLoop = requestAnimationFrame(frame);
+  };
+  camLoop = requestAnimationFrame(frame);
+  canvas.focus();
+}
 </script>
 </body>
 </html>

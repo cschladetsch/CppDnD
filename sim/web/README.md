@@ -17,6 +17,7 @@
 - Party and quest panels, an event log with flavour text, and Save, which downloads the game as JSON.
 - AI table panel (when a game uses agents): every actor with its model and call counts, and a control to switch any actor or enemy type to another model mid-game. The start screen has an "AI table" checkbox when an agents file is found.
 - Pictures: combat uses drawn SVG tokens (class or creature icon, health ring, condition pips) on tiled terrain; any picture found in the art folder (`GET /api/art`) replaces the token, the location text gets a backdrop, NPCs and party members get portraits. See [../art/README.md](../art/README.md).
+- Main screen: a gold button draws the scene through the controlled hero's eyes; **Camera...** opens a live 3D preview you can fly around in (WASD, QE, arrows, mouse drag, wheel) and draw from, using the preview as the starting picture.
 - Pictures panel: draw the scene, the party portraits or everything missing with the local image model, switch the model, watch progress.
 - Prompt box (plain English). Enabled when the server has a model: start it with `--ollama <model>` or set `DND_LLM_URL` and `DND_LLM_MODEL`.
 

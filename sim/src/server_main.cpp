@@ -1,5 +1,6 @@
 // dnd_server: HTTP/JSON backend for a web front end. See docs/API.md.
 #include <atomic>
+#include <chrono>
 #include <csignal>
 #include <iostream>
 #include <map>
@@ -13,6 +14,7 @@
 #include "dnd/Game.hpp"
 #include "dnd/Images.hpp"
 #include "dnd/Llm.hpp"
+#include "dnd/Scene.hpp"
 #include "httplib.h"
 
 using namespace dnd;
@@ -456,6 +458,50 @@ int main(int argc, char** argv) {
         std::string err;
         if (!needArt().SetCheckpoint(b.value("model", ""), b.value("fromStore", false), err)) throw HttpError{422, err};
         Reply(res, 200, art->Status());
+    }));
+
+    // What a camera can see: the battlefield (or an open field when nobody is fighting) with everyone on it, and the hero's eyes
+    // as the default camera. The web client draws its live preview from this.
+    svr.Get("/api/games/:id/scene", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        Reply(res, 200, BuildScene(slot->game->View(0)));
+    }));
+    // Draw what a camera sees. {"camera": {x,y,z,yaw,pitch,fov}} (default: the hero's eyes), optional "init" (a data URL or base64
+    // PNG of the live preview, so the picture follows its composition), "strength" 0.05..1, "width", "height", "seed".
+    // Returns {id, url-to-poll}; poll GET /api/images/view/:id until its state is done or failed.
+    svr.Post("/api/games/:id/viewpoint", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        const Json b = Body(req);
+        Json scene;
+        {
+            std::lock_guard<std::mutex> lk(slot->m);
+            scene = BuildScene(slot->game->View(0));
+        }
+        const Camera dflt = Camera::FromJson(scene["camera"]);
+        const Camera cam = b.contains("camera") && b["camera"].is_object() ? Camera::FromJson(b["camera"], dflt) : dflt;
+        ViewJob job;
+        auto numOf = [&](const char* k, double d) { return b.contains(k) && b[k].is_number() ? b[k].get<double>() : d; };
+        job.width = static_cast<int>(numOf("width", 768));
+        job.height = static_cast<int>(numOf("height", 432));
+        job.strength = numOf("strength", 0.72);
+        job.seed = static_cast<std::uint32_t>(numOf("seed", 0));
+        job.subject = DescribeView(scene, cam, job.height > 0 ? static_cast<double>(job.width) / job.height : 16.0 / 9.0);
+        if (b.contains("init") && b["init"].is_string()) {
+            std::string init = b["init"].get<std::string>();
+            if (const auto comma = init.find(','); init.compare(0, 5, "data:") == 0 && comma != std::string::npos) init.erase(0, comma + 1);
+            if (init.size() > 12u * 1024 * 1024) throw HttpError{413, "the preview picture is too large"};
+            if (!init.empty() && init.compare(0, 11, "iVBORw0KGgo") != 0) throw HttpError{422, "init must be a PNG (base64 or a data URL)"};
+            job.initB64 = init;
+        }
+        job.id = "v" + std::to_string(std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::system_clock::now().time_since_epoch()).count());
+        std::string err;
+        needArt().EnqueueView(job, err);
+        if (!err.empty()) throw HttpError{422, err};
+        Reply(res, 202, {{"id", job.id}, {"subject", job.subject}, {"camera", cam.ToJson()}, {"state", "queued"}, {"hero", scene["hero"]}});
+    }));
+    svr.Get("/api/images/view/:id", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        Reply(res, 200, needArt().View(req.path_params.at("id")));
     }));
 
     if (!staticDir.empty() && !svr.set_mount_point("/", staticDir)) {

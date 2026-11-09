@@ -39,6 +39,10 @@ Settings are in `data/images.json` (`--images FILE` or `DND_IMAGES`): `backend` 
 
 The HTTP routes are in [../docs/API.md](../docs/API.md#images).
 
+### Views from a camera
+
+`POST /api/games/:id/viewpoint` (the main-screen button and the camera editor) draws what a camera sees into `art/views/<id>.png`; the newest 60 are kept and git ignores them. The prompt is `prefix, camera words, place, who is in view, suffix`: the camera words come from pitch and field of view (eye level, high or low angle, bird's eye, wide or telephoto lens), the place from the location's name and first sentence, and who is in view from projecting everyone in the scene through the camera (in the foreground, middle distance or distance, on the left, center or right). With an AUTOMATIC1111 server the live preview is sent as the `init_images` of `/sdapi/v1/img2img`, with the "Freedom" slider as the denoising strength (0.72 by default), so the composition follows the camera; an OpenAI-style server draws from the words alone. The picture size is 768x432. Style, model and negative prompt are the same as for the other pictures; `framing` and `prompts.json` do not apply to views.
+
 ### Setting it up
 
 `.\sd.ps1 -Check` (in the repository root) lists every requirement (git, Python 3.10, an NVIDIA GPU and driver, about 15 GB of disk, network access, AUTOMATIC1111, the model in the store, the port); `-Install` installs what is missing; `.\web.ps1` starts the image server with the game (`-NoArt` to skip it). The requirements and what each flag does are in the root [README](../../README.md#setting-up-stable-diffusion).

@@ -93,14 +93,19 @@ public:
         Json body{{"prompt", r.prompt}, {"negative_prompt", r.negative}, {"seed", r.seed}, {"steps", r.steps}, {"cfg_scale", r.cfg},
                   {"width", r.width}, {"height", r.height}, {"sampler_name", r.sampler}, {"batch_size", 1}, {"n_iter", 1}};
         if (!r.checkpoint.empty()) body["override_settings"] = Json{{"sd_model_checkpoint", r.checkpoint}};
+        if (!r.initB64.empty()) {  // img2img: start from the picture, so the composition follows it
+            body["init_images"] = Json::array({r.initB64});
+            body["denoising_strength"] = r.denoise;
+            body["resize_mode"] = 0;
+        }
         try {
             httplib::Client cli(cfg_.url);
             cli.set_connection_timeout(5);
             cli.set_read_timeout(cfg_.timeoutSec);
-            cli.set_write_timeout(10);
+            cli.set_write_timeout(60);
             httplib::Headers h;
             if (!cfg_.apiKey.empty()) h.emplace("Authorization", "Bearer " + cfg_.apiKey);
-            auto res = cli.Post("/sdapi/v1/txt2img", h, body.dump(), "application/json");
+            auto res = cli.Post(r.initB64.empty() ? "/sdapi/v1/txt2img" : "/sdapi/v1/img2img", h, body.dump(), "application/json");
             if (!res) {
                 out.error = "image server request failed: " + httplib::to_string(res.error());
                 out.unreachable = res.error() == httplib::Error::Connection || res.error() == httplib::Error::ConnectionTimeout;
@@ -423,7 +428,7 @@ Json ArtService::Enqueue(const Json& req, std::string& err) {
         std::set<std::string> kinds;
         if (req.contains("kinds") && req["kinds"].is_array()) for (const auto& k : req["kinds"]) if (k.is_string()) kinds.insert(k.get<std::string>());
         for (const auto& s : all)
-            if ((kinds.empty() || kinds.count(s.kind)) && (force || Existing(s.kind, s.id).empty())) want.push_back(Item{s, force, ""});
+            if ((kinds.empty() || kinds.count(s.kind)) && (force || Existing(s.kind, s.id).empty())) want.push_back(Item{s, force, "", nullptr});
     }
     if (req.contains("ids") && req["ids"].is_array())
         for (const auto& v : req["ids"]) {
@@ -431,12 +436,12 @@ Json ArtService::Enqueue(const Json& req, std::string& err) {
             const auto slash = key.find('/');
             const ArtSubject* s = slash == std::string::npos ? nullptr : find(key.substr(0, slash), key.substr(slash + 1));
             if (!s) { err = "unknown picture '" + key + "' (use kind/id, for example characters/thorin)"; return Json(); }
-            want.push_back(Item{*s, force, ""});
+            want.push_back(Item{*s, force, "", nullptr});
         }
     if (req.contains("kind") && req.contains("id")) {
         const ArtSubject* s = find(req.value("kind", ""), req.value("id", ""));
         if (!s) { err = "unknown picture '" + req.value("kind", "") + "/" + req.value("id", "") + "'"; return Json(); }
-        want.push_back(Item{*s, force, req.value("prompt", "")});
+        want.push_back(Item{*s, force, req.value("prompt", ""), nullptr});
     }
     if (want.empty() && !req.value("missing", false) && !req.contains("ids") && !req.contains("kind")) { err = "say what to draw: {\"missing\": true}, {\"ids\": [\"characters/thorin\"]} or {\"kind\": \"npcs\", \"id\": \"marta\"}"; return Json(); }
 
@@ -465,6 +470,8 @@ Json ArtService::Jobs() const {
 
 void ArtService::Cancel() {
     std::lock_guard<std::mutex> lk(m_);
+    for (const auto& q : queue_)
+        if (q.view) views_[q.view->id] = Json{{"state", "failed"}, {"error", "cancelled"}};
     queue_.clear();
     idle_.notify_all();
 }
@@ -485,11 +492,18 @@ void ArtService::Worker() {
             queue_.pop_front();
             busy_ = true;
             current_ = it.s.kind + "/" + it.s.id;
+            if (it.view) views_[it.view->id] = Json{{"state", "running"}};
         }
         std::string err;
         const bool ok = Do(it, err);
         {
             std::lock_guard<std::mutex> lk(m_);
+            if (it.view) {
+                if (ok) {
+                    const std::string file = fs::path(Existing("views", it.view->id)).filename().string();
+                    views_[it.view->id] = Json{{"state", "done"}, {"url", "/art/views/" + file}};
+                } else views_[it.view->id] = Json{{"state", "failed"}, {"error", err}};
+            }
             if (ok) {
                 ++done_;
                 recent_.push_back(current_);
@@ -501,6 +515,8 @@ void ArtService::Worker() {
                 if (err.rfind("unreachable:", 0) == 0) {  // no point asking a dead server for the rest
                     failed_ += static_cast<int>(queue_.size());
                     errors_.push_back(Cat(queue_.size(), " more picture(s) dropped"));
+                    for (const auto& q : queue_)
+                        if (q.view) views_[q.view->id] = Json{{"state", "failed"}, {"error", err}};
                     queue_.clear();
                 }
             }
@@ -517,16 +533,16 @@ bool ArtService::Do(const Item& it, std::string& err) {
         std::lock_guard<std::mutex> lk(m_);
         cfg = cfg_;
     }
-    if (!it.force && !Existing(it.s.kind, it.s.id).empty()) return true;
+    if (!it.view && !it.force && !Existing(it.s.kind, it.s.id).empty()) return true;
     std::string problem;
     const std::string eff = EffectiveCheckpoint(problem);
     if (!problem.empty()) { err = problem; return false; }
 
     ImageRequest r;
     const ImageStyle& st = cfg.style;
-    const std::string subject = it.promptOverride.empty() ? it.s.subject : it.promptOverride;
+    const std::string subject = it.view ? it.view->subject : it.promptOverride.empty() ? it.s.subject : it.promptOverride;
     std::string framing;
-    if (!it.s.custom && it.promptOverride.empty())
+    if (!it.view && !it.s.custom && it.promptOverride.empty())
         if (auto f = st.framing.find(it.s.kind); f != st.framing.end()) framing = f->second;
     for (const std::string& part : {st.prefix, subject, framing, st.suffix}) {  // comma-separated phrases, as Stable Diffusion likes them
         if (part.empty()) continue;
@@ -541,6 +557,13 @@ bool ArtService::Do(const Item& it, std::string& err) {
     r.height = it.s.wide ? st.wideH : st.portraitH;
     r.seed = Crc32(it.s.id) & 0x7FFFFFFFu;
     r.checkpoint = eff;
+    if (it.view) {
+        r.width = it.view->width;
+        r.height = it.view->height;
+        if (it.view->seed) r.seed = it.view->seed & 0x7FFFFFFFu;
+        r.initB64 = it.view->initB64;
+        r.denoise = it.view->strength;
+    }
 
     const ImageResult res = client_->Generate(r);
     if (!res.ok) { err = (res.unreachable ? "unreachable: " : "") + res.error; return false; }
@@ -564,7 +587,46 @@ bool ArtService::Do(const Item& it, std::string& err) {
     fs::rename(tmp, final, ec);
     if (ec) { fs::remove(final, ec); ec.clear(); fs::rename(tmp, final, ec); }
     if (ec) { err = "cannot save " + final.string() + ": " + ec.message(); return false; }
+    if (it.view) {  // keep the newest 60 views; they are scratch pictures
+        std::vector<std::pair<fs::file_time_type, fs::path>> files;
+        for (const auto& e : fs::directory_iterator(dir, ec))
+            if (e.is_regular_file(ec)) files.emplace_back(e.last_write_time(ec), e.path());
+        if (files.size() > 60) {
+            std::sort(files.begin(), files.end());
+            for (std::size_t i = 0; i + 60 < files.size(); ++i) fs::remove(files[i].second, ec);
+        }
+    }
     return true;
+}
+
+Json ArtService::EnqueueView(const ViewJob& job, std::string& err) {
+    if (job.id.empty() || job.id.size() > 80 || !std::all_of(job.id.begin(), job.id.end(), [](unsigned char c) { return std::isalnum(c) || c == '-' || c == '_'; })) { err = "bad view id"; return Json(); }
+    if (job.subject.empty()) { err = "nothing to draw"; return Json(); }
+    auto v = std::make_shared<ViewJob>(job);
+    auto snap = [](int n) { return std::clamp(n / 8 * 8, 256, 1024); };
+    v->width = snap(v->width);
+    v->height = snap(v->height);
+    v->strength = std::clamp(v->strength, 0.05, 1.0);
+    Item it;
+    it.s = ArtSubject{"views", job.id, job.subject, true, true};
+    it.force = true;
+    it.view = v;
+    {
+        std::lock_guard<std::mutex> lk(m_);
+        if (!busy_ && queue_.empty()) { done_ = failed_ = 0; errors_.clear(); recent_.clear(); }
+        views_[job.id] = Json{{"state", "queued"}};
+        viewOrder_.push_back(job.id);
+        while (viewOrder_.size() > 100) { views_.erase(viewOrder_.front()); viewOrder_.pop_front(); }
+        queue_.push_back(std::move(it));
+    }
+    cv_.notify_all();
+    return Json{{"id", job.id}};
+}
+
+Json ArtService::View(const std::string& id) const {
+    std::lock_guard<std::mutex> lk(m_);
+    const auto f = views_.find(id);
+    return f == views_.end() ? Json{{"state", "unknown"}} : f->second;
 }
 
 }  // namespace dnd
