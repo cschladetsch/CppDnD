@@ -205,7 +205,9 @@ function logEvents(events) {
 }
 function apply(v) {
   view = v; logEvents(v.events || []);
-  $("#sub").textContent = `${v.module.name}  |  day ${v.clock.day}, ${String(v.clock.clockHour).padStart(2, "0")}:00${v.clock.night ? " (night)" : ""}  |  ${v.mode}`;
+  const cb = v.combat, cur = cb && !cb.finished ? cb.actors.find(a => a.id === cb.current) : null;
+  const turn = cb ? `  |  round ${cb.round}${cur ? `, turn: ${cur.name}${cb.awaiting === cur.id ? " (waiting for you)" : ""}` : ""}` : "";
+  $("#sub").textContent = `${v.module.name}  |  day ${v.clock.day}, ${String(v.clock.clockHour).padStart(2, "0")}:00${v.clock.night ? " (night)" : ""}  |  ${v.mode}${turn}`;
   renderMap(); renderScene(); renderParty(); renderQuests(); renderCombat(); refreshTable(); refreshHistory();
   if (v.mode === "combat" && v.combat && !v.combat.finished && v.combat.awaiting < 0 && !busy) setTimeout(advance, 120);
 }

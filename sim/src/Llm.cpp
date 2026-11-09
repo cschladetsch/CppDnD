@@ -382,6 +382,9 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
         "{\"type\":\"attack\",\"target\":ID,\"attack\":INDEX} {\"type\":\"cast\",\"spell\":SPELL_ID,\"target\":ID,\"slot\":LEVEL} "
         "{\"type\":\"dash\"} {\"type\":\"dodge\"} {\"type\":\"potion\",\"target\":ID} {\"type\":\"feature\",\"feature\":ID} {\"type\":\"end_turn\"}. "
         "Melee needs adjacency, so move first if needed. Target creatures by id.\n"
+        "When mode is exploring there is no turn order and no enemies are in the state: never output action steps (type) then. "
+        "If the player wants to attack or cast at something while exploring, return no steps and say in \"reply\" that nothing here is fighting them yet "
+        "(distant sounds in the scene text are atmosphere, not creatures). A fight starts only through the game's own events.\n"
         "At most 6 steps. If the message is a question, a joke or anything that is not an action, return no steps and answer in \"reply\" "
         "using only what the state tells you. Never invent exits, people, topics or creatures.";
     const std::string user = "State:\n" + ObserveWorld(game).dump() + "\n\nPlayer says: " + text;
@@ -398,7 +401,19 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
             if (!st.is_object() || ++n > 6) break;
             const int awaitingBefore = game.GetCombat() ? game.GetCombat()->AwaitingActor() : -1;
             if (st.contains("type")) {
-                if (game.GetMode() != Mode::Combat || awaitingBefore < 0) { out.ok = false; reply = "It is not your turn to act."; break; }
+                if (game.GetMode() != Mode::Combat) {
+                    // No encounter means no turn order: say so plainly instead of pretending it is someone else's turn.
+                    out.ok = false;
+                    reply = "No fight is under way, so there is no turn order and nothing here to attack. If something attacks you, combat starts by itself.";
+                    break;
+                }
+                if (awaitingBefore < 0) {
+                    out.ok = false;
+                    const Combat& cb = *game.GetCombat();
+                    const GameActor* cur = cb.Find(cb.CurrentActorId());
+                    reply = cur ? "It is " + cur->Name() + "'s turn; yours comes when the engine reaches you." : "The fight is between turns; try again in a moment.";
+                    break;
+                }
                 Action a;
                 std::string err;
                 if (!ActionFromJson(st, a, err)) { out.ok = false; reply = err; break; }

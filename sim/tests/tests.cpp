@@ -431,6 +431,19 @@ static void TestSay() {
     CHECK(g.LocationId() == "greywick");      // the first step ran
     CHECK(!go.ok && go.steps.size() == 1);    // the invented exit was refused by the engine
     CHECK(Say(mock, g, "   ").ok == false);
+    {   // an attack asked for while exploring is refused as "no fight", not as somebody else's turn
+        GameConfig ec; ec.moduleId = "ravenmoor"; ec.seed = 11;
+        Game eg(ec);
+        MockLlmClient attack([](const std::string&, const std::string&, bool) { LlmReply r; r.ok = true; r.content = R"({"steps":[{"type":"attack","target":1,"attack":0}],"reply":"You swing."})"; return r; });
+        const SayResult sr = Say(attack, eg, "attack the wolves");
+        CHECK(!sr.ok && sr.message.find("No fight is under way") != std::string::npos && sr.message.find("turn") != std::string::npos);
+        CHECK(sr.message.find("not your turn") == std::string::npos);
+        // in a fight but between turns it names whose turn it is
+        GameConfig cc; cc.rooms = 1; cc.difficulty = "easy"; cc.seed = 11; cc.role = Role::Player; cc.hero = "elara";
+        Game cg(cc);
+        const SayResult cs = Say(attack, cg, "attack");
+        CHECK(!cs.ok && (cs.message.find("'s turn") != std::string::npos || cs.message.find("between turns") != std::string::npos || cs.message.find("not possible") != std::string::npos));
+    }
     MockLlmClient broken([](const std::string&, const std::string&, bool) { LlmReply r; r.ok = false; r.error = "down"; return r; });
     CHECK(!Say(broken, g, "hello").ok);
 }
