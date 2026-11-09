@@ -246,7 +246,7 @@ function Start-Sd {
     $gpu = Get-Gpu
     if ($Cpu -or -not $gpu) { $args_ += @('--use-cpu', 'all', '--no-half', '--skip-torch-cuda-test') }
     elseif ($gpu.MiB -lt 4000) { $args_ += '--lowvram' }
-    elseif ($gpu.MiB -lt 7000) { $args_ += '--medvram' }
+    elseif ($gpu.MiB -lt 9000) { $args_ += '--medvram' }   # 8 GB cards run out of memory at 768 px wide pictures without it
     if ($env:DND_SD_ARGS) { $args_ += $env:DND_SD_ARGS }
 
     # A previous start that hung (webui.bat waits for a key after an error) would still be holding the pid file.
@@ -255,7 +255,8 @@ function Start-Sd {
         if ($old -and (Get-Process -Id $old -ErrorAction SilentlyContinue)) { if ($isWin) { & taskkill.exe /PID $old /T /F 2>&1 | Out-Null } else { & kill $old 2>&1 | Out-Null } }
         Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
     }
-    $saved = @{ CA = $env:COMMANDLINE_ARGS; PY = $env:PYTHON; ROOT = $env:can_run_as_root }
+    $saved = @{ CA = $env:COMMANDLINE_ARGS; PY = $env:PYTHON; ROOT = $env:can_run_as_root; ALLOC = $env:PYTORCH_CUDA_ALLOC_CONF }
+    if (-not $env:PYTORCH_CUDA_ALLOC_CONF) { $env:PYTORCH_CUDA_ALLOC_CONF = 'garbage_collection_threshold:0.8,max_split_size_mb:128' }   # less fragmentation: "out of memory" with gigabytes still free
     $env:COMMANDLINE_ARGS = ($args_ -join ' ')
     if ($py) { $env:PYTHON = $py.Path }
     $env:can_run_as_root = '1'
@@ -271,7 +272,7 @@ function Start-Sd {
             $proc = Start-Process -FilePath 'bash' -ArgumentList @('webui.sh') -WorkingDirectory $webui -RedirectStandardOutput $logFile -RedirectStandardError $errFile -PassThru
         }
     } finally {
-        $env:COMMANDLINE_ARGS = $saved.CA; $env:PYTHON = $saved.PY; $env:can_run_as_root = $saved.ROOT
+        $env:COMMANDLINE_ARGS = $saved.CA; $env:PYTHON = $saved.PY; $env:can_run_as_root = $saved.ROOT; $env:PYTORCH_CUDA_ALLOC_CONF = $saved.ALLOC
     }
     if (-not $proc) { Bad 'could not start the server'; return }
     Set-Content -Path $pidFile -Value $proc.Id
