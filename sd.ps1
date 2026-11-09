@@ -14,6 +14,8 @@
 #   -SdHome DIR              where AUTOMATIC1111 lives (default %LOCALAPPDATA%\CppDnD\sd, or $env:DND_SD_HOME)
 #   -ModelName sd15          the model-store folder that holds the checkpoint (matches "checkpoint" in images.json)
 #   -Cpu                     no NVIDIA GPU: run on the CPU (works, but a picture takes minutes)
+#   -Tune auto|none|medvram|alloc   memory tuning for the GPU: auto (default) uses --medvram on cards under 9 GB and a CUDA allocator setting that
+#                            limits fragmentation; none uses neither; medvram or alloc uses just that one (for finding out which one a machine dislikes)
 # Environment: DND_SD_HOME, DND_SD_REPO (a fork, e.g. Forge), DND_SD_TAG (default v1.10.1), DND_SD_ARGS (extra launch flags),
 #              DEEPSEEK_MODEL_HOME (the model store).
 # Exit code 0: fine (or started); 1: a requirement failed.
@@ -26,6 +28,7 @@ param(
     [switch]$Cpu,
     [switch]$NoWait,
     [switch]$Installed,
+    [ValidateSet('auto', 'none', 'medvram', 'alloc')][string]$Tune = 'auto',
     [int]$Port = 7860,
     [string]$SdHome = '',
     [string]$ModelName = 'sd15',
@@ -257,7 +260,7 @@ function Start-Sd {
     $gpu = Get-Gpu
     if ($Cpu -or -not $gpu) { $args_ += @('--use-cpu', 'all', '--no-half', '--skip-torch-cuda-test') }
     elseif ($gpu.MiB -lt 4000) { $args_ += '--lowvram' }
-    elseif ($gpu.MiB -lt 9000) { $args_ += '--medvram' }   # 8 GB cards run out of memory at 768 px wide pictures without it
+    elseif ($gpu.MiB -lt 9000 -and $Tune -in 'auto', 'medvram') { $args_ += '--medvram' }   # 8 GB cards run out of memory at 768 px wide pictures without it
     if ($env:DND_SD_ARGS) { $args_ += $env:DND_SD_ARGS }
 
     # A previous start that hung (webui.bat waits for a key after an error) would still be holding the pid file.
@@ -267,7 +270,7 @@ function Start-Sd {
         Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
     }
     $saved = @{ CA = $env:COMMANDLINE_ARGS; PY = $env:PYTHON; ROOT = $env:can_run_as_root; ALLOC = $env:PYTORCH_CUDA_ALLOC_CONF }
-    if (-not $env:PYTORCH_CUDA_ALLOC_CONF) { $env:PYTORCH_CUDA_ALLOC_CONF = 'garbage_collection_threshold:0.8,max_split_size_mb:128' }   # less fragmentation: "out of memory" with gigabytes still free
+    if (-not $env:PYTORCH_CUDA_ALLOC_CONF -and $Tune -in 'auto', 'alloc') { $env:PYTORCH_CUDA_ALLOC_CONF = 'garbage_collection_threshold:0.8,max_split_size_mb:128' }   # less fragmentation: "out of memory" with gigabytes still free
     $env:COMMANDLINE_ARGS = ($args_ -join ' ')
     if ($py) { $env:PYTHON = $py.Path }
     $env:can_run_as_root = '1'
