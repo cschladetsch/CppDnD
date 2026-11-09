@@ -14,8 +14,8 @@
 #   -SdHome DIR              where AUTOMATIC1111 lives (default %LOCALAPPDATA%\CppDnD\sd, or $env:DND_SD_HOME)
 #   -ModelName sd15          the model-store folder that holds the checkpoint (matches "checkpoint" in images.json)
 #   -Cpu                     no NVIDIA GPU: run on the CPU (works, but a picture takes minutes)
-#   -Tune auto|none|medvram|alloc   memory tuning for the GPU: auto (default) uses --medvram on cards under 9 GB and a CUDA allocator setting that
-#                            limits fragmentation; none uses neither; medvram or alloc uses just that one (for finding out which one a machine dislikes)
+#   -Tune auto|none|medvram|alloc   memory tuning for the GPU: auto (default) and medvram use --medvram on cards under 9 GB; none uses no tuning;
+#                            alloc sets PYTORCH_CUDA_ALLOC_CONF (garbage_collection_threshold, max_split_size_mb), which crashed the server on one machine
 # Environment: DND_SD_HOME, DND_SD_REPO (a fork, e.g. Forge), DND_SD_TAG (default v1.10.1), DND_SD_ARGS (extra launch flags),
 #              DEEPSEEK_MODEL_HOME (the model store).
 # Exit code 0: fine (or started); 1: a requirement failed.
@@ -270,7 +270,7 @@ function Start-Sd {
         Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
     }
     $saved = @{ CA = $env:COMMANDLINE_ARGS; PY = $env:PYTHON; ROOT = $env:can_run_as_root; ALLOC = $env:PYTORCH_CUDA_ALLOC_CONF }
-    if (-not $env:PYTORCH_CUDA_ALLOC_CONF -and $Tune -in 'auto', 'alloc') { $env:PYTORCH_CUDA_ALLOC_CONF = 'garbage_collection_threshold:0.8,max_split_size_mb:128' }   # less fragmentation: "out of memory" with gigabytes still free
+    if (-not $env:PYTORCH_CUDA_ALLOC_CONF -and $Tune -eq 'alloc') { $env:PYTORCH_CUDA_ALLOC_CONF = 'garbage_collection_threshold:0.8,max_split_size_mb:128' }   # opt-in only: with this the server process exits silently after loading on an RTX 2070 (torch 2.1.2, Windows)
     $env:COMMANDLINE_ARGS = ($args_ -join ' ')
     if ($py) { $env:PYTHON = $py.Path }
     $env:can_run_as_root = '1'
