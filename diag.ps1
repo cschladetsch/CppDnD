@@ -15,7 +15,7 @@ function Sect($t) { $lines.Add(''); $lines.Add("=== $t ===") }
 function Add($t)  { foreach ($l in @("$t" -split "`r?`n")) { $lines.Add($l) } }
 function Try-Run($t, [scriptblock]$b) {
     Sect $t
-    try { $r = & $b 2>&1 | Out-String; if ($r.Trim()) { Add $r.TrimEnd() } else { Add '(no output)' } }
+    try { $r = & $b *>&1 | Out-String; if ($r.Trim()) { Add $r.TrimEnd() } else { Add '(no output)' } }
     catch { Add "failed: $($_.Exception.Message)" }
 }
 function Tail-File($path) {

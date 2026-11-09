@@ -249,6 +249,12 @@ function Start-Sd {
     elseif ($gpu.MiB -lt 7000) { $args_ += '--medvram' }
     if ($env:DND_SD_ARGS) { $args_ += $env:DND_SD_ARGS }
 
+    # A previous start that hung (webui.bat waits for a key after an error) would still be holding the pid file.
+    if (Test-Path $pidFile) {
+        $old = [int](Get-Content $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
+        if ($old -and (Get-Process -Id $old -ErrorAction SilentlyContinue)) { if ($isWin) { & taskkill.exe /PID $old /T /F 2>&1 | Out-Null } else { & kill $old 2>&1 | Out-Null } }
+        Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
+    }
     $saved = @{ CA = $env:COMMANDLINE_ARGS; PY = $env:PYTHON; ROOT = $env:can_run_as_root }
     $env:COMMANDLINE_ARGS = ($args_ -join ' ')
     if ($py) { $env:PYTHON = $py.Path }
@@ -258,7 +264,9 @@ function Start-Sd {
     Write-Host "  flags:    $($env:COMMANDLINE_ARGS)"
     try {
         if ($isWin) {
-            $proc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'webui.bat') -WorkingDirectory $webui -WindowStyle Hidden -RedirectStandardOutput $logFile -RedirectStandardError $errFile -PassThru
+            $nullIn = Join-Path $sdRoot 'empty.in'
+            Set-Content -Path $nullIn -Value '' -NoNewline   # stdin at end-of-file: "pause" at the end of webui.bat returns at once instead of hanging a hidden window
+            $proc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'webui.bat') -WorkingDirectory $webui -WindowStyle Hidden -RedirectStandardInput $nullIn -RedirectStandardOutput $logFile -RedirectStandardError $errFile -PassThru
         } else {
             $proc = Start-Process -FilePath 'bash' -ArgumentList @('webui.sh') -WorkingDirectory $webui -RedirectStandardOutput $logFile -RedirectStandardError $errFile -PassThru
         }
@@ -267,7 +275,16 @@ function Start-Sd {
     }
     if (-not $proc) { Bad 'could not start the server'; return }
     Set-Content -Path $pidFile -Value $proc.Id
-    if ($NoWait) { Ok "launched in the background (log: $logFile); the Pictures panel works once it answers at $apiUrl"; return }
+    if ($NoWait) {
+        for ($i = 0; $i -lt 20 -and -not $proc.HasExited; $i++) { Start-Sleep -Seconds 1 }
+        if ($proc.HasExited) {
+            Bad "the server exited with code $($proc.ExitCode) right after starting. Last log lines:"
+            foreach ($f in @($errFile, $logFile)) { if (Test-Path $f) { Get-Content $f -Tail 8 | ForEach-Object { Info $_ } } }
+            Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
+            return
+        }
+        Ok "launched in the background (log: $logFile); the Pictures panel works once it answers at $apiUrl"; return
+    }
     if (-not (Test-Path $venvPy)) { Write-Host '  first run: installing PyTorch and the web UI requirements (10-20 minutes)' -ForegroundColor Yellow }
 
     $deadline = (Get-Date).AddMinutes($TimeoutMin)
