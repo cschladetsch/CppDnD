@@ -386,14 +386,28 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
         "If the player wants to attack or cast at something while exploring, return no steps and say in \"reply\" that nothing here is fighting them yet "
         "(distant sounds in the scene text are atmosphere, not creatures). A fight starts only through the game's own events.\n"
         "At most 6 steps. If the message is a question, a joke or anything that is not an action, return no steps and answer in \"reply\" "
-        "using only what the state tells you. Never invent exits, people, topics or creatures.";
+        "using only what the state tells you. Never invent exits, people, topics or creatures.\n"
+        "You are also the Dungeon Master: every player message gets an answer. ALWAYS include a short in-character \"reply\" (one or two sentences), "
+        "even when you return steps, and even when the request is odd, impossible or silly.";
     const std::string user = "State:\n" + ObserveWorld(game).dump() + "\n\nPlayer says: " + text;
     const LlmReply r = client.Chat(sys, user, true);
-    if (!r.ok) { out.message = "The model did not answer: " + r.error; return out; }
+    // Every input gets an answer from the DM, even when the model is down or rambles.
+    if (!r.ok) { out.message = "The Dungeon Master stares into the mist for a moment, lost in thought. (The model did not answer: " + r.error + ")"; return out; }
     const std::string obj = ExtractJsonObject(r.content);
     const auto j = obj.empty() ? nlohmann::json() : nlohmann::json::parse(obj, nullptr, false);
-    if (!j.is_object()) { out.message = "I could not understand the model's reply."; return out; }
+    if (!j.is_object()) {
+        // The model answered in plain prose instead of JSON: that is still the DM speaking, so show it (no steps are run).
+        std::string prose = Trim(r.content);
+        if (prose.size() > 600) prose.resize(600);
+        if (prose.empty()) { out.message = "The Dungeon Master considers this and says nothing."; return out; }
+        out.ok = true;
+        out.message = prose;
+        return out;
+    }
     std::string reply = j.value("reply", "");
+    const std::string dm = Trim(reply);
+    // A refused step keeps the DM's own words and adds why the engine said no, so the player is never just told "no".
+    auto refuse = [&](const std::string& note) { out.ok = false; reply = dm.empty() ? note : dm + " (" + note + ")"; };
     out.ok = true;
     int n = 0;
     if (j.contains("steps") && j["steps"].is_array()) {
@@ -403,36 +417,34 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
             if (st.contains("type")) {
                 if (game.GetMode() != Mode::Combat) {
                     // No encounter means no turn order: say so plainly instead of pretending it is someone else's turn.
-                    out.ok = false;
-                    reply = "No fight is under way, so there is no turn order and nothing here to attack. If something attacks you, combat starts by itself.";
+                    refuse("No fight is under way, so there is no turn order and nothing here to attack. If something attacks you, combat starts by itself.");
                     break;
                 }
                 if (awaitingBefore < 0) {
-                    out.ok = false;
                     const Combat& cb = *game.GetCombat();
                     const GameActor* cur = cb.Find(cb.CurrentActorId());
-                    reply = cur ? "It is " + cur->Name() + "'s turn; yours comes when the engine reaches you." : "The fight is between turns; try again in a moment.";
+                    refuse(cur ? "It is " + cur->Name() + "'s turn; yours comes when the engine reaches you." : "The fight is between turns; try again in a moment.");
                     break;
                 }
                 Action a;
                 std::string err;
-                if (!ActionFromJson(st, a, err)) { out.ok = false; reply = err; break; }
+                if (!ActionFromJson(st, a, err)) { refuse(err); break; }
                 const ActionResult ar = game.SubmitAction(a);
-                if (!ar.ok) { out.ok = false; reply = "That was not possible: " + ar.reason; break; }
+                if (!ar.ok) { refuse("That was not possible: " + ar.reason); break; }
                 out.steps.push_back(st.value("type", ""));
                 if (game.GetMode() == Mode::Combat) game.AdvanceCombat();
                 if (game.GetMode() != Mode::Combat || !game.GetCombat() || game.GetCombat()->AwaitingActor() != awaitingBefore) break;  // the turn passed
                 continue;
             }
-            if (game.GetMode() != Mode::Exploring) { out.ok = false; reply = "That cannot be done right now."; break; }
+            if (game.GetMode() != Mode::Exploring) { refuse("That cannot be done right now."); break; }
             const std::string cmd = st.value("cmd", "");
             const CmdResult cr = RunExplorationStep(game, st);
-            if (!cr.ok) { out.ok = false; reply = cr.message; break; }
+            if (!cr.ok) { refuse(cr.message); break; }
             out.steps.push_back(cmd);
             if (game.GetMode() != Mode::Exploring) break;  // a fight broke out; stop here
         }
     }
-    if (out.steps.empty() && out.ok && reply.empty()) reply = "Nothing happens.";
+    if (out.steps.empty() && out.ok && reply.empty()) reply = "The Dungeon Master nods, but nothing in the world answers yet.";
     out.message = reply;
     return out;
 }
