@@ -3,6 +3,7 @@
  "name": "The Dread of Ravenmoor",
  "setting": "gothic horror: a mist-bound domain under a dying moon",
  "recommendedLevel": 5,
+ "hardHp": 1.7,
  "intro": "The coach lurches to a halt where the road meets the Mists. The driver will go no further. Ahead, a thin lantern-glow marks a village; behind you, white fog has already swallowed the way you came. Something in the dark of Ravenmoor has been waiting a very long time for fresh blood.",
  "endText": "With the Countess's creature destroyed, the Mists thin and the moon breaks through for the first time in a century. Ravenmoor exhales. For now.",
  "clock": {

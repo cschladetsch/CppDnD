@@ -42,6 +42,7 @@ A module is the space for a long session. Top-level keys:
 |---|---|
 | `id`, `name`, `setting`, `intro`, `endText` | identity and framing text |
 | `recommendedLevel` | shown in the client; autopilot is tuned for it |
+| `hardHp` | monster hit point scale on Hard (default 1.25); tune so an AI-only party wins about one game in three |
 | `clock` | `{startHour, nightStart, nightEnd}`; night raises random encounter chances |
 | `start` | id of the starting location |
 | `locations` | the graph (below) |

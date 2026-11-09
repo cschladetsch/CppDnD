@@ -226,6 +226,7 @@ ModuleDef ParseModule(const json& j, const std::string& file) {
     m.intro = j.value("intro", "");
     m.endText = j.value("endText", "The tale is told.");
     m.recommendedLevel = j.value("recommendedLevel", 3);
+    m.hardHp = j.value("hardHp", 1.25);
     if (j.contains("clock")) {
         m.startHour = j.at("clock").value("startHour", 18);
         m.nightStart = j.at("clock").value("nightStart", 19);

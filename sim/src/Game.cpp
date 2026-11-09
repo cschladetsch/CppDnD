@@ -634,7 +634,8 @@ void Game::EnterCombat(const EncounterSpec& spec) {
     // Difficulty scales authored module encounters (procedural delves already generate for it).
     struct Tune { double hp; int toHit, ac, extra; };
     const std::string& dif = cfg_.difficulty;
-    const Tune tune = cfg_.moduleId.empty() ? Tune{1, 0, 0, 0} : dif == "easy" ? Tune{0.75, 0, 0, 0} : dif == "hard" ? Tune{1.25, 1, 0, 0} : dif == "deadly" ? Tune{1.6, 2, 1, 1} : Tune{1, 0, 0, 0};
+    const Tune tune0 = cfg_.moduleId.empty() ? Tune{1, 0, 0, 0} : dif == "easy" ? Tune{0.75, 0, 0, 0} : dif == "hard" ? Tune{module_.hardHp, 1, 0, 0} : dif == "deadly" ? Tune{module_.hardHp * 1.3, 2, 1, 1} : Tune{1, 0, 0, 0};
+    const Tune tune = tune0;
     for (int i = 0, n = static_cast<int>(defs.size()); i < tune.extra && n > 0 && living.size() >= 3; ++i) defs.push_back(defs[static_cast<std::size_t>(i % n)]);
     fill(mCells, defs.size(), Pos{g.Width() - 2, g.Height() / 2});
     for (std::size_t i = mCells.size(); i > 1; --i) std::swap(mCells[i - 1], mCells[static_cast<std::size_t>(DiceRoller::Index(static_cast<int>(i)))]);

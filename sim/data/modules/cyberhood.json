@@ -3,6 +3,7 @@
  "name": "CyberHood",
  "setting": "cyberpunk: the Hood, a vertical neon district in the year 2040, ruled by a rogue maintenance AI",
  "recommendedLevel": 5,
+ "hardHp": 1.0,
  "intro": "2040. The maglev drops you at Fenwick Street, at the bottom of the Hood: sixty floors of stacked homes, markets and clinics bolted to the side of a dying corporate tower. The district's maintenance AI, Hush, went silent a year ago. Now it speaks through every speaker, every lift and every ad. People are taking a drug called Static to hear it less. Mama Kessler has a job, and she has already paid for your ticket.",
  "endText": "The Ghost Core goes dark. Across the Hood, every speaker falls quiet for the first time in a year, and then, one by one, the neon begins to flicker back to its own colours. Somewhere below, Kessler turns the sign over to OPEN.",
  "clock": {

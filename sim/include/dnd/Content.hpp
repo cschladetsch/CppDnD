@@ -126,6 +126,7 @@ struct DrawDef {
 struct ModuleDef {
     std::string id, name, setting, intro, endText;
     int recommendedLevel = 3;
+    double hardHp = 1.25;  // monster hit point scale on Hard (tuned per module so an AI-only party wins about one game in three)
     int startHour = 18;
     int nightStart = 19, nightEnd = 6;
     std::string start;
