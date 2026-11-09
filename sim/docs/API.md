@@ -23,7 +23,7 @@ Rules reference for the mechanics implemented here: the [D&D 5e SRD](https://5th
 
 Every game is a session: its whole state (the same JSON as `/save`, including the RNG stream) under a name. The server writes `<sessions dir>/<id>.json` after every successful `POST` to a game (`sim/sessions/` by default; `--sessions DIR` or `DND_SESSIONS` to move it, `--sessions ""` to keep sessions in memory only), and reads them all back at startup, so a restart loses nothing. An unnamed session is called `<module name> #n`. A file that cannot be read is skipped with a message on stderr. Games made with `agents` are re-attached to the agents file when they are restored; if that file is gone the session is skipped.
 
-Create body (all optional): `module` (id, or empty for a procedural delve), `rooms`, `difficulty` (procedural), `party` (character ids), `level`, `seed`, `role` (`player`, `dm`, `spectator`), `hero`, `pace` (`slow`, `normal`, `fast`), `llmDm`, `llmNarration`.
+Create body (all optional): `module` (id, or empty for a procedural delve), `rooms`, `difficulty` (`easy`, `medium`, `hard`, `deadly`: generates procedural delves and scales monster hit points, to-hit and numbers in module encounters; the web client defaults to `hard`), `party` (character ids), `level`, `seed`, `role` (`player`, `dm`, `spectator`), `hero`, `pace` (`slow`, `normal`, `fast`), `llmDm`, `llmNarration`.
 
 ## The view
 

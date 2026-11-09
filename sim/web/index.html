@@ -99,11 +99,13 @@ async function showStart() {
   mods.value = (content.modules || [])[0]?.id || "";
   const role = el("select", { id: "role" }, ...[["player", "Player (one hero)"], ["dm", "Dungeon Master (all monsters)"], ["spectator", "Spectator (AI plays)"]].map(([v, t]) => el("option", { value: v, textContent: t })));
   const hero = el("select", { id: "hero" }, ...(content.characters || []).filter(c => ["thorin", "elara", "aldric", "finn"].includes(c.id)).map(c => el("option", { value: c.id, textContent: `${c.name} (${c.class})` })));
+  const diff = el("select", { id: "diff" }, ...[["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"], ["deadly", "Deadly"]].map(([v, t]) => el("option", { value: v, textContent: t })));
+  diff.value = "hard";
   const agentsBox = el("input", { type: "checkbox", id: "agents", disabled: !agentsOn });
   const seed = el("input", { id: "seed", type: "number", placeholder: "random" });
   const file = el("input", { type: "file", accept: ".json" });
   const go = el("button", { className: "primary", textContent: "Begin", onclick: async () => {
-    const body = { module: mods.value, role: role.value, hero: hero.value };
+    const body = { module: mods.value, role: role.value, hero: hero.value, difficulty: diff.value };
     if (seed.value) body.seed = Number(seed.value);
     if (agentsBox.checked) body.agents = true;
     const { status, data } = await api("POST", "/api/games", body);
@@ -117,7 +119,7 @@ async function showStart() {
     startGame(data.id, data.view);
   };
   $("#app").replaceChildren(el("div", { className: "panel start" }, el("h2", { textContent: "New game" }),
-    el("label", { textContent: "Module" }), mods, el("label", { textContent: "Role" }), role, el("label", { textContent: "Hero" }), hero,
+    el("label", { textContent: "Module" }), mods, el("label", { textContent: "Role" }), role, el("label", { textContent: "Hero" }), hero, el("label", { textContent: "Difficulty" }), diff,
     el("label", { textContent: "AI table" }), el("label", { style: "display:flex;gap:8px;align-items:center;color:var(--text)" }, agentsBox,
       el("span", { textContent: agentsOn ? "every actor is its own model (agents.json); slower" : "not available: no agents.json found" })),
     el("label", { textContent: "Seed (optional, reproducible)" }), seed, el("div", { className: "row" }, go),

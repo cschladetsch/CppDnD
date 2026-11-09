@@ -631,6 +631,11 @@ void Game::EnterCombat(const EncounterSpec& spec) {
         if (!m) throw std::runtime_error("unknown monster '" + id + "' in event");
         defs.push_back(m);
     }
+    // Difficulty scales authored module encounters (procedural delves already generate for it).
+    struct Tune { double hp; int toHit, ac, extra; };
+    const std::string& dif = cfg_.difficulty;
+    const Tune tune = cfg_.moduleId.empty() ? Tune{1, 0, 0, 0} : dif == "easy" ? Tune{0.75, 0, 0, 0} : dif == "hard" ? Tune{1.25, 1, 0, 0} : dif == "deadly" ? Tune{1.6, 2, 1, 1} : Tune{1, 0, 0, 0};
+    for (int i = 0, n = static_cast<int>(defs.size()); i < tune.extra && n > 0 && living.size() >= 3; ++i) defs.push_back(defs[static_cast<std::size_t>(i % n)]);
     fill(mCells, defs.size(), Pos{g.Width() - 2, g.Height() / 2});
     for (std::size_t i = mCells.size(); i > 1; --i) std::swap(mCells[i - 1], mCells[static_cast<std::size_t>(DiceRoller::Index(static_cast<int>(i)))]);
     std::map<std::string, int> total, seen;
@@ -638,6 +643,10 @@ void Game::EnterCombat(const EncounterSpec& spec) {
     std::string names;
     for (std::size_t i = 0; i < defs.size() && i < mCells.size(); ++i) {
         CharacterSheet sheet = defs[i]->sheet;
+        sheet.maxHp = std::max(1, static_cast<int>(sheet.maxHp * tune.hp + 0.5));
+        sheet.hp = sheet.maxHp;
+        sheet.armorClass += tune.ac;
+        for (auto& a : sheet.attacks) a.toHit += tune.toHit;
         sheet.name = total[defs[i]->name] > 1 ? Cat(defs[i]->name, " ", ++seen[defs[i]->name]) : defs[i]->name;
         names += (names.empty() ? "" : ", ") + sheet.name;
         combat_->AddActor(Team::Monsters, std::move(sheet), mCells[i], nullptr);

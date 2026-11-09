@@ -213,3 +213,27 @@ TEST(Game, HeroSwitch) {
     EXPECT_TRUE(sg.SetHero("finn", err) && sg.GetRole() == Role::Player && sg.Hero() == "Finn");
     EXPECT_EQ(Game::Load(sg.Save())->Hero(), "Finn");
 }
+
+namespace {
+int FirstFightFoeHp(const std::string& difficulty) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 3;
+    cfg.role = Role::Spectator;
+    cfg.difficulty = difficulty;
+    Game g(cfg);
+    for (int i = 0; i < 200 && g.GetMode() != Mode::Combat; ++i) g.AutoStep();
+    int hp = 0;
+    if (const Combat* c = g.GetCombat())
+        for (const auto& a : c->Actors())
+            if (a->team == Team::Monsters) hp += a->sheet.maxHp;
+    return hp;
+}
+}  // namespace
+
+TEST(Game, DifficultyScalesModuleEncounters) {
+    const int easy = FirstFightFoeHp("easy"), medium = FirstFightFoeHp("medium"), hard = FirstFightFoeHp("hard");
+    ASSERT_GT(easy, 0);
+    EXPECT_LT(easy, medium);
+    EXPECT_LT(medium, hard);
+}
