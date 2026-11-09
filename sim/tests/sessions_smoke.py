@@ -57,18 +57,18 @@ try:
     assert st == 201 and c["name"] == "The Dread of Ravenmoor #2", c
     assert len(files()) == 3, files()
 
-    time.sleep(1.1)  # timestamps have one-second resolution
-    # play one of them, rename another
-    for _ in range(6):
-        st, r = call("POST", f"/api/games/{a['id']}/auto", {"steps": 2})
-        assert st == 200, r
-    played = r["view"]
+    # rename one session, then (a second later) play another
     st, r = call("POST", f"/api/games/{c['id']}/name", {"name": "Second try"})
     assert st == 200 and r["name"] == "Second try", r
     st, r = call("POST", f"/api/games/{c['id']}/name", {"name": "   "})
     assert st == 400, r
     st, r = call("POST", f"/api/games/{c['id']}/name", {"name": "x" * 81})
     assert st == 400, r
+    time.sleep(1.1)  # timestamps have one-second resolution
+    for _ in range(6):
+        st, r = call("POST", f"/api/games/{a['id']}/auto", {"steps": 2})
+        assert st == 200, r
+    played = r["view"]
 
     st, before = call("GET", "/api/games")
     names = {s["id"]: s["name"] for s in before["sessions"]}
