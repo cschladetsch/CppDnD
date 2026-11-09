@@ -7,7 +7,7 @@
 #   .\sd.ps1 -Start          start the API server in the background and wait until it answers
 #                            (the first start installs PyTorch, about 5 GB, and takes 10-20 minutes)
 #   .\sd.ps1 -Stop           stop a server this script started
-#   -NoWait                  with -Start: return as soon as the server is launched (web.ps1 -Art uses this)
+#   -NoWait                  with -Start: return as soon as the server is launched (web.ps1 uses this)
 #   -Yes                     do not ask before installing with winget
 #   -Port 7860               API port (must match "url" in sim\data\images.json)
 #   -SdHome DIR              where AUTOMATIC1111 lives (default %LOCALAPPDATA%\CppDnD\sd, or $env:DND_SD_HOME)

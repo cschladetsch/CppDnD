@@ -64,7 +64,7 @@ Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `res
 .\web.ps1
 ```
 
-`web.ps1` checks for cmake, ninja and clang++, that the port is free, and (with `-Model`) that Ollama is running and has the model; builds if needed; starts `dnd_server`; waits until it answers; and opens the browser. Ctrl-C stops it. Options: `-Port`, `-Model`, `-Art` (also start Stable Diffusion for pictures, see below), `-Rebuild`, `-NoBrowser`; anything else is passed to `dnd_server`.
+`web.ps1` checks for cmake, ninja and clang++, that the port is free, and (with `-Model`) that Ollama is running and has the model; builds if needed; starts `dnd_server`; waits until it answers; and opens the browser. Ctrl-C stops it. It also starts Stable Diffusion in the background for the Pictures panel (see below); if that is not installed yet the game starts anyway and says so. Options: `-Port`, `-Model`, `-NoArt` (do not start Stable Diffusion), `-Rebuild`, `-NoBrowser`; anything else is passed to `dnd_server`.
 
 The client is at http://127.0.0.1:8088/ . You can also talk to the JSON API directly:
 
@@ -118,15 +118,15 @@ Switch which character you play at any time with the "You control" dropdown in t
 
 ### Setting up Stable Diffusion
 
-Pictures need an image server. `sd.ps1` sets one up (AUTOMATIC1111, started with `--api --nowebui`) and `web.ps1 -Art` runs it beside the game:
+Pictures need an image server. `sd.ps1` sets one up (AUTOMATIC1111, started with `--api --nowebui`) and `web.ps1` starts it beside the game by default:
 
 ```powershell
 .\sd.ps1 -Check      # what is missing, changes nothing
 .\sd.ps1 -Install    # git and Python 3.10 (winget, asks first), AUTOMATIC1111, and the SD 1.5 model into the model store
-.\web.ps1 -Art       # game plus image server; the first start installs PyTorch (10-20 minutes)
+.\web.ps1            # game plus image server (-NoArt for the game alone); the first start installs PyTorch (10-20 minutes)
 ```
 
-What it needs: Windows 10 or 11 with an NVIDIA GPU and driver (about 6 GB of VRAM or more is comfortable; less runs with `--medvram` or `--lowvram`; `-Cpu` works without a GPU but takes minutes per picture), git, Python 3.10 specifically (3.11 and newer do not work with AUTOMATIC1111), about 15 GB of free disk (PyTorch 5 GB, the repository, the 4.3 GB model), network access to github.com, huggingface.co, pypi.org and download.pytorch.org for the install, and port 7860. The model (Stable Diffusion 1.5, `v1-5-pruned-emaonly.safetensors`, CreativeML OpenRAIL-M licence) goes into the CppLmmModelStore at `<model home>/sd15/`, and AUTOMATIC1111 is pointed at that folder with `--ckpt-dir`, so the model is shared and downloaded once. Everything lives outside the repository: AUTOMATIC1111 in `%LOCALAPPDATA%\CppDnD\sd` (`-SdHome` or `DND_SD_HOME` to move it). `sd.ps1 -Start` and `-Stop` control the server by themselves; `web.ps1 -Art` stops it again when you stop the game, if it started it. Without `-Art` the game works as before and the Pictures panel says no image server is running. `.\check.ps1` reports the same requirements.
+What it needs: Windows 10 or 11 with an NVIDIA GPU and driver (about 6 GB of VRAM or more is comfortable; less runs with `--medvram` or `--lowvram`; `-Cpu` works without a GPU but takes minutes per picture), git, Python 3.10 specifically (3.11 and newer do not work with AUTOMATIC1111), about 15 GB of free disk (PyTorch 5 GB, the repository, the 4.3 GB model), network access to github.com, huggingface.co, pypi.org and download.pytorch.org for the install, and port 7860. The model (Stable Diffusion 1.5, `v1-5-pruned-emaonly.safetensors`, CreativeML OpenRAIL-M licence) goes into the CppLmmModelStore at `<model home>/sd15/`, and AUTOMATIC1111 is pointed at that folder with `--ckpt-dir`, so the model is shared and downloaded once. Everything lives outside the repository: AUTOMATIC1111 in `%LOCALAPPDATA%\CppDnD\sd` (`-SdHome` or `DND_SD_HOME` to move it). `sd.ps1 -Start` and `-Stop` control the server by themselves; `web.ps1` stops it again when you stop the game, if it started it. With `-NoArt`, or before `sd.ps1 -Install` has been run, the game works as before and the Pictures panel says no image server is running. `.\check.ps1` reports the same requirements.
 
 ### Pictures
 
@@ -146,7 +146,7 @@ Each folder has its own README.
 
 ```
 run.ps1     build if needed, then run the terminal client (or the server with -Server)
-web.ps1     build if needed, start the server, open the browser (-Art: and Stable Diffusion)
+web.ps1     build if needed, start the server and Stable Diffusion, open the browser (-NoArt: server only)
 sd.ps1      check, install, start and stop Stable Diffusion (the image server)
 art.ps1     draw every missing picture from a shell
 test.ps1    build, then run every test

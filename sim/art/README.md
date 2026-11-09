@@ -41,7 +41,7 @@ The HTTP routes are in [../docs/API.md](../docs/API.md#images).
 
 ### Setting it up
 
-`.\sd.ps1 -Check` (in the repository root) lists every requirement (git, Python 3.10, an NVIDIA GPU and driver, about 15 GB of disk, network access, AUTOMATIC1111, the model in the store, the port); `-Install` installs what is missing; `.\web.ps1 -Art` starts the image server with the game. The requirements and what each flag does are in the root [README](../../README.md#setting-up-stable-diffusion).
+`.\sd.ps1 -Check` (in the repository root) lists every requirement (git, Python 3.10, an NVIDIA GPU and driver, about 15 GB of disk, network access, AUTOMATIC1111, the model in the store, the port); `-Install` installs what is missing; `.\web.ps1` starts the image server with the game (`-NoArt` to skip it). The requirements and what each flag does are in the root [README](../../README.md#setting-up-stable-diffusion).
 
 ### From a script
 

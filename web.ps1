@@ -2,15 +2,18 @@
 #   .\web.ps1                          http://127.0.0.1:8088/
 #   .\web.ps1 -Port 9000
 #   .\web.ps1 -Model llama3.1          also enable the plain-English prompt through Ollama
-#   .\web.ps1 -Art                    also start Stable Diffusion in the background for the Pictures panel (set it up once with .\sd.ps1 -Install)
+#   .\web.ps1 -NoArt                  do not start Stable Diffusion (pictures are on by default; set them up once with .\sd.ps1 -Install)
 #   .\web.ps1 -Rebuild -NoBrowser
 #   .\web.ps1 --data C:\my\content    unrecognised options go to dnd_server
+# Stable Diffusion is started in the background for the Pictures panel unless -NoArt is given;
+# if it is not installed the game starts anyway and says so. -Art is accepted and does nothing (it is the default).
 # Ctrl-C stops the server (and Stable Diffusion, if this script started it).
 param(
     [int]$Port = 8088,
     [string]$Model = '',
     [switch]$Rebuild,
     [switch]$Art,
+    [switch]$NoArt,
     [switch]$NoBrowser,
     [Parameter(ValueFromRemainingArguments = $true)] [string[]]$ServerArgs
 )
@@ -64,7 +67,7 @@ if (Test-Path $imgFile) {
     } catch { Write-Host "web.ps1: warning: could not read sim\data\images.json: $($_.Exception.Message)" -ForegroundColor Yellow }
 }
 $sdWeStarted = $false
-if ($Art) {
+if (-not $NoArt) {
     $sdScript = Join-Path $PSScriptRoot 'sd.ps1'
     $sdUp = $false
     try { Invoke-RestMethod -Uri "$imgUrl/sdapi/v1/options" -TimeoutSec 2 | Out-Null; $sdUp = $true } catch {}
@@ -73,7 +76,7 @@ if ($Art) {
     else {
         $sdPort = ([uri]$imgUrl).Port
         & $sdScript -Start -NoWait -Port $sdPort
-        if ($LASTEXITCODE) { Write-Host 'web.ps1: warning: Stable Diffusion did not start (run .\sd.ps1 -Check, or .\sd.ps1 -Install the first time); continuing without pictures' -ForegroundColor Yellow }
+        if ($LASTEXITCODE) { Write-Host 'web.ps1: warning: Stable Diffusion did not start (run .\sd.ps1 -Install the first time, or .\sd.ps1 -Check to see what is missing; -NoArt skips this); continuing without pictures' -ForegroundColor Yellow }
         else { $sdWeStarted = $true }
     }
 }
@@ -111,7 +114,7 @@ try {
         elseif ($img.problem) { Write-Host "Pictures: $($img.problem)" -ForegroundColor Yellow }
         elseif ($img.reachable) { Write-Host "Pictures: image server ready at $($img.url), model '$($img.checkpoint)'" -ForegroundColor Green }
         elseif ($sdWeStarted) { Write-Host "Pictures: Stable Diffusion is starting at $($img.url) (the first start takes 10-20 minutes); the Pictures panel works once it answers" -ForegroundColor Yellow }
-        else { Write-Host "Pictures: no image server at $($img.url). .\web.ps1 -Art starts one; .\sd.ps1 -Install sets it up." -ForegroundColor DarkGray }
+        else { Write-Host "Pictures: no image server at $($img.url). .\sd.ps1 -Install sets one up (it was skipped or failed to start, or you used -NoArt)." -ForegroundColor DarkGray }
     } catch {}
     if (-not $NoBrowser) { Start-Process $url }
     $proc.WaitForExit()
