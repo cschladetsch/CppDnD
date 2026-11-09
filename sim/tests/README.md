@@ -13,6 +13,7 @@
 | `test_scene.cpp` | one end-to-end pass over the camera, scene and prompt words |
 | `test_camera.cpp` | the camera model in detail: clamping, projection for every heading, lens and pitch, camera words, scene layout, the words a view produces (parameterized) |
 | `test_modules.cpp` | every shipped module: connected graph, no dead ends, every flag requirement satisfiable for every draw, drawn values used, ids unique, maps with room for a party, the autopilot finishes and often wins; CyberHood's routes |
+| `sessions_smoke.py` | sessions against a real server: names, listing order, rename limits, state identical after a restart, play continues, delete removes the file for good, a damaged file is skipped |
 | `api_smoke.py` | plays a whole module through the HTTP API: creating a game, acting as the hero, autopilot, saving and loading |
 
 Every `TEST` is its own CTest entry (`gtest_discover_tests`), so `ctest` reports them one by one; `api_smoke` is registered as well. GoogleTest is taken from the system if installed, otherwise fetched (v1.15.2) at configure time.

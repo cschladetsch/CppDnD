@@ -31,6 +31,7 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .member { padding:6px 0; border-top:1px solid var(--edge); } .member:first-of-type { border-top:0; }
 .member.dead { opacity:.45; text-decoration:line-through; }
 .member.you { border-left:3px solid var(--accent); padding-left:8px; }
+#sessSel { max-width:min(420px, 40vw); }
 .focus { display:flex; gap:8px; align-items:center; margin:2px 0 8px; } .focus select { flex:1; }
 .pics .row { margin:6px 0; } .pics progress { width:100%; height:8px; } .pics .err { color:var(--bad); font-size:12px; }
 .hist { max-height:260px; overflow:auto; font-size:13px; margin-top:6px; }
@@ -65,6 +66,8 @@ kbd { background:#2a2638; border:1px solid var(--edge); border-bottom-width:2px;
 </head>
 <body>
 <header><h1>CppDnD</h1><span id="sub" class="dim small"></span><span class="sp"></span>
+  <select id="sessSel" title="Sessions: every game is kept by the server, with all of its state, so you can switch between them"></select>
+  <button id="sessName" title="Rename this session" hidden>Rename</button><button id="sessDel" title="Delete this session for good" hidden>Delete</button>
   <button id="saveBtn" hidden>Save</button><button id="newBtn" hidden>New game</button></header>
 <div id="app"></div>
 <div id="toast"></div>
@@ -85,7 +88,7 @@ function toast(msg) { const t = $("#toast"); t.textContent = msg; t.style.displa
 
 // ---------------------------------------------------------------- start screen
 async function showStart() {
-  gid = null; view = null; lastSeq = 0;
+  gid = null; view = null; lastSeq = 0; lsSet(SESS_KEY, null); renderSessions();
   $("#saveBtn").hidden = $("#newBtn").hidden = true; $("#sub").textContent = "";
   if (!content) content = (await api("GET", "/api/content")).data;
   const llmInfo = (await api("GET", "/api/llm")).data;
@@ -122,7 +125,8 @@ async function showStart() {
 }
 
 function startGame(id, v) {
-  gid = id; lastSeq = 0; lastView = null; viewMsg = { text: "", bad: false };
+  gid = id; lastSeq = 0; lastView = null; viewMsg = { text: "", bad: false }; pending = { kind: "attack", index: 0 };
+  lsSet(SESS_KEY, id); refreshSessions();
   $("#app").replaceChildren(el("main", {},
     el("div", {}, el("div", { className: "panel", id: "viewbar", style: "margin-bottom:12px" }), el("div", { className: "panel", id: "viewport", hidden: true, style: "margin-bottom:12px" }), el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" }), sayBox()),
     el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }), picturesPanel(), galleryPanel(), historyPanel())));
@@ -537,7 +541,57 @@ $("#saveBtn").onclick = async () => {
   const a = el("a", { href: URL.createObjectURL(new Blob([JSON.stringify(data, null, 1)], { type: "application/json" })), download: `cppdnd-${gid}.json` }); a.click();
 };
 $("#newBtn").onclick = showStart;
-showStart();
+
+// ---------------------------------------------------------------- sessions: every game is a session the server keeps (and writes to sim/sessions)
+const SESS_KEY = "cppdnd.session";
+let sessions = [];
+function lsGet(k) { try { return localStorage.getItem(k); } catch { return null; } }
+function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, v); } catch {} }
+const sessionLabel = s => `${s.name}  |  ${s.hero || s.role}, day ${s.day}, ${s.mode}`;
+function renderSessions() {
+  const sel = $("#sessSel"); if (!sel) return;
+  sel.replaceChildren(
+    ...(gid ? [] : [el("option", { value: "", textContent: sessions.length ? "Sessions: pick one to continue" : "No sessions yet", selected: true })]),
+    ...sessions.map(s => el("option", { value: s.id, textContent: sessionLabel(s), selected: s.id === gid })),
+    el("option", { value: "__new", textContent: "+ New session..." }));
+  $("#sessName").hidden = $("#sessDel").hidden = !gid;
+}
+async function refreshSessions() {
+  const { status, data } = await api("GET", "/api/games");
+  if (status === 200) sessions = data.sessions || [];
+  renderSessions();
+}
+async function openSession(id) {
+  const { status, data } = await api("GET", `/api/games/${id}`);
+  if (status !== 200) { toast(data.error || "cannot open that session"); await refreshSessions(); return false; }
+  startGame(id, data);
+  return true;
+}
+$("#sessSel").onchange = e => {
+  const v = e.target.value;
+  if (v === "__new") showStart();
+  else if (v && v !== gid) openSession(v); else renderSessions();
+};
+$("#sessName").onclick = async () => {
+  const cur = sessions.find(x => x.id === gid);
+  const name = prompt("Name this session", cur ? cur.name : "");
+  if (name == null || !name.trim()) return;
+  const { status, data } = await api("POST", `/api/games/${gid}/name`, { name: name.trim() });
+  if (status !== 200) toast(data.error || "cannot rename");
+  refreshSessions();
+};
+$("#sessDel").onclick = async () => {
+  const cur = sessions.find(x => x.id === gid);
+  if (!confirm(`Delete "${cur ? cur.name : "this session"}"? The whole game is lost.`)) return;
+  const { status, data } = await api("DELETE", `/api/games/${gid}`);
+  if (status !== 200) return toast(data.error || "cannot delete");
+  const gone = gid; gid = null; lsSet(SESS_KEY, null);
+  await refreshSessions();
+  const next = sessions.find(x => x.id !== gone);
+  if (next) openSession(next.id); else showStart();
+};
+// the labels (day, mode) follow the games; do not rebuild the list while it is open
+setInterval(() => { if (document.activeElement !== $("#sessSel")) refreshSessions(); }, 5000);
 
 // ---------------------------------------------------------------- the view: what the hero sees, and the camera editor
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -877,6 +931,13 @@ function openLightbox(list, start) {
       el("div", { className: "row", style: "justify-content:center" }, el("button", { textContent: "Previous", onclick: () => show(-1) }), el("button", { textContent: "Next", onclick: () => show(1) }), el("button", { textContent: "Close (Esc)", onclick: close }))));
   window.addEventListener("keydown", onKey); document.body.append(dlg); show(0);
 }
+// ---------------------------------------------------------------- boot: reopen the session that was open, otherwise the start screen
+(async () => {
+  await refreshSessions();
+  const last = lsGet(SESS_KEY);
+  if (last && sessions.some(x => x.id === last) && await openSession(last)) return;
+  showStart();
+})();
 </script>
 </body>
 </html>

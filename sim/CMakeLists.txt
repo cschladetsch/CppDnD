@@ -70,7 +70,7 @@ target_link_libraries(dnd_sim PRIVATE dnd_core)
 
 add_executable(dnd_server src/server_main.cpp)
 target_link_libraries(dnd_server PRIVATE dnd_core)
-target_compile_definitions(dnd_server PRIVATE "DND_WEB_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/web\"" "DND_ART_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/art\"" "DND_HISTORY_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/history\"")
+target_compile_definitions(dnd_server PRIVATE "DND_WEB_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/web\"" "DND_ART_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/art\"" "DND_HISTORY_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/history\"" "DND_SESSIONS_DIR=\"${CMAKE_CURRENT_SOURCE_DIR}/sessions\"")
 
 enable_testing()
 
@@ -101,6 +101,7 @@ gtest_discover_tests(dnd_tests DISCOVERY_MODE PRE_TEST)   # every TEST() is its 
 find_package(Python3 COMPONENTS Interpreter QUIET)
 if(Python3_FOUND)
     add_test(NAME api_smoke COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/api_smoke.py spawn:$<TARGET_FILE:dnd_server> 4)
+    add_test(NAME sessions_smoke COMMAND ${Python3_EXECUTABLE} ${CMAKE_CURRENT_SOURCE_DIR}/tests/sessions_smoke.py $<TARGET_FILE:dnd_server>)
 endif()
 
 install(TARGETS dnd_sim dnd_server RUNTIME DESTINATION bin)

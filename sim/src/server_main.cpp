@@ -3,10 +3,13 @@
 #include <atomic>
 #include <chrono>
 #include <csignal>
+#include <ctime>
+#include <fstream>
 #include <iostream>
 #include <map>
 #include <mutex>
 #include <random>
+#include <regex>
 #include <vector>
 
 #include <filesystem>
@@ -28,6 +31,8 @@ struct Slot {
     std::mutex m;
     std::unique_ptr<Game> game;
     std::shared_ptr<AgentTable> agents;  // set when the game was created with "agents": true
+    std::string name;                    // the session's name, shown in the web client's dropdown
+    long long created = 0, updated = 0;  // seconds since the epoch
 };
 
 struct Server {
@@ -38,6 +43,7 @@ struct Server {
     bool mock = false;
     std::optional<AgentsConfig> agentsCfg;  // from --agents / DND_AGENTS / <data>/agents.json
     std::string agentsPath, agentsError;
+    std::string sessionsDir;  // every game is written here as <id>.json after each change and restored at startup; empty: sessions live in memory only
     std::mt19937_64 idRng{std::random_device{}()};
 
     std::string NewId() {
@@ -95,6 +101,11 @@ int main(int argc, char** argv) {
     histDir = DND_HISTORY_DIR;  // x-y.json and group-history.json per game, in <dir>/<game id>/; --history overrides, --history "" turns files off
 #endif
     if (const char* h = std::getenv("DND_HISTORY"); h) histDir = h;
+    std::string sessionsDir;
+#ifdef DND_SESSIONS_DIR
+    sessionsDir = DND_SESSIONS_DIR;  // sessions: whole games, kept across restarts; --sessions overrides, --sessions "" keeps them in memory only
+#endif
+    if (const char* d = std::getenv("DND_SESSIONS"); d) sessionsDir = d;
 #ifdef DND_ART_DIR
     artDir = DND_ART_DIR;  // generated or hand-made pictures; --art overrides
 #endif
@@ -116,6 +127,7 @@ int main(int argc, char** argv) {
         else if (a == "--static") staticDir = next();
         else if (a == "--art") artDir = next();
         else if (a == "--history") histDir = next();
+        else if (a == "--sessions") sessionsDir = next();
         else if (a == "--images") imagesPath = next();
         else if (a == "--llm-url") S.llmCfg.baseUrl = next();
         else if (a == "--llm-model") S.llmCfg.model = next();
@@ -124,7 +136,7 @@ int main(int argc, char** argv) {
         else if (a == "--ollama") { S.llmCfg.baseUrl = "http://127.0.0.1:11434"; S.llmCfg.model = next(); S.llmCfg.stream = false; }
         else if (a == "--help" || a == "-h") {
             std::cout << "dnd_server [--port 8088] [--host 127.0.0.1] [--data DIR] [--static DIR]\n"
-                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--agents FILE] [--art DIR] [--images FILE] [--history DIR] [--mock-llm]\n"
+                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--agents FILE] [--art DIR] [--images FILE] [--history DIR] [--sessions DIR] [--mock-llm]\n"
                          "LLM env: DND_LLM_URL DND_LLM_PATH DND_LLM_MODEL DND_LLM_KEY DND_LLM_TIMEOUT DND_LLM_STREAM\n"
                          "Models are looked up in the shared model store (DEEPSEEK_MODEL_HOME).\n";
             return 0;
@@ -137,6 +149,7 @@ int main(int argc, char** argv) {
         std::cerr << "failed to load content from '" << dataDir << "': " << e.what() << "\n";
         return 1;
     }
+    S.sessionsDir = sessionsDir;
     if (S.mock) S.llm = std::make_shared<MockLlmClient>();
     else if (!S.llmCfg.model.empty() || std::getenv("DND_LLM_URL")) S.llm = std::make_shared<HttpLlmClient>(S.llmCfg);
 
@@ -181,15 +194,75 @@ int main(int argc, char** argv) {
         return it->second;
     };
     auto sinceOf = [](const httplib::Request& req) { return req.has_param("since") ? std::atoi(req.get_param_value("since").c_str()) : 0; };
-    auto add = [&](std::unique_ptr<Game> g) {
+    auto nowSec = [] { return static_cast<long long>(std::time(nullptr)); };
+    // Adds a game as a session. Without a name it is called "<module name> #n", the first n not in use.
+    auto add = [&](std::unique_ptr<Game> g, std::string name = "", std::string id = "", long long created = 0) {
         std::lock_guard<std::mutex> lk(S.mapMutex);
         if (S.games.size() >= 256) throw HttpError{429, "too many games; delete some first"};
         auto slot = std::make_shared<Slot>();
+        if (name.empty()) {
+            const std::string base = g->Module().name.empty() ? std::string("Game") : g->Module().name;
+            for (int n = 1;; ++n) {
+                name = base + " #" + std::to_string(n);
+                bool used = false;
+                for (const auto& kv : S.games) used = used || kv.second->name == name;
+                if (!used) break;
+            }
+        }
         slot->game = std::move(g);
-        std::string id = S.NewId();
+        slot->name = std::move(name);
+        slot->created = created ? created : nowSec();
+        slot->updated = slot->created;
+        if (id.empty()) id = S.NewId();
         S.games[id] = slot;
         return std::pair{id, slot};
     };
+    auto cleanName = [](std::string n) {
+        const auto b = n.find_first_not_of(" \t\r\n"), e = n.find_last_not_of(" \t\r\n");
+        n = b == std::string::npos ? "" : n.substr(b, e - b + 1);
+        if (n.size() > 80) throw HttpError{400, "a session name is at most 80 characters"};
+        return n;
+    };
+    // A session as the dropdown shows it. The slot's mutex must be held.
+    auto info = [&](const std::string& id, const Slot& s) {
+        const Game& g = *s.game;
+        const LocationDef* loc = g.Module().FindLocation(g.LocationId());
+        const char* role = g.GetRole() == Role::Player ? "player" : g.GetRole() == Role::DungeonMaster ? "dm" : "spectator";
+        return Json{{"id", id}, {"name", s.name}, {"module", g.Config().moduleId}, {"moduleName", g.Module().name}, {"hero", g.Hero()}, {"role", role},
+                    {"mode", std::string(ToString(g.GetMode()))}, {"location", loc ? loc->name : g.LocationId()}, {"day", g.Day()}, {"created", s.created}, {"updated", s.updated}};
+    };
+    // Writes the session to <sessions dir>/<id>.json (to a temporary file first, so a crash never leaves half a save). The slot's mutex must be held.
+    auto persist = [&](const std::string& id, Slot& s) {
+        if (S.sessionsDir.empty()) return;
+        namespace fs = std::filesystem;
+        try {
+            fs::create_directories(S.sessionsDir);
+            s.updated = nowSec();
+            const Json j{{"format", "cppdnd-session"}, {"version", 1}, {"id", id}, {"name", s.name}, {"created", s.created}, {"updated", s.updated}, {"save", s.game->Save()}};
+            const fs::path file = fs::path(S.sessionsDir) / (id + ".json"), tmp = fs::path(S.sessionsDir) / (id + ".json.tmp");
+            { std::ofstream f(tmp, std::ios::binary); f << j.dump(); if (!f) throw std::runtime_error("cannot write " + tmp.string()); }
+            fs::rename(tmp, file);
+        } catch (const std::exception& e) { std::cerr << "warning: cannot save session " << id << ": " << e.what() << "\n"; }
+    };
+
+    // Any successful POST to a game's own routes changes its state, so the session file follows.
+    svr.set_post_routing_handler([&](const httplib::Request& req, httplib::Response& res) {
+        if (req.method != "POST" || res.status >= 300 || S.sessionsDir.empty()) return;
+        static const std::regex re(R"(^/api/games/([0-9a-f]{12})(/.*)?$)");
+        std::smatch m;
+        if (!std::regex_match(req.path, m, re)) return;
+        const std::string sub = m[2].str();
+        if (sub == "/viewpoint" || sub == "/scene") return;  // pictures and previews do not change the game
+        std::shared_ptr<Slot> slot;
+        {
+            std::lock_guard<std::mutex> lk(S.mapMutex);
+            const auto it = S.games.find(m[1].str());
+            if (it == S.games.end()) return;
+            slot = it->second;
+        }
+        std::lock_guard<std::mutex> lk(slot->m);
+        persist(m[1].str(), *slot);
+    });
 
     svr.Get("/api/health", [](const httplib::Request&, httplib::Response& res) { Reply(res, 200, {{"ok", true}}); });
 
@@ -222,11 +295,22 @@ int main(int argc, char** argv) {
         Reply(res, 200, {{"home", LocateModel("").home}, {"models", arr}});
     }));
 
+    // {games: [ids], sessions: [{id, name, module, moduleName, hero, role, mode, location, day, created, updated}], persistent}, newest first
     svr.Get("/api/games", guarded([&](const httplib::Request&, httplib::Response& res) {
-        std::lock_guard<std::mutex> lk(S.mapMutex);
-        Json a = Json::array();
-        for (const auto& [id, slot] : S.games) a.push_back(id);
-        Reply(res, 200, {{"games", a}});
+        std::vector<std::pair<std::string, std::shared_ptr<Slot>>> all;
+        {
+            std::lock_guard<std::mutex> lk(S.mapMutex);
+            for (const auto& kv : S.games) all.push_back(kv);
+        }
+        std::vector<Json> infos;
+        Json ids = Json::array();
+        for (const auto& [id, slot] : all) {
+            std::lock_guard<std::mutex> lk(slot->m);
+            ids.push_back(id);
+            infos.push_back(info(id, *slot));
+        }
+        std::sort(infos.begin(), infos.end(), [](const Json& a, const Json& b) { return a["updated"].get<long long>() > b["updated"].get<long long>(); });
+        Reply(res, 200, {{"games", ids}, {"sessions", infos}, {"persistent", !S.sessionsDir.empty()}});
     }));
 
     svr.Post("/api/games", guarded([&](const httplib::Request& req, httplib::Response& res) {
@@ -251,11 +335,12 @@ int main(int argc, char** argv) {
         try { g = std::make_unique<Game>(c); }
         catch (const std::runtime_error& e) { throw HttpError{400, e.what()}; }
         auto table = Wire(S, *g);
-        auto [id, slot] = add(std::move(g));
+        auto [id, slot] = add(std::move(g), cleanName(b.value("name", "")));
         std::lock_guard<std::mutex> lk(slot->m);
         slot->agents = table;
         if (!histDir.empty()) slot->game->SetHistoryDir((std::filesystem::path(histDir) / id).string());
-        Reply(res, 201, {{"id", id}, {"view", slot->game->View(0)}});
+        persist(id, *slot);
+        Reply(res, 201, {{"id", id}, {"name", slot->name}, {"view", slot->game->View(0)}});
     }));
 
     svr.Post("/api/games/load", guarded([&](const httplib::Request& req, httplib::Response& res) {
@@ -265,11 +350,21 @@ int main(int argc, char** argv) {
         catch (const Json::exception& e) { throw HttpError{400, std::string("invalid save file: ") + e.what()}; }
         catch (const std::runtime_error& e) { throw HttpError{400, e.what()}; }
         auto table = Wire(S, *g);
-        auto [id, slot] = add(std::move(g));
+        auto [id, slot] = add(std::move(g), b.contains("save") ? cleanName(b.value("name", "")) : "");
         std::lock_guard<std::mutex> lk(slot->m);
         slot->agents = table;
         if (!histDir.empty()) slot->game->SetHistoryDir((std::filesystem::path(histDir) / id).string());
-        Reply(res, 201, {{"id", id}, {"view", slot->game->View(0)}});
+        persist(id, *slot);
+        Reply(res, 201, {{"id", id}, {"name", slot->name}, {"view", slot->game->View(0)}});
+    }));
+
+    svr.Post("/api/games/:id/name", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        const std::string n = cleanName(Body(req).value("name", ""));
+        if (n.empty()) throw HttpError{400, "a session needs a name"};
+        std::lock_guard<std::mutex> lk(slot->m);
+        slot->name = n;
+        Reply(res, 200, {{"id", req.path_params.at("id")}, {"name", n}});
     }));
 
     svr.Get("/api/games/:id", guarded([&](const httplib::Request& req, httplib::Response& res) {
@@ -280,7 +375,12 @@ int main(int argc, char** argv) {
 
     svr.Delete("/api/games/:id", guarded([&](const httplib::Request& req, httplib::Response& res) {
         std::lock_guard<std::mutex> lk(S.mapMutex);
-        if (!S.games.erase(req.path_params.at("id"))) throw HttpError{404, "no such game"};
+        const std::string id = req.path_params.at("id");
+        if (!S.games.erase(id)) throw HttpError{404, "no such game"};
+        if (!S.sessionsDir.empty() && std::regex_match(id, std::regex("[0-9a-f]{12}"))) {
+            std::error_code ec;
+            std::filesystem::remove(std::filesystem::path(S.sessionsDir) / (id + ".json"), ec);
+        }
         Reply(res, 200, {{"deleted", true}});
     }));
 
@@ -531,7 +631,33 @@ int main(int argc, char** argv) {
         staticDir.clear();
     }
 
-    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  web=" << (staticDir.empty() ? "off" : staticDir) << "  art=" << (artDir.empty() ? "off" : artDir) << "  history=" << (histDir.empty() ? "off" : histDir) << "  images=" << (art ? "on" : "off") << "  modules=" << Content::Modules().size()
+    // Restore the sessions a previous run left behind.
+    int restored = 0;
+    if (!S.sessionsDir.empty() && std::filesystem::is_directory(S.sessionsDir)) {
+        namespace fs = std::filesystem;
+        std::vector<fs::path> files;
+        for (const auto& e : fs::directory_iterator(S.sessionsDir))
+            if (e.is_regular_file() && e.path().extension() == ".json") files.push_back(e.path());
+        std::sort(files.begin(), files.end());
+        for (const auto& p : files) {
+            const std::string id = p.stem().string();
+            try {
+                std::ifstream f(p, std::ios::binary);
+                const Json j = Json::parse(f, nullptr, false);
+                if (j.is_discarded() || j.value("format", "") != "cppdnd-session" || !std::regex_match(id, std::regex("[0-9a-f]{12}"))) throw std::runtime_error("not a session file");
+                std::unique_ptr<Game> g = Game::Load(j.at("save"));
+                auto table = Wire(S, *g);
+                auto [gid, slot] = add(std::move(g), j.value("name", ""), id, j.value("created", 0LL));
+                std::lock_guard<std::mutex> lk(slot->m);
+                slot->agents = table;
+                slot->updated = j.value("updated", slot->created);
+                if (!histDir.empty()) slot->game->SetHistoryDir((fs::path(histDir) / gid).string());
+                ++restored;
+            } catch (const HttpError& e) { std::cerr << "skipped session " << id << ": " << e.message << "\n"; }
+            catch (const std::exception& e) { std::cerr << "skipped session " << id << ": " << e.what() << "\n"; }
+        }
+    }
+    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  web=" << (staticDir.empty() ? "off" : staticDir) << "  art=" << (artDir.empty() ? "off" : artDir) << "  history=" << (histDir.empty() ? "off" : histDir) << "  sessions=" << (S.sessionsDir.empty() ? "memory only" : S.sessionsDir) << " (" << restored << " restored)" << "  images=" << (art ? "on" : "off") << "  modules=" << Content::Modules().size()
               << "  llm=" << (S.llm ? S.llm->Describe() : "off") << std::endl;
     if (!svr.listen(host, port)) {
         std::cerr << "cannot listen on " << host << ":" << port << "\n";

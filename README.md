@@ -81,7 +81,7 @@ The client is at http://127.0.0.1:8088/ . You can also talk to the JSON API dire
 curl -X POST localhost:8088/api/games -d '{"module":"ravenmoor","role":"player","hero":"elara","seed":7}'
 ```
 
-Server flags: `--port`, `--host`, `--data <dir>`, `--static <dir>` (serve a different front end; also `DND_WEB`), `--llm-url`, `--llm-model`, `--ollama <model>`, `--agents <file>`, `--art <dir>`, `--images <file>`, `--history <dir>`, `--mock-llm`. The endpoint reference is [sim/docs/API.md](sim/docs/API.md).
+Server flags: `--port`, `--host`, `--data <dir>`, `--static <dir>` (serve a different front end; also `DND_WEB`), `--llm-url`, `--llm-model`, `--ollama <model>`, `--agents <file>`, `--art <dir>`, `--images <file>`, `--history <dir>`, `--sessions <dir>`, `--mock-llm`. The endpoint reference is [sim/docs/API.md](sim/docs/API.md).
 
 ## Language models
 
@@ -118,6 +118,8 @@ Reasoning models are supported: `reasoning_content` and `<think>` blocks are str
 `sim/data/agents.json` says which model plays the DM, each creature type, each character and each NPC type, and what personality each has. In the web client the AI table panel lists them and lets you switch one mid-game; over HTTP it is `POST /api/games/:id/agents/model`. The CppLmmModelStore resolves and checks model names (`requireStore`, `GET /api/models`); the backend (Ollama, llama.cpp, vLLM) serves them. Details in [sim/data/README.md](sim/data/README.md) and [sim/docs/API.md](sim/docs/API.md).
 
 ## History
+
+**Sessions.** Every game is a session with a name, kept by the server with all of its state. The web client has a dropdown in the header to switch between them (Rename and Delete sit beside it, and "+ New session..." opens the start screen), reopens the one you had open when you reload the page, and the sessions are written to `sim/sessions/` after every move, so they survive a server restart too (`--sessions ""` for memory only). Details in [sim/docs/API.md](sim/docs/API.md).
 
 Everything said and done is recorded. Each actor has a private record of every other actor it dealt with, from its own side (`thorin-marta_hollin.json` is Thorin's view of Marta; `marta_hollin-thorin.json` is hers), and `group-history.json` holds what the whole table was told. The server writes them to `sim/history/<game id>/` (`--history DIR` to move them, `--history ""` to turn files off; the terminal client takes `--history DIR` too). The web client has a History panel, and AI-table agents are shown their own history in every prompt. Details in [sim/docs/API.md](sim/docs/API.md).
 
@@ -176,6 +178,7 @@ sim/                                                        engine, clients, con
   src/           implementation, main.cpp (terminal), server_main.cpp (HTTP)
   web/           single-page browser client
   history/       written at run time: per-game x-y.json and group-history.json (git-ignored)
+  sessions/      written at run time: one <id>.json per game, restored at startup (git-ignored)
   tests/         test_*.cpp (GoogleTest unit and integration), api_smoke.py (HTTP end to end)
   docs/          API.md, the HTTP reference
   third_party/   nlohmann/json, cpp-httplib (vendored, MIT)

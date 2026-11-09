@@ -10,7 +10,7 @@ if BASE.startswith("spawn:"):  # spawn:<path to dnd_server>: start it on a free 
     with socket.socket() as sk:
         sk.bind(("127.0.0.1", 0))
         port = sk.getsockname()[1]
-    SERVER = subprocess.Popen([BASE[6:], "--port", str(port), "--mock-llm"], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    SERVER = subprocess.Popen([BASE[6:], "--port", str(port), "--mock-llm", "--sessions", ""], stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
     BASE = f"http://127.0.0.1:{port}"
     for _ in range(100):
         try:

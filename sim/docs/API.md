@@ -11,12 +11,17 @@ Rules reference for the mechanics implemented here: the [D&D 5e SRD](https://5th
 | `GET /api/health` | | `{"ok":true}` |
 | `GET /api/content` | | modules, characters, monsters, spells, classes |
 | `GET /api/llm` | | LLM client status and the model's location in the model store |
-| `POST /api/games` | see below | `201 {"id", "view"}` |
-| `GET /api/games` | | `{"games":[ids]}` |
+| `POST /api/games` | see below; optional `name` | `201 {"id", "name", "view"}` |
+| `GET /api/games` | | `{"games":[ids], "sessions":[{id, name, module, moduleName, hero, role, mode, location, day, created, updated}], "persistent"}`, newest first |
+| `POST /api/games/:id/name` | `{"name"}` (1 to 80 characters) | `{"id", "name"}`; 400 for an empty or long name |
 | `GET /api/games/:id?since=N` | | the view, with only events after sequence `N` |
-| `DELETE /api/games/:id` | | `{"deleted":true}` |
+| `DELETE /api/games/:id` | | `{"deleted":true}`; also removes the session file |
 | `GET /api/games/:id/save` | | a complete save file |
-| `POST /api/games/load` | a save file | `201 {"id", "view"}` (a new game) |
+| `POST /api/games/load` | a save file, or `{"save": ..., "name": ...}` | `201 {"id", "name", "view"}` (a new game) |
+
+### Sessions
+
+Every game is a session: its whole state (the same JSON as `/save`, including the RNG stream) under a name. The server writes `<sessions dir>/<id>.json` after every successful `POST` to a game (`sim/sessions/` by default; `--sessions DIR` or `DND_SESSIONS` to move it, `--sessions ""` to keep sessions in memory only), and reads them all back at startup, so a restart loses nothing. An unnamed session is called `<module name> #n`. A file that cannot be read is skipped with a message on stderr. Games made with `agents` are re-attached to the agents file when they are restored; if that file is gone the session is skipped.
 
 Create body (all optional): `module` (id, or empty for a procedural delve), `rooms`, `difficulty` (procedural), `party` (character ids), `level`, `seed`, `role` (`player`, `dm`, `spectator`), `hero`, `pace` (`slow`, `normal`, `fast`), `llmDm`, `llmNarration`.
 
