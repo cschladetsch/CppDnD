@@ -233,6 +233,9 @@ std::optional<ImageConfig> ImageConfig::Load(const std::string& imagesFile, cons
             st.steps = std::clamp(s.value("steps", st.steps), 1, 150);
             st.cfg = s.value("cfg", st.cfg);
             st.sampler = s.value("sampler", st.sampler);
+            if (s.contains("framing") && s["framing"].is_object())
+                for (auto it = s["framing"].begin(); it != s["framing"].end(); ++it)
+                    if (it.value().is_string()) st.framing[it.key()] = it.value().get<std::string>();
             auto size = [&](const char* k, int& w, int& h) {
                 if (s.contains(k) && s[k].is_array() && s[k].size() == 2) { w = std::clamp(s[k][0].get<int>(), 64, 2048); h = std::clamp(s[k][1].get<int>(), 64, 2048); }
             };
@@ -274,23 +277,24 @@ std::vector<ArtSubject> ArtSubjects(const std::map<std::string, std::string>& ov
     std::set<std::string> seen;
     auto add = [&](const std::string& kind, const std::string& id, std::string subject, bool wide) {
         if (id.empty() || !seen.insert(kind + "/" + id).second) return;
-        if (auto it = overrides.find(kind + "/" + id); it != overrides.end()) subject = it->second;
-        out.push_back(ArtSubject{kind, id, std::move(subject), wide});
+        bool custom = false;
+        if (auto it = overrides.find(kind + "/" + id); it != overrides.end()) { subject = it->second; custom = true; }
+        out.push_back(ArtSubject{kind, id, std::move(subject), wide, custom});
     };
     for (const auto& c : Content::Characters()) {
         std::vector<std::string> race;
         for (const auto& t : c.tags) if (!creatureTypes.count(t)) race.push_back(t);
         if (race.empty()) race = {"human"};
-        add("characters", c.id, Cat("portrait of ", c.name.empty() ? c.id : c.name, ", ", Article(Join(race)), " ", Join(race), " ", c.classId.empty() ? "adventurer" : c.classId, ", adventurer, upper body, looking at the viewer"), false);
+        add("characters", c.id, Cat(c.name.empty() ? c.id : c.name, ", ", Article(Join(race)), " ", Join(race), " ", c.classId.empty() ? "adventurer" : c.classId, ", adventurer"), false);
     }
     for (const auto& m : Content::Monsters())
-        add("monsters", m.id, Cat(LowerCase(m.name.empty() ? m.id : m.name), ", ", Join(m.sheet.tags), " monster, dungeons and dragons creature, menacing, centered on a plain dark background"), false);
+        add("monsters", m.id, Cat(LowerCase(m.name.empty() ? m.id : m.name), ", ", Join(m.sheet.tags), " monster, dungeons and dragons creature, menacing"), false);
     for (const auto& mod : Content::Modules()) {
-        add("modules", mod.id, Cat(mod.name.empty() ? mod.id : mod.name, ", ", mod.setting, ", sweeping establishing shot, no people"), true);
+        add("modules", mod.id, Cat(mod.name.empty() ? mod.id : mod.name, ", ", mod.setting), true);
         for (const auto& loc : mod.locations) {
-            add("locations", loc.id, Cat(loc.name.empty() ? loc.id : loc.name, ", ", loc.kind, ", ", loc.description, " wide establishing shot, no people"), true);
+            add("locations", loc.id, Cat(loc.name.empty() ? loc.id : loc.name, ", ", loc.kind, ", ", loc.description), true);
             for (const auto& n : loc.npcs)
-                add("npcs", n.id, Cat("portrait of ", n.name.empty() ? n.id : n.name, ", ", Article(n.type), " ", n.type, ". ", n.description, " upper body, looking at the viewer"), false);
+                add("npcs", n.id, Cat(n.name.empty() ? n.id : n.name, ", ", Article(n.type), " ", n.type, ". ", n.description), false);
         }
     }
     return out;
@@ -521,7 +525,14 @@ bool ArtService::Do(const Item& it, std::string& err) {
     ImageRequest r;
     const ImageStyle& st = cfg.style;
     const std::string subject = it.promptOverride.empty() ? it.s.subject : it.promptOverride;
-    for (const std::string& part : {st.prefix, subject, st.suffix}) if (!part.empty()) r.prompt += (r.prompt.empty() ? "" : " ") + part;
+    std::string framing;
+    if (!it.s.custom && it.promptOverride.empty())
+        if (auto f = st.framing.find(it.s.kind); f != st.framing.end()) framing = f->second;
+    for (const std::string& part : {st.prefix, subject, framing, st.suffix}) {  // comma-separated phrases, as Stable Diffusion likes them
+        if (part.empty()) continue;
+        if (!r.prompt.empty()) r.prompt += (r.prompt.back() == ',' || r.prompt.back() == '.') ? " " : ", ";
+        r.prompt += part;
+    }
     r.negative = st.negative;
     r.sampler = st.sampler;
     r.steps = st.steps;

@@ -778,11 +778,11 @@ static void TestImages() {
     {
         fs::create_directories(root / "cfg");
         std::ofstream(root / "cfg" / "images.json") << R"({ /* comment */ "backend": "openai", "url": "http://x:1", "checkpoint": "mymodel", "requireStore": true })";
-        std::ofstream(root / "cfg" / "style.json") << R"({"prefix": "PRE", "steps": 7, "portrait": [256, 320], "wide": [640, 360]})";
+        std::ofstream(root / "cfg" / "style.json") << R"({"prefix": "PRE", "steps": 7, "portrait": [256, 320], "wide": [640, 360], "framing": {"monsters": "side view"}})";
         std::ofstream(root / "cfg" / "prompts.json") << R"({"_note": "x", "monsters/zombie": "a rotting corpse"})";
         std::string err;
         auto c = ImageConfig::Load((root / "cfg" / "images.json").string(), (root / "cfg" / "style.json").string(), (root / "cfg" / "prompts.json").string(), err);
-        CHECK(c && c->backend == "openai" && c->url == "http://x:1" && c->requireStore && c->style.prefix == "PRE" && c->style.steps == 7 && c->style.portraitH == 320);
+        CHECK(c && c->backend == "openai" && c->url == "http://x:1" && c->requireStore && c->style.prefix == "PRE" && c->style.steps == 7 && c->style.portraitH == 320 && c->style.framing.at("monsters") == "side view" && c->style.framing.count("characters") == 1);
         CHECK(c && c->prompts.size() == 1 && c->prompts.at("monsters/zombie") == "a rotting corpse");
         std::ofstream(root / "cfg" / "bad.json") << R"({"backend": "dalle"})";
         CHECK(!ImageConfig::Load((root / "cfg" / "bad.json").string(), "", "", err) && err.find("backend") != std::string::npos);
@@ -813,8 +813,9 @@ static void TestImages() {
         CHECK(fs::exists(root / "art" / "characters" / "thorin.png") && fs::exists(root / "art" / "monsters" / "zombie.png"));
         {
             std::lock_guard<std::mutex> lk(mu);
-            CHECK(seen.size() == 2 && seen[0].prompt == "STYLE custom thorin" && seen[0].seed == (Crc32("thorin") & 0x7FFFFFFFu) && seen[0].width == 512 && seen[0].height == 512);
-            CHECK(seen[1].prompt.rfind("STYLE ", 0) == 0 && seen[1].prompt.find("zombie") != std::string::npos);
+            CHECK(seen.size() == 2 && seen[0].prompt == "STYLE, custom thorin" && seen[0].seed == (Crc32("thorin") & 0x7FFFFFFFu) && seen[0].width == 512 && seen[0].height == 512);
+            CHECK(seen[1].prompt.rfind("STYLE, ", 0) == 0 && seen[1].prompt.find("zombie") != std::string::npos);
+            CHECK(seen[1].prompt.find("full body, three-quarter view") != std::string::npos);  // framing for creatures
         }
         CHECK(!fs::exists(root / "art" / "characters" / "thorin.png.part"));
         // nothing is redrawn unless forced; "missing" skips what exists
@@ -829,7 +830,7 @@ static void TestImages() {
         svc.WaitIdle();
         {
             std::lock_guard<std::mutex> lk(mu);
-            CHECK(q["queued"] == 1 && seen.back().prompt == "STYLE once more");
+            CHECK(q["queued"] == 1 && seen.back().prompt == "STYLE, once more");
         }
         const Json jobs = svc.Jobs();
         CHECK(!jobs["running"].get<bool>() && jobs["failed"] == 0 && jobs["done"].get<int>() >= 1);
@@ -843,7 +844,8 @@ static void TestImages() {
         err.clear();
         svc.Enqueue(Json{{"ids", Json::array({"modules/ravenmoor"})}}, err);
         svc.WaitIdle();
-        CHECK(seen.back().width == 768 && seen.back().height == 432);
+        CHECK(seen.back().width == 768 && seen.back().height == 432 && seen.back().prompt.find("wide establishing") == std::string::npos);
+        CHECK(seen.back().prompt.find("panoramic establishing shot") != std::string::npos);  // module banners are framed as panoramas
     }
 
     // ---- failures are reported per picture; a dead server drops the rest of the queue

@@ -2,13 +2,15 @@
 #   .\web.ps1                          http://127.0.0.1:8088/
 #   .\web.ps1 -Port 9000
 #   .\web.ps1 -Model llama3.1          also enable the plain-English prompt through Ollama
+#   .\web.ps1 -Art                    also start Stable Diffusion in the background for the Pictures panel (set it up once with .\sd.ps1 -Install)
 #   .\web.ps1 -Rebuild -NoBrowser
 #   .\web.ps1 --data C:\my\content    unrecognised options go to dnd_server
-# Ctrl-C stops the server.
+# Ctrl-C stops the server (and Stable Diffusion, if this script started it).
 param(
     [int]$Port = 8088,
     [string]$Model = '',
     [switch]$Rebuild,
+    [switch]$Art,
     [switch]$NoBrowser,
     [Parameter(ValueFromRemainingArguments = $true)] [string[]]$ServerArgs
 )
@@ -52,6 +54,30 @@ if ($Model) {
     Write-Host "Ollama ok, model $Model"
 }
 
+# ---- pictures: where the image server is expected (data\images.json), and start it when asked
+$imgUrl = 'http://127.0.0.1:7860'
+$imgFile = Join-Path $src 'data\images.json'
+if (Test-Path $imgFile) {
+    try {
+        $ij = (Get-Content $imgFile -Raw) -replace '(?m)^\s*//.*$', '' | ConvertFrom-Json
+        if ($ij.url) { $imgUrl = $ij.url }
+    } catch { Write-Host "web.ps1: warning: could not read sim\data\images.json: $($_.Exception.Message)" -ForegroundColor Yellow }
+}
+$sdWeStarted = $false
+if ($Art) {
+    $sdScript = Join-Path $PSScriptRoot 'sd.ps1'
+    $sdUp = $false
+    try { Invoke-RestMethod -Uri "$imgUrl/sdapi/v1/options" -TimeoutSec 2 | Out-Null; $sdUp = $true } catch {}
+    if ($sdUp) { Write-Host "Stable Diffusion already running at $imgUrl" }
+    elseif (-not (Test-Path $sdScript)) { Write-Host 'web.ps1: warning: sd.ps1 is missing; continuing without pictures' -ForegroundColor Yellow }
+    else {
+        $sdPort = ([uri]$imgUrl).Port
+        & $sdScript -Start -NoWait -Port $sdPort
+        if ($LASTEXITCODE) { Write-Host 'web.ps1: warning: Stable Diffusion did not start (run .\sd.ps1 -Check, or .\sd.ps1 -Install the first time); continuing without pictures' -ForegroundColor Yellow }
+        else { $sdWeStarted = $true }
+    }
+}
+
 # ---- build
 if ($Rebuild -and (Test-Path $build)) { Remove-Item -Recurse -Force $build }
 if (-not (Test-Path (Join-Path $build 'build.ninja'))) {
@@ -79,8 +105,17 @@ try {
     if (-not $ready)     { Fail "dnd_server did not answer on $url within 15 seconds" }
 
     Write-Host "Ready: $url   (Ctrl-C to stop)" -ForegroundColor Green
+    try {
+        $img = Invoke-RestMethod -Uri "${url}api/images" -TimeoutSec 5
+        if (-not $img.enabled) { Write-Host "Pictures: off ($($img.error))" -ForegroundColor DarkGray }
+        elseif ($img.problem) { Write-Host "Pictures: $($img.problem)" -ForegroundColor Yellow }
+        elseif ($img.reachable) { Write-Host "Pictures: image server ready at $($img.url), model '$($img.checkpoint)'" -ForegroundColor Green }
+        elseif ($sdWeStarted) { Write-Host "Pictures: Stable Diffusion is starting at $($img.url) (the first start takes 10-20 minutes); the Pictures panel works once it answers" -ForegroundColor Yellow }
+        else { Write-Host "Pictures: no image server at $($img.url). .\web.ps1 -Art starts one; .\sd.ps1 -Install sets it up." -ForegroundColor DarkGray }
+    } catch {}
     if (-not $NoBrowser) { Start-Process $url }
     $proc.WaitForExit()
 } finally {
     if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+    if ($sdWeStarted) { & (Join-Path $PSScriptRoot 'sd.ps1') -Stop | Out-Null }
 }

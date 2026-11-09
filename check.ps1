@@ -160,6 +160,7 @@ if (Test-Path $imagesFile) {
     } catch { Bad "sim\data\images.json is not valid: $($_.Exception.Message)" }
 }
 if ($env:SD_URL) { $sd = $env:SD_URL }
+Write-Host '         full Stable Diffusion requirements: .\sd.ps1 -Check   (install: .\sd.ps1 -Install, run: .\web.ps1 -Art)' -ForegroundColor DarkGray
 try {
     if ($sdBackend -eq 'openai') { Invoke-RestMethod "$sd/v1/models" -TimeoutSec 2 | Out-Null } else { Invoke-RestMethod "$sd/sdapi/v1/options" -TimeoutSec 2 | Out-Null }
     Ok "image server ($sdBackend) answers at $sd (the Pictures panel and .\art.ps1 can draw)"

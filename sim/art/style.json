@@ -1,5 +1,5 @@
 {
-  "_comment": "Prompt style for tools/gen_art.py. Every picture is the style prefix + a subject built from the JSON data + the suffix.",
+  "_comment": "Prompt style for the Pictures panel and tools/gen_art.py. Each picture is: prefix, subject (from the JSON data), framing for its kind, suffix.",
   "prefix": "dark fantasy gothic horror illustration, painterly, moody dramatic lighting, rich detail,",
   "suffix": "",
   "negative": "text, watermark, signature, logo, lowres, blurry, jpeg artifacts, deformed, extra limbs, extra fingers, modern clothing, photo",
@@ -8,5 +8,12 @@
   "sampler": "DPM++ 2M Karras",
   "checkpoint": "",
   "portrait": [512, 512],
-  "wide": [768, 432]
+  "wide": [768, 432],
+  "framing": {
+    "characters": "upper body portrait, looking at the viewer, eye level, shallow depth of field",
+    "npcs": "upper body portrait, looking at the viewer, eye level, shallow depth of field",
+    "monsters": "full body, three-quarter view, centered, plain dark background",
+    "locations": "wide establishing shot, eye level, no people",
+    "modules": "sweeping panoramic establishing shot, low angle, no people"
+  }
 }

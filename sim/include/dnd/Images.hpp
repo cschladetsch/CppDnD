@@ -26,6 +26,14 @@ struct ImageStyle {
     std::string sampler = "DPM++ 2M Karras";
     int portraitW = 512, portraitH = 512;  // characters, monsters, NPCs
     int wideW = 768, wideH = 432;          // locations, modules
+    // How each kind of picture is framed: shot size, angle, composition. Appended after the subject. (A text prompt is
+    // the only camera a Stable Diffusion model has; these words and the picture's shape are all there is to steer it.)
+    std::map<std::string, std::string> framing = {
+        {"characters", "upper body portrait, looking at the viewer, eye level, shallow depth of field"},
+        {"npcs", "upper body portrait, looking at the viewer, eye level, shallow depth of field"},
+        {"monsters", "full body, three-quarter view, centered, plain dark background"},
+        {"locations", "wide establishing shot, eye level, no people"},
+        {"modules", "sweeping panoramic establishing shot, low angle, no people"}};
 };
 
 // Where pictures come from. Two kinds of server are understood:
@@ -56,6 +64,7 @@ struct ArtSubject {
     std::string id;
     std::string subject;  // what the picture shows, built from the JSON content (or prompts.json)
     bool wide = false;
+    bool custom = false;  // the subject came from prompts.json and is used as written, with no framing added
 };
 // Everything in the loaded content that can have a picture.
 std::vector<ArtSubject> ArtSubjects(const std::map<std::string, std::string>& overrides = {});

@@ -19,6 +19,13 @@ import argparse, base64, binascii, json, os, re, sys, urllib.error, urllib.reque
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 SIM = os.path.dirname(HERE)
+FRAMING = {
+    "characters": "upper body portrait, looking at the viewer, eye level, shallow depth of field",
+    "npcs": "upper body portrait, looking at the viewer, eye level, shallow depth of field",
+    "monsters": "full body, three-quarter view, centered, plain dark background",
+    "locations": "wide establishing shot, eye level, no people",
+    "modules": "sweeping panoramic establishing shot, low angle, no people",
+}
 CREATURE_TYPES = {"humanoid", "undead", "beast", "giant", "fiend", "celestial", "construct", "dragon", "elemental", "fey", "monstrosity", "ooze", "plant", "aberration"}
 
 
@@ -43,20 +50,20 @@ def jobs(data_dir):
     for c in load_json(os.path.join(data_dir, "characters.json")):
         race = [t for t in c.get("tags", []) if t not in CREATURE_TYPES] or ["human"]
         cls = c.get("class", "adventurer")
-        yield "characters", c["id"], override(c, f"portrait of {c.get('name', c['id'])}, {article(' '.join(race))} {' '.join(race)} {cls}, adventurer, upper body, looking at the viewer"), "portrait"
+        yield "characters", c["id"], override(c, f"{c.get('name', c['id'])}, {article(' '.join(race))} {' '.join(race)} {cls}, adventurer"), "portrait"
     for m in load_json(os.path.join(data_dir, "monsters.json")):
         kinds = [t for t in m.get("tags", [])]
-        yield "monsters", m["id"], override(m, f"{m.get('name', m['id']).lower()}, {' '.join(kinds)} monster, dungeons and dragons creature, menacing, centered on a plain dark background"), "portrait"
+        yield "monsters", m["id"], override(m, f"{m.get('name', m['id']).lower()}, {' '.join(kinds)} monster, dungeons and dragons creature, menacing"), "portrait"
     modules_dir = os.path.join(data_dir, "modules")
     for fn in sorted(os.listdir(modules_dir)) if os.path.isdir(modules_dir) else []:
         if not fn.endswith(".json"):
             continue
         mod = load_json(os.path.join(modules_dir, fn))
-        yield "modules", mod["id"], override(mod, f"{mod.get('name', mod['id'])}, {mod.get('setting', '')}, sweeping establishing shot, no people"), "wide"
+        yield "modules", mod["id"], override(mod, f"{mod.get('name', mod['id'])}, {mod.get('setting', '')}"), "wide"
         for loc in mod.get("locations", []):
-            yield "locations", loc["id"], override(loc, f"{loc.get('name', loc['id'])}, {loc.get('kind', '')}, {loc.get('description', '')} wide establishing shot, no people"), "wide"
+            yield "locations", loc["id"], override(loc, f"{loc.get('name', loc['id'])}, {loc.get('kind', '')}, {loc.get('description', '')}"), "wide"
             for n in loc.get("npcs", []):
-                yield "npcs", n["id"], override(n, f"portrait of {n.get('name', n['id'])}, {article(n.get('type', 'commoner'))} {n.get('type', 'commoner')}. {n.get('description', '')} upper body, looking at the viewer"), "portrait"
+                yield "npcs", n["id"], override(n, f"{n.get('name', n['id'])}, {article(n.get('type', 'commoner'))} {n.get('type', 'commoner')}. {n.get('description', '')}"), "portrait"
 
 
 def post(url, payload, timeout):
@@ -103,9 +110,14 @@ def main():
         return 1
     made = skipped = failed = 0
     for kind, ident, subject, shape in todo:
-        subject = prompts.get(f"{kind}/{ident}", subject) if isinstance(prompts.get(f"{kind}/{ident}", ""), str) else subject
+        custom = isinstance(prompts.get(f"{kind}/{ident}"), str)
+        subject = prompts[f"{kind}/{ident}"] if custom else subject
+        framing = "" if custom else {**FRAMING, **style.get("framing", {})}.get(kind, "")
         path = os.path.join(a.out, kind, ident + ".png")
-        prompt = " ".join(x for x in (style.get("prefix", ""), subject, style.get("suffix", "")) if x).strip()
+        prompt = ""
+        for part in (style.get("prefix", ""), subject, framing, style.get("suffix", "")):
+            if part:
+                prompt += ("" if not prompt else " " if prompt[-1] in ",." else ", ") + part
         if a.list:
             print(f"{kind}/{ident}.png  {sizes[shape][0]}x{sizes[shape][1]}  seed {zlib.crc32(ident.encode()) & 0x7fffffff}\n    {prompt}")
             continue
