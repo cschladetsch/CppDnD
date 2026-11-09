@@ -64,7 +64,7 @@ Exploration commands: `look`, `go <place>`, `search`, `talk <npc> [topic]`, `res
 .\web.ps1
 ```
 
-`web.ps1` checks for cmake, ninja and clang++, that the port is free, and (with `-Model`) that Ollama is running and has the model; builds if needed; starts `dnd_server`; waits until it answers; and opens the browser. Ctrl-C stops it. It also starts Stable Diffusion in the background for the Pictures panel (see below); if that is not installed yet the game starts anyway and says so. Options: `-Port`, `-Model`, `-NoArt` (do not start Stable Diffusion), `-Rebuild`, `-NoBrowser`; anything else is passed to `dnd_server`.
+`web.ps1` checks for cmake, ninja and clang++, that the port is free, and (with `-Model`) that Ollama is running and has the model; builds if needed; starts `dnd_server`; waits until it answers; and opens the browser. Ctrl-C stops it. It also starts Stable Diffusion in the background for the Pictures panel (see below); if it is not installed yet it asks whether to set it up now (`y` runs `sd.ps1 -Install`; anything else skips it and the game starts without pictures). Options: `-Port`, `-Model`, `-NoArt` (do not start Stable Diffusion), `-Rebuild`, `-NoBrowser`; anything else is passed to `dnd_server`.
 
 The client is at http://127.0.0.1:8088/ . You can also talk to the JSON API directly:
 

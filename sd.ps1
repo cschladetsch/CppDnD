@@ -7,6 +7,7 @@
 #   .\sd.ps1 -Start          start the API server in the background and wait until it answers
 #                            (the first start installs PyTorch, about 5 GB, and takes 10-20 minutes)
 #   .\sd.ps1 -Stop           stop a server this script started
+#   -Installed               print nothing; exit 0 if AUTOMATIC1111 and the model are installed, 1 if not (web.ps1 uses this)
 #   -NoWait                  with -Start: return as soon as the server is launched (web.ps1 uses this)
 #   -Yes                     do not ask before installing with winget
 #   -Port 7860               API port (must match "url" in sim\data\images.json)
@@ -24,6 +25,7 @@ param(
     [switch]$Yes,
     [switch]$Cpu,
     [switch]$NoWait,
+    [switch]$Installed,
     [int]$Port = 7860,
     [string]$SdHome = '',
     [string]$ModelName = 'sd15',
@@ -39,7 +41,11 @@ function Head($msg) { Write-Host "`n$msg" -ForegroundColor Cyan }
 function Info($msg) { Write-Host "         $msg" -ForegroundColor DarkGray }
 
 $isWin = ($env:OS -eq 'Windows_NT')
-if (-not ($Check -or $Install -or $Start -or $Stop)) { $Check = $true }
+if (-not ($Check -or $Install -or $Start -or $Stop -or $Installed)) { $Check = $true }
+
+# A profile may install a command-not-found handler that prints a line for every Get-Command probe below; mute it while this script runs.
+$cnfSaved = $ExecutionContext.SessionState.InvokeCommand.CommandNotFoundAction
+$ExecutionContext.SessionState.InvokeCommand.CommandNotFoundAction = $null
 
 # ---- where things live
 $sdRoot = $SdHome
@@ -298,12 +304,17 @@ function Stop-Sd {
     if (Test-Api) { Warn "an API still answers at $apiUrl (another process owns it)" } else { Ok 'stopped' }
 }
 
+if ($Installed) {
+    $ExecutionContext.SessionState.InvokeCommand.CommandNotFoundAction = $cnfSaved
+    if ((Test-Path $launcher) -and (Model-Ready)) { exit 0 } else { exit 1 }
+}
 if ($Install) { Install-All }
 if ($Check -and -not $Install) { Show-Requirements $true }
 if ($Start) { $script:failed = 0; Start-Sd }
 if ($Stop) { Stop-Sd }
 
 Write-Host ''
+$ExecutionContext.SessionState.InvokeCommand.CommandNotFoundAction = $cnfSaved
 if ($script:failed) { Write-Host "$($script:failed) problem(s), $($script:warned) warning(s)." -ForegroundColor Red; exit 1 }
 Write-Host "Done. $($script:warned) warning(s)." -ForegroundColor Green
 exit 0

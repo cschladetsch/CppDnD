@@ -5,8 +5,8 @@
 #   .\web.ps1 -NoArt                  do not start Stable Diffusion (pictures are on by default; set them up once with .\sd.ps1 -Install)
 #   .\web.ps1 -Rebuild -NoBrowser
 #   .\web.ps1 --data C:\my\content    unrecognised options go to dnd_server
-# Stable Diffusion is started in the background for the Pictures panel unless -NoArt is given;
-# if it is not installed the game starts anyway and says so. -Art is accepted and does nothing (it is the default).
+# Stable Diffusion is started in the background for the Pictures panel unless -NoArt is given; if it is not set up yet, you are asked
+# whether to install it now (no: the game starts without pictures). -Art is accepted and does nothing (it is the default).
 # Ctrl-C stops the server (and Stable Diffusion, if this script started it).
 param(
     [int]$Port = 8088,
@@ -76,9 +76,22 @@ if (-not $NoArt) {
     elseif (-not (Test-Path $sdScript)) { Write-Host 'web.ps1: warning: sd.ps1 is missing; continuing without pictures' -ForegroundColor Yellow }
     else {
         $sdPort = ([uri]$imgUrl).Port
-        & $sdScript -Start -NoWait -Port $sdPort
-        if ($LASTEXITCODE) { Write-Host 'web.ps1: warning: Stable Diffusion did not start (run .\sd.ps1 -Install the first time, or .\sd.ps1 -Check to see what is missing; -NoArt skips this); continuing without pictures' -ForegroundColor Yellow; $sdFailed = $true }
-        else { $sdWeStarted = $true }
+        $sdReady = $true
+        & $sdScript -Installed
+        if ($LASTEXITCODE) {
+            $sdReady = $false
+            Write-Host 'Stable Diffusion is not set up yet, so there are no pictures.' -ForegroundColor Yellow
+            $ans = ''
+            try { $ans = Read-Host 'Set it up now (git, Python 3.10, AUTOMATIC1111 and the 4.3 GB model, about 10 GB in all; a long download)? [y/N]' } catch {}
+            if ($ans -match '^(y|yes)$') {
+                & $sdScript -Install -Yes -Port $sdPort
+                if ($LASTEXITCODE) { Write-Host 'web.ps1: warning: the Stable Diffusion install did not finish (see above); continuing without pictures' -ForegroundColor Yellow; $sdFailed = $true }
+                else { $sdReady = $true }
+            } else { Write-Host 'Skipped. Set it up later with .\sd.ps1 -Install, or pass -NoArt to stop being asked.' -ForegroundColor DarkGray }
+        }
+        if ($sdReady) { & $sdScript -Start -NoWait -Port $sdPort }
+        if ($sdReady -and $LASTEXITCODE) { Write-Host 'web.ps1: warning: Stable Diffusion did not start (run .\sd.ps1 -Install the first time, or .\sd.ps1 -Check to see what is missing; -NoArt skips this); continuing without pictures' -ForegroundColor Yellow; $sdFailed = $true }
+        elseif ($sdReady) { $sdWeStarted = $true }
     }
 }
 
@@ -118,7 +131,11 @@ try {
         elseif ($sdWeStarted) { Write-Host "Pictures: Stable Diffusion is starting at $($img.url) (the first start takes 10-20 minutes; progress is in sd.log under $env:LOCALAPPDATA\CppDnD\sd); the Pictures panel works once it answers" -ForegroundColor Yellow }
         else { Write-Host "Pictures: no image server at $($img.url). .\sd.ps1 -Install sets one up (it was skipped or failed to start, or you used -NoArt)." -ForegroundColor DarkGray }
     } catch {}
-    if (-not $NoBrowser) { Start-Process $url }
+    if (-not $NoBrowser) {
+        $cnf = $ExecutionContext.SessionState.InvokeCommand.CommandNotFoundAction
+        $ExecutionContext.SessionState.InvokeCommand.CommandNotFoundAction = $null
+        try { Start-Process $url } finally { $ExecutionContext.SessionState.InvokeCommand.CommandNotFoundAction = $cnf }
+    }
     $proc.WaitForExit()
 } finally {
     if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
