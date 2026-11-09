@@ -233,6 +233,17 @@ function Install-All {
     Write-Host 'Installed. Next: .\sd.ps1 -Start   (the first start installs PyTorch and takes 10-20 minutes)' -ForegroundColor Green
 }
 
+# webui.bat ends with "pause": once the server process has ended (it never does on success) the hidden window waits for a key forever.
+function Test-LaunchEnded {
+    foreach ($f in @($errFile, $logFile)) {
+        if ((Test-Path $f) -and (Get-Content $f -Tail 3 -ErrorAction SilentlyContinue | Where-Object { $_ -match 'Press any key to continue' })) { return $true }
+    }
+    return $false
+}
+function Stop-StuckLaunch($proc) {
+    if ($isWin -and $proc -and -not $proc.HasExited) { & taskkill.exe /PID $proc.Id /T /F 2>&1 | Out-Null }
+}
+
 # ---- start / stop
 function Start-Sd {
     if (Test-Api) { Ok "already running at $apiUrl"; return }
@@ -265,9 +276,7 @@ function Start-Sd {
     Write-Host "  flags:    $($env:COMMANDLINE_ARGS)"
     try {
         if ($isWin) {
-            $nullIn = Join-Path $sdRoot 'empty.in'
-            Set-Content -Path $nullIn -Value '' -NoNewline   # stdin at end-of-file: "pause" at the end of webui.bat returns at once instead of hanging a hidden window
-            $proc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'webui.bat') -WorkingDirectory $webui -WindowStyle Hidden -RedirectStandardInput $nullIn -RedirectStandardOutput $logFile -RedirectStandardError $errFile -PassThru
+            $proc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'webui.bat') -WorkingDirectory $webui -WindowStyle Hidden -RedirectStandardOutput $logFile -RedirectStandardError $errFile -PassThru
         } else {
             $proc = Start-Process -FilePath 'bash' -ArgumentList @('webui.sh') -WorkingDirectory $webui -RedirectStandardOutput $logFile -RedirectStandardError $errFile -PassThru
         }
@@ -277,8 +286,9 @@ function Start-Sd {
     if (-not $proc) { Bad 'could not start the server'; return }
     Set-Content -Path $pidFile -Value $proc.Id
     if ($NoWait) {
-        for ($i = 0; $i -lt 20 -and -not $proc.HasExited; $i++) { Start-Sleep -Seconds 1 }
-        if ($proc.HasExited) {
+        for ($i = 0; $i -lt 20 -and -not $proc.HasExited -and -not (Test-LaunchEnded); $i++) { Start-Sleep -Seconds 1 }
+        if ($proc.HasExited -or (Test-LaunchEnded)) {
+            Stop-StuckLaunch $proc
             Bad "the server exited with code $($proc.ExitCode) right after starting. Last log lines:"
             foreach ($f in @($errFile, $logFile)) { if (Test-Path $f) { Get-Content $f -Tail 8 | ForEach-Object { Info $_ } } }
             Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
@@ -292,7 +302,8 @@ function Start-Sd {
     $tick = 0
     while ((Get-Date) -lt $deadline) {
         if (Test-Api) { Ok "API answering at $apiUrl"; Write-Host 'Stable Diffusion is running. Log: ' $logFile -ForegroundColor Green; return }
-        if ($proc.HasExited) {
+        if ($proc.HasExited -or (Test-LaunchEnded)) {
+            Stop-StuckLaunch $proc
             Bad "the server exited with code $($proc.ExitCode). Last log lines:"
             foreach ($f in @($errFile, $logFile)) { if (Test-Path $f) { Get-Content $f -Tail 8 | ForEach-Object { Info $_ } } }
             Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
