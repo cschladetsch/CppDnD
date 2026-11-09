@@ -156,6 +156,30 @@ TEST(Game, RoleSwap) {
     EXPECT_NE(log.find("[role is now: spectator]"), std::string::npos);
 }
 
+// Switching heroes mid-fight must show the new hero's own weapons straight away, not the previous hero's until the next action.
+TEST(Game, HeroSwitchShowsTheNewHeroOptionsAtOnce) {
+    GameConfig cfg;
+    cfg.rooms = 1; cfg.difficulty = "easy"; cfg.seed = 11; cfg.role = Role::Player; cfg.hero = "elara";
+    Game g(cfg);
+    ASSERT_EQ(g.GetMode(), Mode::Combat);
+    for (int guard = 0; guard < 600 && g.AdvanceCombat() != StepStatus::AwaitingInput; ++guard) {}
+    const Combat& cb = *g.GetCombat();
+    ASSERT_GE(cb.AwaitingActor(), 0);
+    EXPECT_EQ(cb.Find(cb.AwaitingActor())->Name(), "Elara");
+    const Json before = g.View(0)["combat"]["options"];
+    ASSERT_TRUE(before.is_object());
+
+    std::string err;
+    ASSERT_TRUE(g.SetHero("thorin", err));
+    if (g.GetMode() != Mode::Combat) return;  // the fight ended on the old hero's AI-played turn: nothing to show
+    ASSERT_GE(g.GetCombat()->AwaitingActor(), 0);
+    EXPECT_EQ(g.GetCombat()->Find(g.GetCombat()->AwaitingActor())->Name(), "Thorin");  // no extra AdvanceCombat needed
+    const Json after = g.View(0)["combat"]["options"];
+    ASSERT_TRUE(after.is_object());
+    EXPECT_NE(after["actor"], before["actor"]);
+    EXPECT_NE(after["attacks"], before["attacks"]);  // a wizard's and a fighter's weapons differ
+}
+
 TEST(Game, HeroSwitch) {
     GameConfig cfg;
     cfg.rooms = 1; cfg.difficulty = "easy"; cfg.seed = 11; cfg.role = Role::Player; cfg.hero = "elara";

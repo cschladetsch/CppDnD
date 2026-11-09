@@ -434,6 +434,7 @@ async function doAction(a) {
 }
 async function setHero(id) {
   const { status, data } = await api("POST", `/api/games/${gid}/hero?since=${lastSeq}`, { hero: id });
+  pending = { kind: "attack", index: 0 };   // the selected weapon or spell belonged to the previous hero
   if (status === 200 && data.view) apply(data.view); else { toast(data.error || "cannot switch"); renderParty(); }
 }
 

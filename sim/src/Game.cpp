@@ -143,6 +143,9 @@ bool Game::SetHero(const std::string& who, std::string& err) {
     cfg_.role = Role::Player;
     AssignControllers();
     if (changed) Emit(EventType::Info, Cat("[you now control ", hero_, "]"));
+    // The engine remembers whose input it is waiting for. Re-run it so that it asks for the new hero (or plays the old
+    // hero's turn out with the AI) now, instead of showing the previous hero's weapons and spells until the next action.
+    if (changed && combat_) AdvanceCombat();
     return true;
 }
 
