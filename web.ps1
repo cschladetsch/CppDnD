@@ -67,6 +67,7 @@ if (Test-Path $imgFile) {
     } catch { Write-Host "web.ps1: warning: could not read sim\data\images.json: $($_.Exception.Message)" -ForegroundColor Yellow }
 }
 $sdWeStarted = $false
+$sdFailed = $false
 if (-not $NoArt) {
     $sdScript = Join-Path $PSScriptRoot 'sd.ps1'
     $sdUp = $false
@@ -76,7 +77,7 @@ if (-not $NoArt) {
     else {
         $sdPort = ([uri]$imgUrl).Port
         & $sdScript -Start -NoWait -Port $sdPort
-        if ($LASTEXITCODE) { Write-Host 'web.ps1: warning: Stable Diffusion did not start (run .\sd.ps1 -Install the first time, or .\sd.ps1 -Check to see what is missing; -NoArt skips this); continuing without pictures' -ForegroundColor Yellow }
+        if ($LASTEXITCODE) { Write-Host 'web.ps1: warning: Stable Diffusion did not start (run .\sd.ps1 -Install the first time, or .\sd.ps1 -Check to see what is missing; -NoArt skips this); continuing without pictures' -ForegroundColor Yellow; $sdFailed = $true }
         else { $sdWeStarted = $true }
     }
 }
@@ -113,7 +114,8 @@ try {
         if (-not $img.enabled) { Write-Host "Pictures: off ($($img.error))" -ForegroundColor DarkGray }
         elseif ($img.problem) { Write-Host "Pictures: $($img.problem)" -ForegroundColor Yellow }
         elseif ($img.reachable) { Write-Host "Pictures: image server ready at $($img.url), model '$($img.checkpoint)'" -ForegroundColor Green }
-        elseif ($sdWeStarted) { Write-Host "Pictures: Stable Diffusion is starting at $($img.url) (the first start takes 10-20 minutes); the Pictures panel works once it answers" -ForegroundColor Yellow }
+        elseif ($sdFailed) { Write-Host "Pictures: Stable Diffusion did not start (the reason is in the output above; .\sd.ps1 -Check lists what is missing, .\sd.ps1 -Install sets it up)" -ForegroundColor Red }
+        elseif ($sdWeStarted) { Write-Host "Pictures: Stable Diffusion is starting at $($img.url) (the first start takes 10-20 minutes; progress is in sd.log under $env:LOCALAPPDATA\CppDnD\sd); the Pictures panel works once it answers" -ForegroundColor Yellow }
         else { Write-Host "Pictures: no image server at $($img.url). .\sd.ps1 -Install sets one up (it was skipped or failed to start, or you used -NoArt)." -ForegroundColor DarkGray }
     } catch {}
     if (-not $NoBrowser) { Start-Process $url }

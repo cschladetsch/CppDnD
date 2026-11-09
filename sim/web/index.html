@@ -452,6 +452,7 @@ async function refreshPictures() {
   const names = [...new Set([...(st.models.store || []), ...(st.models.server || [])])];
   const kids = [
     el("div", { className: st.reachable ? "small" : "err", textContent: `${st.describe}: ${st.reachable ? "ready" : "not reachable" + (st.error ? " (" + st.error + ")" : "")}` }),
+    !st.reachable && /^https?:\/\/(127\.0\.0\.1|localhost)/.test(st.url || "") ? el("div", { className: "dim small", textContent: "Nothing is listening there. .\\web.ps1 starts Stable Diffusion with the game (the first start takes 10-20 minutes while it installs PyTorch); if it was never installed, run .\\sd.ps1 -Install. .\\sd.ps1 -Check shows what is missing; its log is sd.log in %LOCALAPPDATA%\\CppDnD\\sd." }) : null,
     el("div", { className: "dim small", textContent: `model: ${st.checkpoint || "(server default)"}${st.effectiveCheckpoint && st.effectiveCheckpoint !== st.checkpoint ? " -> " + st.effectiveCheckpoint : ""}${st.store && st.store.exists ? " (in the model store)" : ""}` }),
     el("div", { className: "row" }, model, el("label", { className: "small dim" }, fromStore, " from store"),
       el("button", { textContent: "Use", onclick: async () => { const r = await api("POST", "/api/images/model", { model: model.value.trim(), fromStore: fromStore.checked }); if (r.status !== 200) toast(r.data.error || "cannot switch"); refreshPictures(); } })),
