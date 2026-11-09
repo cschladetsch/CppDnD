@@ -148,9 +148,30 @@ if (Test-Path $artDir) {
     }
     Ok ("art folder: " + ($counts -join ', ') + ' (missing pictures fall back to drawn tokens)')
 } else { Warn 'sim\art is missing' }
-$sd = $(if ($env:SD_URL) { $env:SD_URL } else { 'http://127.0.0.1:7860' })
-try { Invoke-RestMethod "$sd/sdapi/v1/options" -TimeoutSec 2 | Out-Null; Ok "Stable Diffusion answers at $sd (.\art.ps1 generates pictures)" }
-catch { Warn "no Stable Diffusion server at $sd (optional; only needed for .\art.ps1)" }
+$sd = 'http://127.0.0.1:7860'; $sdModel = ''; $sdBackend = 'a1111'
+$imagesFile = Join-Path $PSScriptRoot 'sim\data\images.json'
+if (Test-Path $imagesFile) {
+    try {
+        $ij = (Get-Content $imagesFile -Raw) -replace '(?m)^\s*//.*$', '' | ConvertFrom-Json
+        if ($ij.url) { $sd = $ij.url }
+        if ($ij.checkpoint) { $sdModel = $ij.checkpoint }
+        if ($ij.backend) { $sdBackend = $ij.backend }
+        if ($ij.enabled -eq $false) { Warn 'picture generation is turned off in sim\data\images.json' }
+    } catch { Bad "sim\data\images.json is not valid: $($_.Exception.Message)" }
+}
+if ($env:SD_URL) { $sd = $env:SD_URL }
+try {
+    if ($sdBackend -eq 'openai') { Invoke-RestMethod "$sd/v1/models" -TimeoutSec 2 | Out-Null } else { Invoke-RestMethod "$sd/sdapi/v1/options" -TimeoutSec 2 | Out-Null }
+    Ok "image server ($sdBackend) answers at $sd (the Pictures panel and .\art.ps1 can draw)"
+} catch { Warn "no image server at $sd (optional; start AUTOMATIC1111 or Forge with --api to draw pictures)" }
+if ($sdModel) {
+    $home_ = if ($env:DEEPSEEK_MODEL_HOME) { $env:DEEPSEEK_MODEL_HOME } else { Join-Path $env:USERPROFILE '.local\share\deepseek\models' }
+    $mdir = Join-Path $home_ $sdModel
+    if (Test-Path $mdir) {
+        $w = Get-ChildItem $mdir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.safetensors','.ckpt','.gguf' } | Select-Object -First 1
+        if ($w) { Ok "image model '$sdModel' is in the model store ($($w.Name))" } else { Warn "model folder $mdir holds no .safetensors, .ckpt or .gguf" }
+    } else { Warn "image model '$sdModel' is not in the model store ($mdir); the image server must know it by name" }
+}
 
 # ---- tests
 if ($Test) {

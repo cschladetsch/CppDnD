@@ -72,7 +72,7 @@ The client is at http://127.0.0.1:8088/ . You can also talk to the JSON API dire
 curl -X POST localhost:8088/api/games -d '{"module":"ravenmoor","role":"player","hero":"elara","seed":7}'
 ```
 
-Server flags: `--port`, `--host`, `--data <dir>`, `--static <dir>` (serve a different front end; also `DND_WEB`), `--llm-url`, `--llm-model`, `--ollama <model>`, `--mock-llm`. The endpoint reference is [sim/docs/API.md](sim/docs/API.md).
+Server flags: `--port`, `--host`, `--data <dir>`, `--static <dir>` (serve a different front end; also `DND_WEB`), `--llm-url`, `--llm-model`, `--ollama <model>`, `--agents <file>`, `--art <dir>`, `--images <file>`, `--history <dir>`, `--mock-llm`. The endpoint reference is [sim/docs/API.md](sim/docs/API.md).
 
 ## Language models
 
@@ -116,7 +116,7 @@ Switch which character you play at any time with the "You control" dropdown in t
 
 ## Art
 
-There is no bundled artwork, and none is needed. The web client draws its own tokens (a class or creature icon, a health ring, a pip per condition) and terrain tiles, and shows a picture wherever one exists in `sim/art/<kind>/<id>.png`. To make pictures from the game data with a local Stable Diffusion server (AUTOMATIC1111, Forge or SD.Next, started with `--api`):
+There is no bundled artwork, and none is needed. The web client draws its own tokens (a class or creature icon, a health ring, a pip per condition) and terrain tiles, and shows a picture wherever one exists in `sim/art/<kind>/<id>.png`. To make pictures from the game data with a local Stable Diffusion server (AUTOMATIC1111, Forge or SD.Next, started with `--api`), use the **Pictures** panel in the web client (the server draws in the background and the game picks each picture up as it is saved), or from a shell:
 
 ```powershell
 .\art.ps1 -List                    # show every prompt, generate nothing
@@ -124,7 +124,7 @@ There is no bundled artwork, and none is needed. The web client draws its own to
 .\art.ps1 -Only characters -Force  # redo one kind
 ```
 
-Or drop in your own files with the same names. Details in [sim/art/README.md](sim/art/README.md).
+The model is chosen in `sim/data/images.json` and can be a folder in the CppLmmModelStore (`DEEPSEEK_MODEL_HOME`) holding a `.safetensors`; the panel can switch it mid-game. Or drop in your own files with the same names. Details in [sim/art/README.md](sim/art/README.md).
 
 ## Layout
 

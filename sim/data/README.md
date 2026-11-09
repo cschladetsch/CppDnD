@@ -59,6 +59,10 @@ A location has `id`, `name`, `kind` (`wilderness`, `settlement`, `boundary`, `si
 
 `ravenmoor.json` demonstrates every one of these.
 
+## images.json
+
+Where pictures are drawn (see [../art/README.md](../art/README.md)): `enabled`, `backend` (`a1111` or `openai`), `url`, `path` (openai only), `apiKey`, `checkpoint` (a folder name in the CppLmmModelStore, or a name the image server knows), `requireStore`, `timeoutSec`. Comments are allowed. Missing file: defaults (AUTOMATIC1111 on 127.0.0.1:7860, whatever model it has loaded).
+
 ## agents.json
 
 Used by games created with agents on (`"agents": true`, or `--agents`). Every actor becomes its own mind with its own model, persona and memory, and they talk to each other through JSON messages (see [../docs/API.md](../docs/API.md)). Comments are allowed. The shipped file names Ollama models; edit it to match what you have installed (`.\check.ps1` lists any that are missing).

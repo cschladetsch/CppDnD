@@ -11,6 +11,7 @@
 #include "dnd/Agents.hpp"
 #include "dnd/Content.hpp"
 #include "dnd/Game.hpp"
+#include "dnd/Images.hpp"
 #include "dnd/Llm.hpp"
 #include "httplib.h"
 
@@ -85,7 +86,7 @@ std::shared_ptr<AgentTable> Wire(Server& s, Game& g) {
 
 int main(int argc, char** argv) {
     std::string dataDir = Content::DefaultDataDir();
-    std::string staticDir, artDir, histDir, host = "127.0.0.1";
+    std::string staticDir, artDir, histDir, imagesPath, host = "127.0.0.1";
 #ifdef DND_HISTORY_DIR
     histDir = DND_HISTORY_DIR;  // x-y.json and group-history.json per game, in <dir>/<game id>/; --history overrides, --history "" turns files off
 #endif
@@ -111,6 +112,7 @@ int main(int argc, char** argv) {
         else if (a == "--static") staticDir = next();
         else if (a == "--art") artDir = next();
         else if (a == "--history") histDir = next();
+        else if (a == "--images") imagesPath = next();
         else if (a == "--llm-url") S.llmCfg.baseUrl = next();
         else if (a == "--llm-model") S.llmCfg.model = next();
         else if (a == "--mock-llm") S.mock = true;
@@ -118,7 +120,7 @@ int main(int argc, char** argv) {
         else if (a == "--ollama") { S.llmCfg.baseUrl = "http://127.0.0.1:11434"; S.llmCfg.model = next(); S.llmCfg.stream = false; }
         else if (a == "--help" || a == "-h") {
             std::cout << "dnd_server [--port 8088] [--host 127.0.0.1] [--data DIR] [--static DIR]\n"
-                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--agents FILE] [--art DIR] [--mock-llm]\n"
+                         "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--agents FILE] [--art DIR] [--images FILE] [--history DIR] [--mock-llm]\n"
                          "LLM env: DND_LLM_URL DND_LLM_PATH DND_LLM_MODEL DND_LLM_KEY DND_LLM_TIMEOUT DND_LLM_STREAM\n"
                          "Models are looked up in the shared model store (DEEPSEEK_MODEL_HOME).\n";
             return 0;
@@ -417,12 +419,51 @@ int main(int argc, char** argv) {
         }
         Reply(res, 200, out);
     });
+    // ---- image generation: draws into the art folder, one picture at a time, in the background
+    std::shared_ptr<ArtService> art;
+    std::string imagesError, imagesFile;
+    if (!artDir.empty()) {
+        namespace fs = std::filesystem;
+        imagesFile = !imagesPath.empty() ? imagesPath : (std::getenv("DND_IMAGES") && *std::getenv("DND_IMAGES") ? std::getenv("DND_IMAGES") : (fs::path(dataDir) / "images.json").string());
+        auto icfg = ImageConfig::Load(imagesFile, (fs::path(artDir) / "style.json").string(), (fs::path(artDir) / "prompts.json").string(), imagesError);
+        if (icfg) art = std::make_shared<ArtService>(*icfg, artDir);
+        else std::cerr << "warning: image generation is off: " << imagesError << "\n";
+    }
+    auto needArt = [&]() -> ArtService& {
+        if (!art) throw HttpError{503, imagesError.empty() ? "image generation is off (no art folder)" : imagesError};
+        return *art;
+    };
+    svr.Get("/api/images", guarded([&](const httplib::Request&, httplib::Response& res) {
+        if (!art) { Reply(res, 200, {{"enabled", false}, {"error", imagesError}, {"file", imagesFile}}); return; }
+        Json s = art->Status();
+        s["file"] = imagesFile;
+        Reply(res, 200, s);
+    }));
+    svr.Post("/api/images/generate", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        std::string err;
+        Json r = needArt().Enqueue(Body(req), err);
+        if (!err.empty()) throw HttpError{422, err};
+        r["jobs"] = art->Jobs();
+        Reply(res, 202, r);
+    }));
+    svr.Get("/api/images/jobs", guarded([&](const httplib::Request&, httplib::Response& res) { Reply(res, 200, needArt().Jobs()); }));
+    svr.Post("/api/images/cancel", guarded([&](const httplib::Request&, httplib::Response& res) {
+        needArt().Cancel();
+        Reply(res, 200, art->Jobs());
+    }));
+    svr.Post("/api/images/model", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        const Json b = Body(req);
+        std::string err;
+        if (!needArt().SetCheckpoint(b.value("model", ""), b.value("fromStore", false), err)) throw HttpError{422, err};
+        Reply(res, 200, art->Status());
+    }));
+
     if (!staticDir.empty() && !svr.set_mount_point("/", staticDir)) {
         std::cerr << "warning: cannot serve web client from '" << staticDir << "'\n";
         staticDir.clear();
     }
 
-    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  web=" << (staticDir.empty() ? "off" : staticDir) << "  art=" << (artDir.empty() ? "off" : artDir) << "  history=" << (histDir.empty() ? "off" : histDir) << "  modules=" << Content::Modules().size()
+    std::cout << "dnd_server on http://" << host << ":" << port << "  data=" << dataDir << "  web=" << (staticDir.empty() ? "off" : staticDir) << "  art=" << (artDir.empty() ? "off" : artDir) << "  history=" << (histDir.empty() ? "off" : histDir) << "  images=" << (art ? "on" : "off") << "  modules=" << Content::Modules().size()
               << "  llm=" << (S.llm ? S.llm->Describe() : "off") << std::endl;
     if (!svr.listen(host, port)) {
         std::cerr << "cannot listen on " << host << ":" << port << "\n";

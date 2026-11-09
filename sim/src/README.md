@@ -13,6 +13,7 @@ Implementation of the headers in [../include/dnd](../include/README.md), plus th
 | `Game.cpp` | exploration, clock, travel, rests, events, flags, quests, autopilot, save and load |
 | `GameView.cpp` | the JSON view of a `Game` returned to clients |
 | `Json.cpp` | JSON conversion for sheets, events, actions and combat |
+| `Images.cpp` | the image clients, prompts built from the content, the drawing queue, model resolution through the model store |
 | `History.cpp` | the pair and group histories, digests for agent prompts, atomic file writes |
 | `Agents.cpp` | agents.json loading and inheritance, the agents, the message hub, per-actor combat control, the party council, NPC voices, runtime model switching |
 | `Llm.cpp` | HTTP LLM client, narrator, LLM Dungeon Master, plain-English `Say` |

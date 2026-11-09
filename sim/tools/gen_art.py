@@ -12,7 +12,8 @@ prompt or style changes. Existing files are skipped unless --force.
   python tools/gen_art.py --only characters --force    redo one kind
   python tools/gen_art.py --ids thorin,zombie          just these ids
 
-A data entry may carry {"art": {"prompt": "..."}} to replace the generated subject.
+To replace a generated subject, put "kind/id": "text" in art/prompts.json (the server reads the same file), or
+give a data entry {"art": {"prompt": "..."}}.
 """
 import argparse, base64, binascii, json, os, re, sys, urllib.error, urllib.request, zlib
 
@@ -28,6 +29,10 @@ def load_json(path):
     return json.loads(text)
 
 
+def article(word):
+    return "an" if word[:1].lower() in "aeiou" and word else "a"
+
+
 def override(entry, subject):
     art = entry.get("art") if isinstance(entry, dict) else None
     return art["prompt"] if isinstance(art, dict) and art.get("prompt") else subject
@@ -38,7 +43,7 @@ def jobs(data_dir):
     for c in load_json(os.path.join(data_dir, "characters.json")):
         race = [t for t in c.get("tags", []) if t not in CREATURE_TYPES] or ["human"]
         cls = c.get("class", "adventurer")
-        yield "characters", c["id"], override(c, f"portrait of {c.get('name', c['id'])}, a {' '.join(race)} {cls}, adventurer, upper body, looking at the viewer"), "portrait"
+        yield "characters", c["id"], override(c, f"portrait of {c.get('name', c['id'])}, {article(' '.join(race))} {' '.join(race)} {cls}, adventurer, upper body, looking at the viewer"), "portrait"
     for m in load_json(os.path.join(data_dir, "monsters.json")):
         kinds = [t for t in m.get("tags", [])]
         yield "monsters", m["id"], override(m, f"{m.get('name', m['id']).lower()}, {' '.join(kinds)} monster, dungeons and dragons creature, menacing, centered on a plain dark background"), "portrait"
@@ -51,7 +56,7 @@ def jobs(data_dir):
         for loc in mod.get("locations", []):
             yield "locations", loc["id"], override(loc, f"{loc.get('name', loc['id'])}, {loc.get('kind', '')}, {loc.get('description', '')} wide establishing shot, no people"), "wide"
             for n in loc.get("npcs", []):
-                yield "npcs", n["id"], override(n, f"portrait of {n.get('name', n['id'])}, a {n.get('type', 'commoner')}. {n.get('description', '')} upper body, looking at the viewer"), "portrait"
+                yield "npcs", n["id"], override(n, f"portrait of {n.get('name', n['id'])}, {article(n.get('type', 'commoner'))} {n.get('type', 'commoner')}. {n.get('description', '')} upper body, looking at the viewer"), "portrait"
 
 
 def post(url, payload, timeout):
@@ -87,6 +92,8 @@ def main():
     style = load_json(style_path) if os.path.exists(style_path) else {}
     steps, cfg = style.get("steps", 25), style.get("cfg", 6.5)
     sizes = {"portrait": style.get("portrait", [512, 512]), "wide": style.get("wide", [768, 432])}
+    prompts_path = os.path.join(a.out, "prompts.json")
+    prompts = load_json(prompts_path) if os.path.exists(prompts_path) else {}
     only = {s for s in a.only.split(",") if s}
     ids = {s for s in a.ids.split(",") if s}
 
@@ -96,6 +103,7 @@ def main():
         return 1
     made = skipped = failed = 0
     for kind, ident, subject, shape in todo:
+        subject = prompts.get(f"{kind}/{ident}", subject) if isinstance(prompts.get(f"{kind}/{ident}", ""), str) else subject
         path = os.path.join(a.out, kind, ident + ".png")
         prompt = " ".join(x for x in (style.get("prefix", ""), subject, style.get("suffix", "")) if x).strip()
         if a.list:

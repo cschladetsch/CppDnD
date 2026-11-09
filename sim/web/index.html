@@ -32,6 +32,7 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .member.dead { opacity:.45; text-decoration:line-through; }
 .member.you { border-left:3px solid var(--accent); padding-left:8px; }
 .focus { display:flex; gap:8px; align-items:center; margin:2px 0 8px; } .focus select { flex:1; }
+.pics .row { margin:6px 0; } .pics progress { width:100%; height:8px; } .pics .err { color:var(--bad); font-size:12px; }
 .hist { max-height:260px; overflow:auto; font-size:13px; margin-top:6px; }
 .hist div { padding:2px 0; } .hist .meta { color:var(--dim); font-size:11px; } .hist .from { color:var(--accent); }
 #grid { display:grid; gap:1px; background:#0c0a12; width:max-content; max-width:100%; overflow:auto; border:1px solid var(--edge); }
@@ -110,7 +111,7 @@ function startGame(id, v) {
   gid = id; lastSeq = 0;
   $("#app").replaceChildren(el("main", {},
     el("div", {}, el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" }), sayBox()),
-    el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }), historyPanel())));
+    el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }), picturesPanel(), historyPanel())));
   $("#saveBtn").hidden = $("#newBtn").hidden = false;
   loadArt().then(() => { if (view) { renderScene(); renderParty(); renderCombat(); } });
   apply(v);
@@ -420,6 +421,57 @@ async function doAction(a) {
 async function setHero(id) {
   const { status, data } = await api("POST", `/api/games/${gid}/hero?since=${lastSeq}`, { hero: id });
   if (status === 200 && data.view) apply(data.view); else { toast(data.error || "cannot switch"); renderParty(); }
+}
+
+
+// ---------------------------------------------------------------- pictures: draw art with a local image model
+let picsOpen = false, picsTimer = 0, picsDone = -1;
+const subjectIds = () => {
+  const ids = [];
+  if (!view) return ids;
+  if (view.location) { ids.push("locations/" + view.location.id); for (const n of view.location.npcs || []) ids.push("npcs/" + n.id); }
+  if (view.combat) for (const a of view.combat.actors) if (a.team !== "party" && a.monsterId) ids.push("monsters/" + a.monsterId);
+  return [...new Set(ids)];
+};
+async function drawIds(ids, force) {
+  const { status, data } = await api("POST", "/api/images/generate", { ids, force });
+  if (status >= 300) toast(data.error || "cannot draw"); else if (!data.queued) toast("nothing to draw: those pictures exist already");
+  refreshPictures();
+}
+async function refreshPictures() {
+  clearTimeout(picsTimer);
+  const box = $("#pictures"); if (!box || !picsOpen) return;
+  const { data: st } = await api("GET", "/api/images");
+  if (!st.enabled) { box.replaceChildren(el("div", { className: "dim small", textContent: st.error || "Picture generation is off (see data/images.json)." })); return; }
+  const j = st.jobs || {};
+  if (picsDone >= 0 && j.done !== picsDone) { await loadArt(); if (view) { renderScene(); renderParty(); renderCombat(); } }
+  picsDone = j.done;
+  const model = el("input", { placeholder: "model (store folder or server name)", value: st.checkpoint || "", style: "flex:1" });
+  model.setAttribute("list", "imgmodels");  // list is read-only as a property
+  const fromStore = el("input", { type: "checkbox", id: "imgstore", checked: !!st.requireStore });
+  const names = [...new Set([...(st.models.store || []), ...(st.models.server || [])])];
+  const kids = [
+    el("div", { className: st.reachable ? "small" : "err", textContent: `${st.describe}: ${st.reachable ? "ready" : "not reachable" + (st.error ? " (" + st.error + ")" : "")}` }),
+    el("div", { className: "dim small", textContent: `model: ${st.checkpoint || "(server default)"}${st.effectiveCheckpoint && st.effectiveCheckpoint !== st.checkpoint ? " -> " + st.effectiveCheckpoint : ""}${st.store && st.store.exists ? " (in the model store)" : ""}` }),
+    el("div", { className: "row" }, model, el("label", { className: "small dim" }, fromStore, " from store"),
+      el("button", { textContent: "Use", onclick: async () => { const r = await api("POST", "/api/images/model", { model: model.value.trim(), fromStore: fromStore.checked }); if (r.status !== 200) toast(r.data.error || "cannot switch"); refreshPictures(); } })),
+    el("datalist", { id: "imgmodels" }, ...names.map(n => el("option", { value: n }))),
+    el("div", { className: "row" },
+      el("button", { textContent: "Draw this scene", title: "the place, the people here and the creatures in the fight", onclick: () => drawIds(subjectIds(), false) }),
+      el("button", { textContent: "Party portraits", onclick: () => drawIds(view.party.map(m => "characters/" + m.id), false) }),
+      el("button", { textContent: "All missing", onclick: async () => { const r = await api("POST", "/api/images/generate", { missing: true }); if (r.status >= 300) toast(r.data.error || "cannot draw"); refreshPictures(); } }),
+      el("button", { textContent: "Redo this scene", onclick: () => drawIds(subjectIds(), true) })),
+  ];
+  if (j.running) kids.push(el("div", { className: "small", textContent: `Drawing ${j.current || "..."}  (${j.done + j.failed} of ${j.total})` }), el("progress", { max: j.total || 1, value: j.done + j.failed }),
+    el("div", { className: "row" }, el("button", { textContent: "Cancel", onclick: async () => { await api("POST", "/api/images/cancel"); refreshPictures(); } })));
+  else if (j.total) kids.push(el("div", { className: "small dim", textContent: `Last run: ${j.done} drawn, ${j.failed} failed.` }));
+  for (const e of (j.errors || []).slice(-3)) kids.push(el("div", { className: "err", textContent: e }));
+  box.replaceChildren(...kids);
+  if (j.running) picsTimer = setTimeout(refreshPictures, 1500);
+}
+function picturesPanel() {
+  return el("details", { className: "panel pics", style: "margin-top:12px", ontoggle: e => { picsOpen = e.target.open; picsDone = -1; refreshPictures(); } },
+    el("summary", { textContent: "Pictures" }), el("div", { id: "pictures" }));
 }
 
 // ---------------------------------------------------------------- history: group chat, and each actor's private record of another

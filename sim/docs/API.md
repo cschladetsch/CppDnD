@@ -111,6 +111,20 @@ Using Ollama: `ollama pull llama3.1`, then `.\web.ps1 -Model llama3.1`. This set
 
 Every game view carries `map`: `{start, current, nodes: [{id, name, kind, visited, current}], edges: [{from, to, miles, hours, open}]}`. Nodes are the places the party has been plus the places their exits lead to, so it never reveals more than the next step. `open` is false while an exit's requirements are unmet. Layout is up to the client; the bundled one lays it out in columns by distance from `start`.
 
+## Images
+
+`dnd_server` can draw the pictures the client shows (see [../art/README.md](../art/README.md)). It needs an image server (AUTOMATIC1111, Forge, SD.Next, or an OpenAI-style images API) configured in `data/images.json`. Pictures are drawn one at a time in the background and written to `art/<kind>/<id>.png`; `GET /api/art` lists them as soon as they exist.
+
+| Route | Body | Returns |
+|---|---|---|
+| `GET /api/images` | | `{enabled, backend, url, reachable, error, checkpoint, effectiveCheckpoint, requireStore, store: {home, path, exists}, models: {store: [...], server: [...]}, problem, jobs}` |
+| `POST /api/images/generate` | `{"missing": true, "kinds": ["characters"]}`, or `{"ids": ["characters/thorin", "monsters/zombie"]}`, or `{"kind": "npcs", "id": "marta", "prompt": "..."}`; add `"force": true` to redraw | 202 `{queued, skipped, jobs}`; 422 with `error` for an unknown id, a model problem or when generation is off |
+| `GET /api/images/jobs` | | `{running, current, queued, done, failed, total, errors: [...], recent: [...]}` |
+| `POST /api/images/cancel` | | drops what is still queued |
+| `POST /api/images/model` | `{"model": "sd15", "fromStore": true}` | switch the model; `fromStore` demands that it exists in the model store and holds weights. Returns the status |
+
+Ids are `kind/id` where kind is `characters`, `monsters`, `npcs`, `locations` or `modules`. A server that cannot be reached fails the first picture and drops the rest of the queue.
+
 ## History
 
 Every game keeps a record of what was said and done, in two forms.

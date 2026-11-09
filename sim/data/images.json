@@ -1,0 +1,16 @@
+{
+  // Picture generation (the web client's Pictures panel, POST /api/images/generate).
+  // backend "a1111": AUTOMATIC1111, Forge or SD.Next, started with --api (and --ckpt-dir pointing at the model store, see below).
+  // backend "openai": anything serving POST /v1/images/generations with b64_json (LocalAI and others); "path" overrides the route.
+  "enabled": true,
+  "backend": "a1111",
+  "url": "http://127.0.0.1:7860",
+
+  // The model. A folder name in the CppLmmModelStore (DEEPSEEK_MODEL_HOME) holding a .safetensors or .ckpt is resolved to
+  // that file; any other name is passed to the image server as it is. Empty: whatever the server has loaded.
+  "checkpoint": "",
+  // true: refuse to draw unless "checkpoint" exists in the model store.
+  "requireStore": false,
+
+  "timeoutSec": 600
+}
