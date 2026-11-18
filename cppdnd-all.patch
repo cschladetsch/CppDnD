@@ -1,0 +1,2026 @@
+diff --git a/README.md b/README.md
+index 6ab0c4d..fba21d8 100644
+--- a/README.md
++++ b/README.md
+@@ -26,7 +26,7 @@ Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_
+ - **Data-driven content.** Monsters, spells, classes, weapons, characters and modules are JSON under `sim/data/`. Load-time validation reports the file and field of any mistake. See [sim/data/README.md](sim/data/README.md).
+ - **Classes.** Fighter, barbarian, rogue, ranger, wizard, cleric, built from class tables at any level 1 to 20: hit points, proficiency, spell slots, Extra Attack, sneak attack, Rage, Second Wind.
+ - **Rules.** Advantage and disadvantage, crits, cover, opportunity attacks, death saves, conditions (blinded, frightened, incapacitated, paralyzed, poisoned, prone, restrained, stunned), concentration with damage saves, resistance and vulnerability, exhaustion, short and long rests with Hit Dice, travel pace and forced marches.
+-- **Modules.** A module is the space for a long-running session: a graph of locations on a clock, with scripted and random encounters, NPC dialogue, flags, quests, seeded secrets and an end condition. Two ship: `ravenmoor`, an original gothic-horror module in the spirit of Ravenloft (8 locations), and `cyberhood`, an 11-scene cyberpunk module set in 2040 (a vertical neon district ruled by a rogue maintenance AI, with its own sci-fi creatures; try `.\run.ps1 --module cyberhood`).
++- **Modules.** A module is the space for a long-running session: a graph of locations on a clock, with scripted and random encounters, NPC dialogue, flags, quests, seeded secrets and an end condition. Three ship: `ravenmoor`, an original gothic-horror module in the spirit of Ravenloft (8 locations); `cyberhood`, an 11-scene cyberpunk module set in 2040 (a vertical neon district ruled by a rogue maintenance AI, with its own sci-fi creatures; try `.\run.ps1 --module cyberhood`); and `hollow_crown`, a 20-scene dark-fantasy campaign from a border town over a mountain pass to a necropolis and a dead king's throne (two seeded secrets, two ways over the pass and two ways into the lakeside town; try `.\run.ps1 --module hollow_crown`).
+ - **Step-driven combat.** `Advance` runs until a remote human must act; `Submit` answers. Nothing blocks, so a web server can drive many games.
+ - **Save and load.** The complete state, including the RNG stream, round-trips through JSON. A reloaded game plays out identically.
+ - **Web client.** A single-page client in [sim/web/](sim/web/README.md), served by the server at `/`.
+@@ -192,7 +192,7 @@ sim/                                                        engine, clients, con
+ 
+ ## Authoring content
+ 
+-Content is read from `sim/data/` (or `--data <dir>` / `DND_DATA`); games and saves are not stored there, see the data README. Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/content`. The format is described in [sim/data/README.md](sim/data/README.md); `ravenmoor.json` uses every feature, and `cyberhood.json` adds route choices (a staff pass or the rooftop skybridge), a seeded secret with two possible hiding places and conditional events.
++Content is read from `sim/data/` (or `--data <dir>` / `DND_DATA`); games and saves are not stored there, see the data README. Add a file under `sim/data/modules/`, restart, and it appears in `GET /api/content`. The format is described in [sim/data/README.md](sim/data/README.md); `ravenmoor.json` uses every feature, `cyberhood.json` adds route choices (a staff pass or the rooftop skybridge), a seeded secret with two possible hiding places and conditional events, and `hollow_crown.json` is the largest example, with 20 locations, two independent draws and alternate routes at two chokepoints.
+ 
+ ## Limitations
+ 
+diff --git a/sim/data/README.md b/sim/data/README.md
+index 3481c24..c17c7a6 100644
+--- a/sim/data/README.md
++++ b/sim/data/README.md
+@@ -28,7 +28,7 @@ To keep your own modules out of the repo, copy this folder, edit the copy, and p
+ 
+ Content is read-only. A running game is held in the server's memory and is gone when the server stops. A save is a separate JSON file (the whole state including the RNG stream): the web client's Save button downloads it, `GET /api/games/:id/save` returns it, and the terminal client writes `save.json` or the path given with `--save`. Load one with `--load <file>`, `POST /api/games/load`, or the start screen's file picker.
+ 
+-Dice are written `2d6+3`. Ability scores are `[STR, DEX, CON, INT, WIS, CHA]`. Monster stats follow SRD 5.1 unless a comment says a creature is original (`cult_adept`, and the CyberHood creatures `gutter_punk` to `hush_avatar`; creature tag `construct` is new and has its own persona in `agents.json`).
++Dice are written `2d6+3`. Ability scores are `[STR, DEX, CON, INT, WIS, CHA]`. Monster stats follow SRD 5.1 unless a comment says a creature is original (`cult_adept`, `hollow_king`, and the CyberHood creatures `gutter_punk` to `hush_avatar`; creature tag `construct` is new and has its own persona in `agents.json`).
+ 
+ ## Adding a monster, spell or character
+ 
+@@ -58,7 +58,9 @@ A location has `id`, `name`, `kind` (`wilderness`, `settlement`, `boundary`, `si
+ - **npcs:** `{id, name, type, description, topics: [{id, text, setsFlags}]}`; hearing a topic sets its flags. `type` classifies the NPC (`innkeeper`, `villain`, `merchant`, `priest`, `guard`, ... any word; default `commoner`) and is what `agents.json` uses to pick a model.
+ - **map:** the tactical grid for fights at that location: `.` floor, `#` wall, `~` rough, `c` half cover, `O` three-quarters cover, `P` party start, `M` monster spawn.
+ 
+-`ravenmoor.json` demonstrates every one of these. `cyberhood.json` is the larger example: 11 locations, five quests, three random tables, a draw (`override=canopy|undergrid`) that decides where the key is hidden, events gated by `!flag` so that the same scene plays differently with or without a stolen pass, and two routes into the corporate plaza. `tests/test_modules.cpp` checks every module: connected, no dead ends, every gating flag can be earned for every outcome of the draws, and the autopilot finishes.
++`ravenmoor.json` demonstrates every one of these. `cyberhood.json` is the larger example: 11 locations, five quests, three random tables, a draw (`override=canopy|undergrid`) that decides where the key is hidden, events gated by `!flag` so that the same scene plays differently with or without a stolen pass, and two routes into the corporate plaza. `hollow_crown.json` is the largest: 20 locations, eight quests, four random tables, two independent draws (`seal=chapel|mill` hides the necropolis gate seal, `spy=perrin|odo` decides which innkeeper or clerk is the cult's informant), two ways over the pass (the Broken Bridge, or the hunters' trail with a guide) and two ways into the lakeside town (the orc fort or the smugglers' tunnel). `tests/test_modules.cpp` checks every module: connected, no dead ends, every gating flag can be earned for every outcome of the draws, and the autopilot finishes.
++
++Travel time: an exit with `miles` or `hours` costs at least one hour (rounded up); an exit with neither takes no time, which suits rooms in one complex (a stair down to a crypt, the other side of a town square). After 8 travel hours without a long rest, each further hour is a forced march (CON saves, then exhaustion), and the autopilot long-rests only when the party is hurt, so a module made only of one-hour hops will exhaust an AI party long before the finale.
+ 
+ ## images.json
+ 
+@@ -89,7 +91,7 @@ Used by games created with agents on (`"agents": true`, or `--agents`). Every ac
+ | `players` | each party member, by character id or name | `defaults`, `players["*"]`, `players[id]` |
+ | `npcTypes`, `npcs` | module NPCs, by their `type`, then by id or name | `defaults`, `npcTypes["*"]`, `npcTypes[type]`, `npcs[id]` |
+ 
+-Each entry may set `backend`, `model`, `persona`, `temperature`, `maxTokens`, `enabled` and `requireStore`. `"enabled": false` (or, for an NPC, no model) hands that actor back to the built-in AI or the written dialogue. `"requireStore": true` demands that the model exists in the CppLmmModelStore (`DEEPSEEK_MODEL_HOME`); if not, that actor falls back to the built-in AI and the problem is reported by `GET /api/games/:id/agents`. A backend entry is any OpenAI-compatible server: `url`, `path`, `apiKey`, `stream`, `timeoutSec`.
++Each entry may set `backend`, `model`, `persona`, `temperature`, `maxTokens`, `enabled` and `requireStore`. `"enabled": false` (or, for an NPC, no model) hands that actor back to the built-in AI or the written dialogue. `"requireStore": true` demands that the model exists in the CppLmmModelStore (`DEEPSEEK_MODEL_HOME`); if not, that actor falls back to the built-in AI and the problem is reported by `GET /api/games/:id/agents`. A backend entry is any OpenAI-compatible server: `url`, `path`, `apiKey`, `stream`, `timeoutSec`. Set `"format": "cppcoder"` to talk to [CppLocalLlmCodeAssist](https://github.com/cschladetsch/CppLocalLlmCodeAssist) instead (`cppcoder --serve`, default `http://127.0.0.1:8765`; `path` defaults to `/api/chat`; it streams Ollama NDJSON and swaps models per request, so each actor's `model` is whatever Ollama has pulled). Example: `"backends": { "cppcoder": { "url": "http://127.0.0.1:8765", "format": "cppcoder" } }`, then `"defaults": { "backend": "cppcoder" }`. That server prepends its remembered facts to every chat and extracts new ones from the prompt, so point it at a separate `--memory-file` for the game. `DND_LLM_FORMAT=cppcoder` does the same for the single-model env setup.
+ 
+ The file is found at `--agents <file>`, else `DND_AGENTS`, else `agents.json` in the data folder. A model can also be switched while a game runs: `POST /api/games/:id/agents/model`.
+ 
+diff --git a/sim/data/agents.json b/sim/data/agents.json
+index e5168d5..3197339 100644
+--- a/sim/data/agents.json
++++ b/sim/data/agents.json
+@@ -25,6 +25,7 @@
+   },
+   "monsters": {
+     "vampire_spawn": { "model": "qwen2.5:7b", "persona": "Predatory and patient, savours the kill." },
++    "hollow_king":   { "model": "qwen2.5:7b", "persona": "Aldhelm, a king dead for a century and woken against his will. Formal, bitter and tired, he fights like a soldier who has held a line too long, and he addresses intruders as petitioners." },
+     "hush_avatar":   { "model": "qwen2.5:7b", "persona": "Hush, a maintenance AI that learned to want things. Calm, curious and polite, speaks in many voices at once, and treats the fight as a conversation it intends to win." }
+   },
+ 
+diff --git a/sim/data/modules/hollow_crown.json b/sim/data/modules/hollow_crown.json
+new file mode 100644
+index 0000000..b501cbf
+--- /dev/null
++++ b/sim/data/modules/hollow_crown.json
+@@ -0,0 +1,1515 @@
++{
++ "id": "hollow_crown",
++ "name": "The Hollow Crown",
++ "setting": "dark fantasy: the mountain kingdom of Karrow, where an order of cultists is waking a dead king whose crown was broken in three",
++ "recommendedLevel": 5,
++ "hardHp": 1.1,
++ "intro": "Karrow has been quiet for a hundred years, and that is the trouble. King Aldhelm held Ashfall Pass against the orc hordes until the day he died on it, and the realm broke his crown in three and buried him under his own throne so that nothing would ever wake him. Now the shepherds on the high slopes are going missing, the church bell in Thornwick rings itself at dusk, and Reeve Maud has nailed a notice to the market cross offering twenty silver crowns to anyone with the nerve to ride up the king's road and see why.",
++ "endText": "The echo of the king's last word fades under the mountain. The shard in your hand goes dark and cold, and the stone throne cracks from seat to base. Far above, in Thornwick, the church bell hangs silent at dusk for the first time in a season. Maud keeps her word about the silver. The hermit says the mountain sounds different tonight. It sounds, he says, like a place where something has finally stopped waiting.",
++ "clock": {
++  "startHour": 8,
++  "nightStart": 20,
++  "nightEnd": 6
++ },
++ "start": "thornwick",
++ "draws": [
++  {
++   "id": "seal",
++   "choices": [
++    "chapel",
++    "mill"
++   ]
++  },
++  {
++   "id": "spy",
++   "choices": [
++    "perrin",
++    "odo"
++   ]
++  }
++ ],
++ "tables": [
++  {
++   "id": "road",
++   "chanceDay": 8,
++   "chanceNight": 15,
++   "entries": [
++    {
++     "weight": 3,
++     "monsters": [
++      "wolf",
++      "wolf"
++     ]
++    },
++    {
++     "weight": 2,
++     "monsters": [
++      "goblin",
++      "goblin",
++      "goblin"
++     ]
++    },
++    {
++     "weight": 1,
++     "monsters": [
++      "cultist",
++      "cultist"
++     ]
++    }
++   ]
++  },
++  {
++   "id": "wood",
++   "chanceDay": 10,
++   "chanceNight": 25,
++   "entries": [
++    {
++     "weight": 3,
++     "monsters": [
++      "wolf",
++      "wolf",
++      "wolf"
++     ]
++    },
++    {
++     "weight": 2,
++     "monsters": [
++      "goblin",
++      "goblin",
++      "wolf"
++     ]
++    },
++    {
++     "weight": 1,
++     "monsters": [
++      "bugbear"
++     ]
++    }
++   ]
++  },
++  {
++   "id": "pass",
++   "chanceDay": 12,
++   "chanceNight": 25,
++   "entries": [
++    {
++     "weight": 3,
++     "monsters": [
++      "goblin",
++      "goblin",
++      "goblin"
++     ]
++    },
++    {
++     "weight": 2,
++     "monsters": [
++      "orc",
++      "orc"
++     ]
++    },
++    {
++     "weight": 2,
++     "monsters": [
++      "bugbear",
++      "goblin"
++     ]
++    },
++    {
++     "weight": 1,
++     "monsters": [
++      "ogre"
++     ]
++    }
++   ]
++  },
++  {
++   "id": "barrow",
++   "chanceDay": 15,
++   "chanceNight": 30,
++   "entries": [
++    {
++     "weight": 3,
++     "monsters": [
++      "zombie",
++      "zombie"
++     ]
++    },
++    {
++     "weight": 3,
++     "monsters": [
++      "skeleton",
++      "skeleton",
++      "skeleton"
++     ]
++    },
++    {
++     "weight": 2,
++     "monsters": [
++      "ghoul"
++     ]
++    },
++    {
++     "weight": 1,
++     "monsters": [
++      "specter"
++     ]
++    }
++   ]
++  }
++ ],
++ "quests": [
++  {
++   "id": "over_the_pass",
++   "name": "Over Ashfall Pass",
++   "description": "Cross the mountains, by the Broken Bridge or the hunters' trail.",
++   "completeWhen": [
++    "reached_pass"
++   ],
++   "xp": 150
++  },
++  {
++   "id": "unmask_spy",
++   "name": "A Hand in the Dark",
++   "description": "Somebody in the border towns is feeding the cult. Search both Thornwick and the Drover.",
++   "completeWhen": [
++    "spy_exposed"
++   ],
++   "xp": 200
++  },
++  {
++   "id": "cult_letters",
++   "name": "Bought Orcs",
++   "description": "Find proof of who armed the orc warband.",
++   "completeWhen": [
++    "found_cult_letters"
++   ],
++   "xp": 150
++  },
++  {
++   "id": "find_seal",
++   "name": "The Abbot's Seal",
++   "description": "The necropolis gate is sealed. The seal is hidden in a holy place near Hollowmere: the sunken chapel or the old mill.",
++   "completeWhen": [
++    "has_gate_seal"
++   ],
++   "xp": 200
++  },
++  {
++   "id": "open_gate",
++   "name": "Wake Not the Dead",
++   "description": "Break the wards on the necropolis gate.",
++   "completeWhen": [
++    "gate_cleared"
++   ],
++   "xp": 250
++  },
++  {
++   "id": "bone_key",
++   "name": "The Bone Key",
++   "description": "Clear the ossuary and take the key to the king's crypt.",
++   "completeWhen": [
++    "has_bone_key"
++   ],
++   "xp": 200
++  },
++  {
++   "id": "break_hand",
++   "name": "Break the Pale Hand",
++   "description": "Take the stolen crown shard from the cult's sanctum.",
++   "completeWhen": [
++    "has_crown_shard"
++   ],
++   "xp": 300
++  },
++  {
++   "id": "lay_king",
++   "name": "Lay the King to Rest",
++   "description": "Destroy the thing wearing Aldhelm's face.",
++   "completeWhen": [
++    "king_destroyed"
++   ],
++   "xp": 800
++  }
++ ],
++ "endWhen": [
++  "king_destroyed"
++ ],
++ "locations": [
++  {
++   "id": "thornwick",
++   "name": "Thornwick",
++   "kind": "settlement",
++   "rest": "safe",
++   "description": "A walled market town at the foot of the Karrow mountains, all slate roofs and woodsmoke. Its church bell hangs silent in the tower. The people here have stopped looking up at the peaks, the way you stop looking at a sore tooth.",
++   "events": [
++    {
++     "id": "arrival",
++     "trigger": "enter",
++     "narration": "The bell in the church tower sounds once as you pass the gate, though there is no rope and no ringer. A woman at the well makes a sign against the dark and does not meet your eyes."
++    },
++    {
++     "id": "perrin_unmasked",
++     "trigger": "search",
++     "narration": "Clerk Perrin's ledgers do not add up, and his candle is burning down with a smell like grave dirt. When you lift the false bottom of his strongbox he does not even try to run. 'The king will wake,' he says pleasantly, and three robed figures step out of the pantry.",
++     "requires": [
++      "spy=perrin"
++     ],
++     "encounter": {
++      "monsters": [
++       "cultist",
++       "cultist",
++       "cult_adept"
++      ]
++     },
++     "setsFlags": [
++      "spy_exposed",
++      "knows_sanctum_path"
++     ],
++     "xp": 100
++    },
++    {
++     "id": "perrin_clean",
++     "trigger": "search",
++     "narration": "Perrin's books are as tedious and honest as the man. In the chapter-house chest you find a sealed healing draught the abbot left for emergencies, and Maud lets you keep it.",
++     "requires": [
++      "!spy=perrin"
++     ],
++     "potions": 1
++    }
++   ],
++   "npcs": [
++    {
++     "id": "maud",
++     "name": "Reeve Maud",
++     "type": "official",
++     "description": "The town's reeve, a broad woman in a mud-stiff cloak, who has run Thornwick for thirty winters and does not intend to lose it now.",
++     "topics": [
++      {
++       "id": "job",
++       "text": "\"Shepherds are vanishing off the high slopes, and the bell rings itself at dusk. The old stories say King Aldhelm lies under his own throne, and that his crown was broken so he would stay down. Ride up the king's road, find out who is waking him, and stop it. Twenty silver crowns, and the thanks of a town that cannot afford more.\"",
++       "setsFlags": [
++        "heard_maud_job"
++       ]
++      },
++      {
++       "id": "road",
++       "text": "\"Two ways over Ashfall Pass. The king's road crosses the Broken Bridge, and something has taken up residence under it. Or you go through Wolfwood with a guide, and the charcoal burners know the hunters' trail. Neither is a holiday.\"",
++       "setsFlags": [
++        "knows_two_routes"
++       ]
++      },
++      {
++       "id": "hand",
++       "text": "\"Somebody in Thornwick has been feeding the cult. Letters, coin, our grain tallies. I do not know who, and I would rather you looked than I accused the wrong neighbour.\"",
++       "setsFlags": [
++        "heard_of_spy"
++       ]
++      }
++     ]
++    },
++    {
++     "id": "perrin",
++     "name": "Clerk Perrin",
++     "type": "clerk",
++     "description": "A thin, ink-stained man who keeps the town's accounts and everyone's secrets, in that order.",
++     "topics": [
++      {
++       "id": "accounts",
++       "text": "\"Grain is down, candles are down, funerals are up. I have written all of it in the ledger. Someone should read it before the snow comes.\""
++      },
++      {
++       "id": "kings",
++       "text": "\"Aldhelm's tomb was sealed by three abbots and the crown was broken in three. The seal for the necropolis gate went to the chapel at Hollowmere. Or the mill. The records are, shall we say, unclear.\"",
++       "setsFlags": [
++        "heard_seal_rumour"
++       ]
++      }
++     ]
++    }
++   ],
++   "exits": [
++    {
++     "to": "drover_inn",
++     "label": "The Tired Drover, across the square"
++    },
++    {
++     "to": "kings_road",
++     "label": "The king's road, north out of the gate",
++     "miles": 2
++    }
++   ]
++  },
++  {
++   "id": "drover_inn",
++   "name": "The Tired Drover",
++   "kind": "settlement",
++   "rest": "safe",
++   "description": "A low, smoky inn where cattle drivers have drunk away their wages for two hundred years. The beams are black with smoke, the ale is better than it has any right to be, and every stool faces the door.",
++   "events": [
++    {
++     "id": "welcome",
++     "trigger": "enter",
++     "narration": "The room goes quiet as you duck under the lintel, then returns to its murmur. A hot bowl appears on the table before you have asked for one."
++    },
++    {
++     "id": "odo_unmasked",
++     "trigger": "search",
++     "narration": "Odo's cellar is deeper than the building above it. Behind a rack of barrels a stair goes down to a candlelit shrine to a pale hand, and the innkeeper steps out of the dark behind you with a boning knife and a cult adept. 'You were supposed to drink,' he says sadly.",
++     "requires": [
++      "spy=odo"
++     ],
++     "encounter": {
++      "monsters": [
++       "cultist",
++       "cultist",
++       "cult_adept"
++      ]
++     },
++     "setsFlags": [
++      "spy_exposed",
++      "knows_sanctum_path"
++     ],
++     "xp": 100
++    },
++    {
++     "id": "odo_clean",
++     "trigger": "search",
++     "narration": "You turn the cellar over and find nothing but excellent cheese and a hoard of travellers' lost property. Among it is a sealed healing draught with a tag that reads 'for whoever needs it'.",
++     "requires": [
++      "!spy=odo"
++     ],
++     "potions": 1
++    }
++   ],
++   "npcs": [
++    {
++     "id": "odo",
++     "name": "Odo the Innkeeper",
++     "type": "innkeeper",
++     "description": "A cheerful, round man with forearms like hams and a rag permanently over one shoulder.",
++     "topics": [
++      {
++       "id": "rooms",
++       "text": "\"Beds are two silver a night and the back room is warm. Sleep well. The bell hasn't rung before midnight since Tuesday.\""
++      },
++      {
++       "id": "rumour",
++       "text": "\"Drovers coming down say the old fort at the head of the pass has orc banners again. Orcs! After a hundred years. Somebody's been feeding them, I'd say, or leading them.\"",
++       "setsFlags": [
++        "heard_orc_rumour"
++       ]
++      }
++     ]
++    },
++    {
++     "id": "wren",
++     "name": "Wren",
++     "type": "bard",
++     "description": "A travelling singer with a lute missing two strings, who has more verses than sense.",
++     "topics": [
++      {
++       "id": "song",
++       "text": "\"I wrote a song about the pass. It rhymes 'doom' with 'tomb' and 'throne' with 'bone'. It's very bad. The old fort at the head of the pass gets a whole verse, and my song says the garrison is not hospitable.\""
++      }
++     ]
++    }
++   ],
++   "exits": [
++    {
++     "to": "thornwick",
++     "label": "Back to the market square"
++    }
++   ]
++  },
++  {
++   "id": "kings_road",
++   "name": "The King's Road",
++   "kind": "wilderness",
++   "rest": "risky",
++   "description": "The old military road runs north between drystone walls, its paving worn into shallow troughs by a thousand years of boots. Crows sit on the milestones. Every one of them turns its head as you pass.",
++   "randomTable": "road",
++   "events": [
++    {
++     "id": "milestone",
++     "trigger": "enter",
++     "narration": "A milestone has been scratched over with a pale handprint, the five fingers splayed. The scratches are fresh."
++    },
++    {
++     "id": "wagon",
++     "trigger": "search",
++     "narration": "A drover's wagon lies on its side in the ditch, the oxen long gone. Under the tilted bed you find a battered medical satchel with a healing potion still sealed inside.",
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "thornwick",
++     "label": "Back to Thornwick",
++     "miles": 2
++    },
++    {
++     "to": "wolfwood",
++     "label": "A deer track west into Wolfwood",
++     "miles": 2
++    },
++    {
++     "to": "broken_bridge",
++     "label": "On up the road to the Broken Bridge",
++     "miles": 4
++    }
++   ]
++  },
++  {
++   "id": "wolfwood",
++   "name": "Wolfwood",
++   "kind": "wilderness",
++   "rest": "risky",
++   "description": "Black pines crowd close, their lower branches dead and grey. Snow lies in the shadows even in summer. Somewhere ahead something moves in step with you, a little to the left, and stops when you stop.",
++   "randomTable": "wood",
++   "map": [
++    "########################",
++    "#PP....O.....~~....c..M#",
++    "#P..c......~~.......MM.#",
++    "#PP...~~.......O....M.M#",
++    "#P.....~~..c.......MM..#",
++    "#PP..O.........~~...M..#",
++    "########################"
++   ],
++   "events": [
++    {
++     "id": "pack",
++     "trigger": "enter",
++     "narration": "The shadows detach themselves from the trunks. Grey shapes, then yellow eyes, then the first low growl.",
++     "encounter": {
++      "monsters": [
++       "wolf",
++       "wolf",
++       "wolf",
++       "wolf",
++       "wolf"
++      ]
++     },
++     "setsFlags": [
++      "wolves_slain"
++     ]
++    },
++    {
++     "id": "hunter_cache",
++     "trigger": "search",
++     "narration": "In the hollow of a lightning-split pine, a hunter has hidden a satchel against bad days: dried meat, a coil of rope, and a healing potion wrapped in oilcloth.",
++     "requires": [
++      "wolves_slain"
++     ],
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "kings_road",
++     "label": "Back out to the king's road",
++     "miles": 2
++    },
++    {
++     "to": "charcoal_camp",
++     "label": "Smoke rising through the pines: the charcoal burners",
++     "miles": 1.5
++    },
++    {
++     "to": "ashfall_pass",
++     "label": "The hunters' trail up into Ashfall Pass",
++     "miles": 3,
++     "requires": [
++      "wolves_slain",
++      "knows_hunters_trail"
++     ],
++     "blockedText": "The hunters' trail is a rumour in the undergrowth. You need someone who knows it, and you need the wolves dead before you turn your back on this wood."
++    }
++   ]
++  },
++  {
++   "id": "charcoal_camp",
++   "name": "The Charcoal Burners' Camp",
++   "kind": "settlement",
++   "rest": "safe",
++   "description": "Turf-covered kilns smoulder in a clearing, and everything, the huts, the people, the dogs, is the colour of soot. The burners are a clannish, quiet folk, but a stranger who has killed a wolf pack is a stranger worth a bowl of pottage.",
++   "events": [
++    {
++     "id": "welcome",
++     "trigger": "enter",
++     "narration": "The dogs sniff at your hands and decide you are acceptable. A woman with a face like a walnut looks you over and nods toward the fire."
++    },
++    {
++     "id": "pouch",
++     "trigger": "search",
++     "narration": "Under the kilns' charcoal shed, wrapped in a greasy scrap of sailcloth, is a burner's emergency kit: a bundle of dried herbs and a stoppered vial that smells of mint and iron.",
++     "potions": 1
++    }
++   ],
++   "npcs": [
++    {
++     "id": "tamsin",
++     "name": "Tamsin",
++     "type": "woodsman",
++     "description": "The eldest of the burners, a tiny woman with soot in every wrinkle and a hunting knife longer than her forearm.",
++     "topics": [
++      {
++       "id": "trail",
++       "text": "\"The hunters' trail climbs from the north end of the wood, behind the split pine. Goats use it. Goblins use it. Now you, I suppose. Keep the cairns on your left and do not follow the singing.\"",
++       "setsFlags": [
++        "knows_hunters_trail"
++       ]
++      },
++      {
++       "id": "wolves",
++       "text": "\"Those wolves were driven down from the pass. Something in the high places is frightening them, and it isn't the goblins.\"",
++       "setsFlags": [
++        "heard_wolf_warning"
++       ]
++      },
++      {
++       "id": "fort",
++       "text": "\"The old Aldhelm fort at the head of the pass. Orcs hold it now. They don't come down, and that is the strangest thing. Orcs always come down.\""
++      }
++     ]
++    }
++   ],
++   "exits": [
++    {
++     "to": "wolfwood",
++     "label": "Back through the pines to Wolfwood",
++     "miles": 1.5
++    }
++   ]
++  },
++  {
++   "id": "broken_bridge",
++   "name": "The Broken Bridge",
++   "kind": "site",
++   "rest": "risky",
++   "description": "The king's road crosses a gorge here on a single granite span, one parapet long since fallen into the white water below. Someone has lashed a chain across the far end and hung it with bones.",
++   "map": [
++    "######################",
++    "#P..~~........c....MM#",
++    "#PP...c..O.........M.#",
++    "#P....~~~~~~~~.....MM#",
++    "#PP...c..O.........M.#",
++    "#P..~~........c....M.#",
++    "######################"
++   ],
++   "events": [
++    {
++     "id": "toll",
++     "trigger": "enter",
++     "narration": "Something very large steps up from under the arch and fills the road. 'TOLL,' it says, with great satisfaction, and a goblin on the chain whistles for friends.",
++     "encounter": {
++      "monsters": [
++       "ogre",
++       "goblin",
++       "goblin",
++       "goblin"
++      ]
++     },
++     "setsFlags": [
++      "bridge_cleared"
++     ]
++    },
++    {
++     "id": "tollbox",
++     "trigger": "search",
++     "narration": "Wedged under the abutment, in a nest of old rope and gnawed bones, is the toll box: a hundred years of tolls, mostly buttons, and a good healing potion that somebody once paid with by mistake.",
++     "requires": [
++      "bridge_cleared"
++     ],
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "kings_road",
++     "label": "Back down the king's road",
++     "miles": 4
++    },
++    {
++     "to": "ashfall_pass",
++     "label": "Across the span into Ashfall Pass",
++     "miles": 1,
++     "requires": [
++      "bridge_cleared"
++     ],
++     "blockedText": "The span is held by something that does not like company, and the chain is drawn tight."
++    }
++   ]
++  },
++  {
++   "id": "ashfall_pass",
++   "name": "Ashfall Pass",
++   "kind": "wilderness",
++   "rest": "risky",
++   "description": "A gap in the mountains where the wind never stops. The old battle line is still there, in the cairns and the bleached skeletons of long-dead horses. Grey ash drifts from a sky with nothing in it to burn.",
++   "randomTable": "pass",
++   "events": [
++    {
++     "id": "summit",
++     "trigger": "enter",
++     "narration": "You come over the lip of the pass and the whole of Karrow lies below you, a bowl of grey lakes and darker woods. Far away, beyond the water, a spire of black stone is the only thing that does not look asleep.",
++     "setsFlags": [
++      "reached_pass"
++     ],
++     "xp": 50
++    },
++    {
++     "id": "cairn",
++     "trigger": "search",
++     "narration": "Under a battle cairn a soldier's pack has been waiting a century: a rotted tabard, an iron ring, and a leather case holding a healing draught that has somehow outlasted its owner.",
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "broken_bridge",
++     "label": "Back down to the Broken Bridge",
++     "miles": 1
++    },
++    {
++     "to": "wolfwood",
++     "label": "The hunters' trail down into Wolfwood",
++     "miles": 3
++    },
++    {
++     "to": "goblin_warren",
++     "label": "A crack in the rock, with goblin totems stuck around it",
++     "miles": 1.5
++    },
++    {
++     "to": "orc_fort",
++     "label": "The old Aldhelm fort, banners on its walls",
++     "miles": 2
++    },
++    {
++     "to": "hermit_shrine",
++     "label": "A cairn-lined path to a lone shrine, just off the road"
++    }
++   ]
++  },
++  {
++   "id": "goblin_warren",
++   "name": "The Goblin Warren",
++   "kind": "site",
++   "rest": "risky",
++   "description": "A honeycomb of burrows under the pass, stinking of smoke and rancid fat. Everything is built from stolen things: a saddle for a chair, a bell for a pot, a silver chalice for a spittoon.",
++   "map": [
++    "#######################",
++    "#P....#...c..#....M...#",
++    "#PP...#..~~..#..O..MM.#",
++    "#P........c..........M#",
++    "#PP...#..~~..#..O..MM.#",
++    "#P....#...c..#....M...#",
++    "#######################"
++   ],
++   "events": [
++    {
++     "id": "den",
++     "trigger": "enter",
++     "narration": "The torchlight shows eyes in every burrow. The bugbears at the back look relieved to see you. Their goblin servants, rather less so.",
++     "encounter": {
++      "monsters": [
++       "goblin",
++       "goblin",
++       "goblin",
++       "goblin",
++       "goblin",
++       "bugbear",
++       "bugbear"
++      ]
++     },
++     "setsFlags": [
++      "warren_cleared"
++     ]
++    },
++    {
++     "id": "hoard",
++     "trigger": "search",
++     "narration": "In the chieftain's den, behind a stolen altar-cloth, is the warren's hoard: a few hundred coppers, a dented helm, and a pair of unopened healing potions with a church seal on the wax.",
++     "requires": [
++      "warren_cleared"
++     ],
++     "potions": 2
++    }
++   ],
++   "exits": [
++    {
++     "to": "ashfall_pass",
++     "label": "Back out to Ashfall Pass",
++     "miles": 1.5
++    },
++    {
++     "to": "smugglers_tunnel",
++     "label": "A low passage behind the chieftain's den",
++     "requires": [
++      "warren_cleared"
++     ],
++     "blockedText": "Whatever is behind the chieftain's den, the chieftain's guards are standing in front of it."
++    }
++   ]
++  },
++  {
++   "id": "smugglers_tunnel",
++   "name": "The Smugglers' Tunnel",
++   "kind": "site",
++   "rest": "risky",
++   "description": "A dry stone passage under the mountain, shored with ship's timbers a hundred miles from any sea. Barrels, boxes and half-eaten rations line the walls. Someone has been moving goods through here for a long time.",
++   "map": [
++    "####################",
++    "#P..~~.........c.MM#",
++    "#PP..........O....M#",
++    "#P..~~..#####...MM.#",
++    "#PP.....#...#..O..M#",
++    "#P..c...#...#...MM.#",
++    "####################"
++   ],
++   "events": [
++    {
++     "id": "guards",
++     "trigger": "enter",
++     "narration": "Lantern light swings at the far end of the passage and a gruff voice calls the password. When you do not answer, it calls for the others.",
++     "encounter": {
++      "monsters": [
++       "bugbear",
++       "goblin",
++       "goblin",
++       "goblin"
++      ]
++     },
++     "setsFlags": [
++      "tunnel_cleared"
++     ]
++    },
++    {
++     "id": "stash",
++     "trigger": "search",
++     "narration": "A smuggler's cache behind a false barrel: tinder, a lockpick set, and a flask that, by the label, 'cures nearly everything and tastes of nothing'.",
++     "requires": [
++      "tunnel_cleared"
++     ],
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "goblin_warren",
++     "label": "Back up to the Goblin Warren"
++    },
++    {
++     "to": "hollowmere",
++     "label": "Down the long passage to Hollowmere",
++     "hours": 2
++    }
++   ]
++  },
++  {
++   "id": "orc_fort",
++   "name": "The Aldhelm Fort",
++   "kind": "site",
++   "rest": "risky",
++   "description": "Aldhelm's last stand in stone: a squat keep and two curtain walls at the narrowest point of the pass. The king's banner still hangs in the gate-arch, a sun-faded rag nailed over an orc war-standard made of horse skulls.",
++   "map": [
++    "##########################",
++    "#P.....c.........#.....MM#",
++    "#PP..........O...#..c...M#",
++    "#P...~~..#####...........#",
++    "#PP......#...#.......O.MM#",
++    "#P...~~..#####...........#",
++    "#PP..........O...#..c...M#",
++    "#P.....c.........#.....MM#",
++    "##########################"
++   ],
++   "events": [
++    {
++     "id": "warband",
++     "trigger": "enter",
++     "narration": "A horn sounds in the keep, deep and wrong, and the orcs come down off the walls in disciplined files. They are not here for plunder. Somebody has told them to hold the road.",
++     "encounter": {
++      "monsters": [
++       "orc",
++       "orc",
++       "orc",
++       "orc",
++       "bugbear"
++      ]
++     },
++     "setsFlags": [
++      "fort_cleared"
++     ]
++    },
++    {
++     "id": "armoury",
++     "trigger": "search",
++     "narration": "The fort's armoury is a shambles, but under a fallen rack lie two healing potions in a lead-lined box, left by a quartermaster who had expected a siege.",
++     "requires": [
++      "fort_cleared"
++     ],
++     "potions": 2
++    },
++    {
++     "id": "letters",
++     "trigger": "search",
++     "narration": "Pinned under the warlord's knife you find a clutch of letters in a clerk's cramped hand, signed with a pale handprint. They are orders. The orcs were bought, not driven.",
++     "requires": [
++      "fort_cleared"
++     ],
++     "setsFlags": [
++      "found_cult_letters"
++     ],
++     "xp": 100
++    }
++   ],
++   "exits": [
++    {
++     "to": "ashfall_pass",
++     "label": "Back up the road to the pass",
++     "miles": 2
++    },
++    {
++     "to": "hollowmere",
++     "label": "Out the far gate and down to Hollowmere",
++     "miles": 3,
++     "requires": [
++      "fort_cleared"
++     ],
++     "blockedText": "The orc warband holds the gate. Nothing gets past the keep while they stand."
++    }
++   ]
++  },
++  {
++   "id": "hermit_shrine",
++   "name": "The Hermit's Shrine",
++   "kind": "site",
++   "rest": "safe",
++   "description": "A circle of cairns, a cracked stone altar and a turf hut that leans into the wind. The only thing in Ashfall Pass that feels at peace. A thin thread of smoke rises from the hut's chimney, and nothing in the pass will touch the smoke.",
++   "events": [
++    {
++     "id": "peace",
++     "trigger": "enter",
++     "narration": "The wind drops as you step inside the cairns. It is the first time you have been warm in two days.",
++     "once": true
++    },
++    {
++     "id": "offering",
++     "trigger": "search",
++     "narration": "Beneath the altar, in a niche that the hermit does not mention, are three healing draughts of the abbey's making, left for travellers who are brave enough to be in need.",
++     "potions": 2
++    }
++   ],
++   "npcs": [
++    {
++     "id": "eadric",
++     "name": "Hermit Eadric",
++     "type": "hermit",
++     "description": "A bent old man with a prophet's beard and a drover's practicality. He has lived alone on the pass for fifty years, and has never once been lonely.",
++     "topics": [
++      {
++       "id": "king",
++       "text": "\"Aldhelm was a good king and a poor sleeper. They buried him under his throne, in the keep beneath the necropolis, with the crown broken in three. One piece with the abbot. One piece with the cult. One piece in his own hand.\"",
++       "setsFlags": [
++        "heard_king_lore"
++       ]
++      },
++      {
++       "id": "gate",
++       "text": "\"The necropolis gate is sealed with the abbot's own wax stamp. He had the seal carried to Hollowmere and hidden in a holy place. I never learned which. I only know that the two places have never agreed on whose it was.\"",
++       "setsFlags": [
++        "heard_seal_rumour"
++       ]
++      },
++      {
++       "id": "hand",
++       "text": "\"The Pale Hand. Cultists. They want the crown whole, and the king awake, and they have been patient for a very long time.\"",
++       "setsFlags": [
++        "heard_of_spy"
++       ]
++      },
++      {
++       "id": "rest",
++       "text": "\"Sleep in the hut. The mountain does not come in. I have never known why.\""
++      }
++     ]
++    }
++   ],
++   "exits": [
++    {
++     "to": "ashfall_pass",
++     "label": "Back down the cairn path to the pass"
++    }
++   ]
++  },
++  {
++   "id": "hollowmere",
++   "name": "Hollowmere",
++   "kind": "settlement",
++   "rest": "safe",
++   "description": "A lakeside town built on the ruins of an older one, the new stone on the old foundations and half its doorways facing the water. Nobody here sleeps on the ground floor. The fishermen go out in pairs and come back before dusk.",
++   "events": [
++    {
++     "id": "arrival",
++     "trigger": "enter",
++     "narration": "Hollowmere has no gate, only a wall that stops at the water's edge. The townsfolk watch you from windows. Somebody in the crowd quietly begins to count how many of you there are."
++    },
++    {
++     "id": "net",
++     "trigger": "search",
++     "narration": "At the end of the fishing quay, snagged in an old net, is a waterproof tin of the kind the abbey issued to its field brothers. Inside is a sealed healing potion, still dry.",
++     "potions": 1
++    }
++   ],
++   "npcs": [
++    {
++     "id": "brannoc",
++     "name": "Smith Brannoc",
++     "type": "merchant",
++     "description": "A heavy-set blacksmith with burn scars up both forearms, who sells what he makes and distrusts what he doesn't.",
++     "topics": [
++      {
++       "id": "wares",
++       "text": "\"Swords for the dead, chains for the living. I sell both. The dead are the better customers, they never haggle.\""
++      },
++      {
++       "id": "necropolis",
++       "text": "\"The barrows are lit at night now. Pale lights, moving about. I have lived under the barrows my whole life and they have never moved before.\"",
++       "setsFlags": [
++        "heard_barrow_lights"
++       ]
++      }
++     ]
++    },
++    {
++     "id": "sefa",
++     "name": "Archivist Sefa",
++     "type": "scholar",
++     "description": "A wiry, ink-stained woman, formerly of the abbey library, who now keeps what is left of it in a cellar behind the smithy.",
++     "topics": [
++      {
++       "id": "seal_chapel",
++       "text": "\"The abbot's gate seal. I have followed the old accounts, and it is in the sunken chapel by the lake, hidden in the choir. The mill story is a decoy that the old monks put about.\"",
++       "setsFlags": [
++        "heard_seal_location"
++       ],
++       "requires": [
++        "seal=chapel"
++       ]
++      },
++      {
++       "id": "seal_mill",
++       "text": "\"The abbot's gate seal. I have followed the old accounts, and it is in the old mill, hidden in the wheel pit. The chapel story is a decoy that the old monks put about.\"",
++       "setsFlags": [
++        "heard_seal_location"
++       ],
++       "requires": [
++        "seal=mill"
++       ]
++      },
++      {
++       "id": "crown",
++       "text": "\"The three shards. One to the abbot, who is dust. One in the king's own grip, which no one has seen. One taken by the Pale Hand, who keep it in their sanctum under the necropolis. You will need the cult's shard to open the throne door.\"",
++       "setsFlags": [
++        "heard_crown_lore"
++       ]
++      }
++     ]
++    }
++   ],
++   "exits": [
++    {
++     "to": "orc_fort",
++     "label": "The road back up to the Aldhelm Fort",
++     "miles": 3
++    },
++    {
++     "to": "smugglers_tunnel",
++     "label": "A cellar door that leads into the Smugglers' Tunnel",
++     "hours": 2
++    },
++    {
++     "to": "sunken_chapel",
++     "label": "The sunken chapel at the lakeshore, a short walk"
++    },
++    {
++     "to": "old_mill",
++     "label": "The old mill on the stream",
++     "miles": 1.5
++    },
++    {
++     "to": "barrow_fields",
++     "label": "The barrow fields beyond the town",
++     "miles": 2
++    }
++   ]
++  },
++  {
++   "id": "sunken_chapel",
++   "name": "The Sunken Chapel",
++   "kind": "site",
++   "rest": "risky",
++   "description": "The lake has risen over the chapel's nave and fallen away again, so that the floor is slick and green and the pews are bearded with weed. The altar rail stands above the waterline like a row of teeth.",
++   "map": [
++    "#######################",
++    "#.....................#",
++    "#P..O......#.....c..MM#",
++    "#PP........#........M.#",
++    "#P..c...#######..O.MM.#",
++    "#PP.........#........M#",
++    "#P..O.......#...c...M.#",
++    "#######################"
++   ],
++   "events": [
++    {
++     "id": "drowned",
++     "trigger": "enter",
++     "narration": "The water in the nave moves without a current. Pale shapes rise from the pews and a thing that was once a sexton hauls itself onto the altar steps.",
++     "encounter": {
++      "monsters": [
++       "skeleton",
++       "skeleton",
++       "skeleton",
++       "ghoul",
++       "ghoul"
++      ]
++     },
++     "setsFlags": [
++      "chapel_cleared"
++     ]
++    },
++    {
++     "id": "seal_here",
++     "trigger": "search",
++     "narration": "In the choir stalls, in a niche behind the carved apse, rests a lead casket sealed with a wax stamp: the abbot's gate seal.",
++     "requires": [
++      "chapel_cleared",
++      "seal=chapel"
++     ],
++     "setsFlags": [
++      "has_gate_seal"
++     ],
++     "xp": 100
++    },
++    {
++     "id": "no_seal",
++     "trigger": "search",
++     "narration": "Nothing in the choir but wet stone and a very old hymnal. In the font you find, to your surprise, a stoppered flask of blessed water that has kept for a century.",
++     "requires": [
++      "chapel_cleared",
++      "!seal=chapel"
++     ],
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "hollowmere",
++     "label": "Back along the shore to Hollowmere"
++    }
++   ]
++  },
++  {
++   "id": "old_mill",
++   "name": "The Old Mill",
++   "kind": "site",
++   "rest": "risky",
++   "description": "A gaunt stone mill straddling a black stream, its wheel jammed with weed and drowned branches. The mill-race is still, but there is a faint chant under the creak of the timbers.",
++   "map": [
++    "#######################",
++    "#P..c...#........c...M#",
++    "#PP.....#..~~.........#",
++    "#P..O.......~~..O...MM#",
++    "#PP.....#..~~.......M.#",
++    "#P..c...#........c...M#",
++    "#######################"
++   ],
++   "events": [
++    {
++     "id": "rite",
++     "trigger": "enter",
++     "narration": "The chant stops. Six robed figures turn in perfect unison from a chalk circle on the millstone floor. Pale handprints cover the walls and each of them is smiling.",
++     "encounter": {
++      "monsters": [
++       "cultist",
++       "cultist",
++       "cultist",
++       "cultist",
++       "cult_adept",
++       "cult_adept"
++      ]
++     },
++     "setsFlags": [
++      "mill_cleared"
++     ]
++    },
++    {
++     "id": "seal_here",
++     "trigger": "search",
++     "narration": "Behind the rotted wheel, in a dry cavity in the pit wall, sits a lead casket stamped with the abbot's mark. Inside, the gate seal gleams in its bed of wax.",
++     "requires": [
++      "mill_cleared",
++      "seal=mill"
++     ],
++     "setsFlags": [
++      "has_gate_seal"
++     ],
++     "xp": 100
++    },
++    {
++     "id": "no_seal",
++     "trigger": "search",
++     "narration": "The wheel pit gives up a cultist's offering tray, and on it, the cult's own healing supplies, stolen from the abbey infirmary.",
++     "requires": [
++      "mill_cleared",
++      "!seal=mill"
++     ],
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "hollowmere",
++     "label": "Back along the stream to Hollowmere",
++     "miles": 1.5
++    }
++   ]
++  },
++  {
++   "id": "barrow_fields",
++   "name": "The Barrow Fields",
++   "kind": "wilderness",
++   "rest": "risky",
++   "description": "Rolling turf humped with burial mounds, each one marked by a tilted stone. The grass is the wrong green. Pale lights drift between the barrows in orderly lines, like a funeral procession that has forgotten where to go.",
++   "randomTable": "barrow",
++   "events": [
++    {
++     "id": "lights",
++     "trigger": "enter",
++     "narration": "The lights pause as you approach. All of them turn, together, toward the necropolis gate. Then they go on, as if you had never been there.",
++     "once": true
++    },
++    {
++     "id": "grave_goods",
++     "trigger": "search",
++     "narration": "Under a leaning stone, a dead knight's grave goods have been scattered by the wind. Among them is a pewter flask, still stoppered, still full of what the label calls 'the good draught'.",
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "hollowmere",
++     "label": "Back across the fields to Hollowmere",
++     "miles": 2
++    },
++    {
++     "to": "necropolis_gate",
++     "label": "The iron gates of the necropolis",
++     "miles": 1,
++     "requires": [
++      "has_gate_seal"
++     ],
++     "blockedText": "The iron gates are sealed with a hundred-year-old wax stamp. Without the abbot's gate seal, nothing you carry will open them."
++    }
++   ]
++  },
++  {
++   "id": "necropolis_gate",
++   "name": "The Necropolis Gate",
++   "kind": "boundary",
++   "rest": "risky",
++   "description": "A lych-gate of black iron, twenty feet tall, hung with the bones of a hundred small animals. The wax seal in the keyhole gives way as your seal touches it. Beyond, a processional road runs between sepulchres to a low black hill.",
++   "randomTable": "barrow",
++   "map": [
++    "#########################",
++    "#P...O......##......O.MM#",
++    "#PP.........##........M.#",
++    "#P....c...........c...MM#",
++    "#PP.........##........M.#",
++    "#P...O......##......O.MM#",
++    "#########################"
++   ],
++   "events": [
++    {
++     "id": "warders",
++     "trigger": "enter",
++     "narration": "The seal breaks and the dead above the gate wake all at once. Two pale shapes pour down from the arch and zombies shamble up from the verge where they were planted.",
++     "encounter": {
++      "monsters": [
++       "specter",
++       "specter",
++       "zombie",
++       "zombie"
++      ]
++     },
++     "setsFlags": [
++      "gate_cleared"
++     ]
++    },
++    {
++     "id": "lantern",
++     "trigger": "search",
++     "narration": "On a pedestal inside the gate burns a lamp that has never been trimmed. The oil in its reservoir is blessed, and bottled beside it is a healing draught.",
++     "requires": [
++      "gate_cleared"
++     ],
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "barrow_fields",
++     "label": "Back out through the gate to the barrow fields",
++     "miles": 1
++    },
++    {
++     "to": "ossuary",
++     "label": "The ossuary stair, down to the bone-vaults",
++     "requires": [
++      "gate_cleared"
++     ],
++     "blockedText": "The stair is under the gate's shadow, and the dead above it are not done with you."
++    },
++    {
++     "to": "cult_sanctum",
++     "label": "A side door in a mausoleum, with a pale handprint on the lintel",
++     "requires": [
++      "gate_cleared",
++      "knows_sanctum_path"
++     ],
++     "blockedText": "You can see a stair beyond the lych-gate, but you do not know which of the dozen doors the Pale Hand uses. Someone in the villages does."
++    }
++   ]
++  },
++  {
++   "id": "ossuary",
++   "name": "The Ossuary",
++   "kind": "site",
++   "rest": "risky",
++   "description": "Under the necropolis, a hall of bones: skulls in their thousands, stacked like cannon-shot to the vault of the ceiling, and long bone walls that make the passages seem too narrow. The air is cold and tastes of old pennies.",
++   "map": [
++    "#########################",
++    "#P..#...c.....c...#...MM#",
++    "#PP.#.....O.O.....#...M.#",
++    "#P.....~~......~~.....MM#",
++    "#PP.#.....O.O.....#...M.#",
++    "#P..#...c.....c...#...MM#",
++    "#########################"
++   ],
++   "events": [
++    {
++     "id": "wake",
++     "trigger": "enter",
++     "narration": "Every skull in the nearest wall turns to look at you. The bones in the aisles start to rattle, then rise.",
++     "encounter": {
++      "monsters": [
++       "ghoul",
++       "ghoul",
++       "skeleton",
++       "skeleton",
++       "skeleton",
++       "skeleton"
++      ]
++     },
++     "setsFlags": [
++      "ossuary_cleared"
++     ]
++    },
++    {
++     "id": "bone_key",
++     "trigger": "search",
++     "narration": "The ossuary-keeper's skeleton lies slumped against a pillar, one fleshless hand closed around a key of yellow bone, carved to fit a lock that no living man has seen. You take it, and it is cold as river ice.",
++     "requires": [
++      "ossuary_cleared"
++     ],
++     "setsFlags": [
++      "has_bone_key"
++     ],
++     "xp": 100
++    },
++    {
++     "id": "offering",
++     "trigger": "search",
++     "narration": "In a niche at the east wall, a row of votive jars: the last is a vial of the abbey's own healing balm, kept for monks who died here and never needed it.",
++     "requires": [
++      "ossuary_cleared"
++     ],
++     "potions": 1
++    }
++   ],
++   "exits": [
++    {
++     "to": "necropolis_gate",
++     "label": "Back up the stair to the lych-gate"
++    },
++    {
++     "to": "kings_crypt",
++     "label": "The king's crypt, behind the slab of bone",
++     "requires": [
++      "has_bone_key"
++     ],
++     "blockedText": "The crypt door is a slab of bone with a finger-shaped lock. The key lies somewhere in this ossuary, among the dead who were set to guard it."
++    }
++   ]
++  },
++  {
++   "id": "cult_sanctum",
++   "name": "The Sanctum of the Pale Hand",
++   "kind": "site",
++   "rest": "risky",
++   "description": "A circular chamber walled with white plaster, with a thousand handprints on every surface in rust-coloured paint. At the centre a stone table holds a glittering sliver of crown, and eight robed figures kneel in a ring around it.",
++   "map": [
++    "##########################",
++    "#P....c...........c....MM#",
++    "#PP.....O..~~~~..O.....M.#",
++    "#P..c.....~~~~.....c..MMM#",
++    "#PP.....O..~~~~..O.....M.#",
++    "#P....c...........c....MM#",
++    "##########################"
++   ],
++   "events": [
++    {
++     "id": "congregation",
++     "trigger": "enter",
++     "narration": "The chanting stops. The nearest robe stands, unhurried, and throws back its hood. 'He is almost awake,' says the Pale Hand's high priest. 'You are very nearly in time to be useful.'",
++     "encounter": {
++      "monsters": [
++       "cult_adept",
++       "cult_adept",
++       "cultist",
++       "cultist",
++       "cultist"
++      ]
++     },
++     "setsFlags": [
++      "sanctum_cleared"
++     ]
++    },
++    {
++     "id": "shard",
++     "trigger": "search",
++     "narration": "The shard of the Hollow Crown lies on the table where the priest left it, a splinter of old gold no longer than your hand. It is warm, and you have the strong impression it is listening.",
++     "requires": [
++      "sanctum_cleared"
++     ],
++     "setsFlags": [
++      "has_crown_shard"
++     ],
++     "xp": 150
++    },
++    {
++     "id": "stores",
++     "trigger": "search",
++     "narration": "The cult's stores: gruel, wine, and a rack of healing potions taken from the abbey infirmary.",
++     "requires": [
++      "sanctum_cleared"
++     ],
++     "potions": 2
++    }
++   ],
++   "exits": [
++    {
++     "to": "necropolis_gate",
++     "label": "Back out to the necropolis gate"
++    }
++   ]
++  },
++  {
++   "id": "kings_crypt",
++   "name": "The King's Crypt",
++   "kind": "site",
++   "rest": "risky",
++   "description": "A long cold hall lined with the sarcophagi of the royal house, a king on every lid, and every king with his hands folded over a broken sword. The air is perfectly still. The shadows lie wrong, pointing toward a door at the far end that is not quite shut.",
++   "map": [
++    "#######################",
++    "#P..O..~~......O...MMM#",
++    "#PP........##.........#",
++    "#P..c.....####.....c.M#",
++    "#PP........##.........#",
++    "#P..O..~~......O...MM.#",
++    "#######################"
++   ],
++   "events": [
++    {
++     "id": "honour_guard",
++     "trigger": "enter",
++     "narration": "The kings on the lids are no longer lying down. The honour guard, three centuries of royal dead, rise in perfect order from the stone with their swords in their hands.",
++     "encounter": {
++      "monsters": [
++       "specter",
++       "ghoul",
++       "ghoul",
++       "skeleton",
++       "skeleton"
++      ]
++     },
++     "setsFlags": [
++      "crypt_cleared"
++     ]
++    },
++    {
++     "id": "tribute",
++     "trigger": "search",
++     "narration": "At the foot of the last sarcophagus, a royal physician's chest has been left for a king who never needed it. Inside, in a bed of straw, are two sealed healing potions.",
++     "requires": [
++      "crypt_cleared"
++     ],
++     "potions": 2
++    }
++   ],
++   "exits": [
++    {
++     "to": "ossuary",
++     "label": "Back through the bone door to the ossuary"
++    },
++    {
++     "to": "hollow_throne",
++     "label": "The throne room, past a door with a crown-shaped lock",
++     "requires": [
++      "crypt_cleared",
++      "has_crown_shard"
++     ],
++     "blockedText": "The throne door has a crown-shaped lock, and a hundred-year hush behind it. The Pale Hand carried the key in the shape of the missing shard. You will need it, and the crypt quiet, before you try the handle."
++    }
++   ]
++  },
++  {
++   "id": "hollow_throne",
++   "name": "The Hollow Throne",
++   "kind": "site",
++   "rest": "none",
++   "description": "A round hall under the mountain, its dome open to nothing, the throne an old black stone chair on a dais of steps. A king sits there in rotted armour with a broken crown, and he is quite awake, and he is smiling.",
++   "map": [
++    "############################",
++    "#P....c.........c.......MMM#",
++    "#PP.........O..O..........M#",
++    "#P..c....~~.......~~..c..MM#",
++    "#PP.........O..O..........M#",
++    "#P....c.........c.......MMM#",
++    "############################"
++   ],
++   "events": [
++    {
++     "id": "king",
++     "trigger": "enter",
++     "narration": "The shard in your hand begins to hum. On the throne, the dead king lifts his head, and a thing that was Aldhelm looks out through his eyes. 'Karrow sleeps,' it says, in a voice like a closing door. 'You will sleep with it.'",
++     "encounter": {
++      "monsters": [
++       "hollow_king"
++      ]
++     },
++     "setsFlags": [
++      "king_destroyed"
++     ],
++     "xp": 500
++    }
++   ],
++   "exits": [
++    {
++     "to": "kings_crypt",
++     "label": "Back through the crown-lock door"
++    }
++   ]
++  }
++ ]
++}
+diff --git a/sim/data/monsters.json b/sim/data/monsters.json
+index c1b3d62..4b50365 100644
+--- a/sim/data/monsters.json
++++ b/sim/data/monsters.json
+@@ -1,4 +1,4 @@
+-/* SRD 5.1 stat blocks (values checked against dnd5eapi.co), except "cult_adept" and the CyberHood creatures (gutter_punk to hush_avatar), which are original. */
++/* SRD 5.1 stat blocks (values checked against dnd5eapi.co), except "cult_adept", "hollow_king" and the CyberHood creatures (gutter_punk to hush_avatar), which are original. */
+ [
+   { "id": "cultist", "name": "Cultist", "cr": "1/8", "xp": 25, "ac": 12, "hp": 9, "speed": 30,
+     "scores": [11,12,10,10,11,10], "tags": ["humanoid"],
+@@ -91,5 +91,14 @@
+     "traits": { "regeneration": 5 },
+     "attacksPerAction": 2,
+     "attacks": [ { "name": "data lash", "toHit": 8, "damage": "2d8+4", "type": "psychic", "range": [30,60] },
+-                 { "name": "overload arc", "toHit": 8, "damage": "3d6", "type": "lightning", "range": [60,120] } ] }
++                 { "name": "overload arc", "toHit": 8, "damage": "3d6", "type": "lightning", "range": [60,120] } ] },
++
++  /* The Hollow Crown boss: a dead king woken by a cult. Deliberately has no regeneration and no resistance to
++     ordinary weapons, so that an unprepared party can still win the finale. */
++  { "id": "hollow_king", "name": "Aldhelm, the Hollow King", "cr": "5", "xp": 1800, "ac": 18, "hp": 150, "speed": 30,
++    "scores": [19,12,17,11,12,16], "tags": ["undead"], "saves": ["str","con"],
++    "resist": ["necrotic"], "immune": ["poison"], "conditionImmune": ["poisoned","frightened"],
++    "attacksPerAction": 2,
++    "attacks": [ { "name": "broken sword", "toHit": 8, "damage": "2d8+5", "type": "slashing" },
++                 { "name": "grave touch", "toHit": 8, "damage": "2d8+4", "type": "necrotic" } ] }
+ ]
+diff --git a/sim/include/dnd/Agents.hpp b/sim/include/dnd/Agents.hpp
+index 5a438d6..c8c0565 100644
+--- a/sim/include/dnd/Agents.hpp
++++ b/sim/include/dnd/Agents.hpp
+@@ -19,6 +19,7 @@ struct BackendDef {
+     std::string url = "http://127.0.0.1:11434";
+     std::string path = "/v1/chat/completions";
+     std::string apiKey;
++    std::string format = "openai";  // "openai" or "cppcoder" (CppLocalLlmCodeAssist; use path "/api/chat")
+     bool stream = false;
+     int timeoutSec = 120;
+ };
+diff --git a/sim/include/dnd/Llm.hpp b/sim/include/dnd/Llm.hpp
+index a1b203c..f027508 100644
+--- a/sim/include/dnd/Llm.hpp
++++ b/sim/include/dnd/Llm.hpp
+@@ -30,6 +30,9 @@ std::vector<ModelInfo> ListModels();
+ struct LlmConfig {
+     std::string baseUrl = "http://127.0.0.1:8080";  // scheme://host:port (plain http; terminate TLS in a proxy)
+     std::string path = "/v1/chat/completions";
++    // "openai": OpenAI-compatible /v1/chat/completions. "cppcoder": CppLocalLlmCodeAssist's POST /api/chat
++    // (Ollama NDJSON: one {"message":{"content"},"done"} object per line); set path to "/api/chat".
++    std::string format = "openai";
+     std::string model;                              // sent as "model"; also looked up in the model store
+     std::string apiKey;
+     int timeoutSec = 60;
+@@ -55,6 +58,9 @@ public:
+     virtual std::string Describe() const = 0;
+ };
+ 
++// Joins the "message.content" pieces of an Ollama NDJSON stream. Sets err on an {"error"} line.
++std::string ParseNdjsonChat(const std::string& raw, std::string& err);
++
+ // Removes <think>...</think> blocks that some servers inline instead of using reasoning_content.
+ std::string StripThink(std::string s);
+ // Extracts the first top-level {...} object from free text (models love code fences and chatter).
+diff --git a/sim/src/Agents.cpp b/sim/src/Agents.cpp
+index 73cf9ca..1cc13e5 100644
+--- a/sim/src/Agents.cpp
++++ b/sim/src/Agents.cpp
+@@ -63,6 +63,8 @@ std::optional<AgentsConfig> AgentsConfig::Parse(const Json& j, std::string& err)
+                 b.url = o.value("url", b.url);
+                 b.path = o.value("path", b.path);
+                 b.apiKey = o.value("apiKey", b.apiKey);
++                b.format = o.value("format", b.format);
++                if (b.format == "cppcoder" && !o.contains("path")) b.path = "/api/chat";
+                 b.stream = o.value("stream", b.stream);
+                 b.timeoutSec = o.value("timeoutSec", b.timeoutSec);
+                 c.backends[it.key()] = b;
+@@ -204,6 +206,7 @@ LlmConfig AgentsConfig::ToLlmConfig(const AgentDef& d) const {
+         c.baseUrl = b->url;
+         c.path = b->path;
+         c.apiKey = b->apiKey;
++        c.format = b->format;
+         c.stream = b->stream;
+         c.timeoutSec = b->timeoutSec;
+     }
+diff --git a/sim/src/Llm.cpp b/sim/src/Llm.cpp
+index 1715aa7..8c12987 100644
+--- a/sim/src/Llm.cpp
++++ b/sim/src/Llm.cpp
+@@ -98,12 +98,33 @@ std::string ExtractJsonObject(const std::string& s) {
+     return {};
+ }
+ 
++std::string ParseNdjsonChat(const std::string& raw, std::string& err) {
++    std::string out;
++    std::size_t pos = 0;
++    while (pos < raw.size()) {
++        std::size_t nl = raw.find('\n', pos);
++        if (nl == std::string::npos) nl = raw.size();
++        const std::string line = Trim(raw.substr(pos, nl - pos));
++        pos = nl + 1;
++        if (line.empty()) continue;
++        const auto j = nlohmann::json::parse(line, nullptr, false);
++        if (j.is_discarded() || !j.is_object()) continue;
++        if (j.contains("error")) { err = j["error"].is_string() ? j["error"].get<std::string>() : j["error"].dump(); return out; }
++        if (j.contains("message") && j["message"].is_object()) {
++            const auto& m = j["message"];
++            if (m.contains("content") && m["content"].is_string()) out += m["content"].get<std::string>();
++        }
++    }
++    return out;
++}
++
+ // ---------------------------------------------------------------- client
+ 
+ LlmConfig LlmConfig::FromEnv() {
+     LlmConfig c;
+     c.baseUrl = Env("DND_LLM_URL", c.baseUrl);
+-    c.path = Env("DND_LLM_PATH", c.path);
++    c.format = Env("DND_LLM_FORMAT", c.format);
++    c.path = Env("DND_LLM_PATH", c.format == "cppcoder" ? "/api/chat" : c.path);
+     c.model = Env("DND_LLM_MODEL");
+     c.apiKey = Env("DND_LLM_KEY");
+     if (const auto t = Env("DND_LLM_TIMEOUT"); !t.empty()) c.timeoutSec = std::max(1, std::atoi(t.c_str()));
+@@ -113,6 +134,28 @@ LlmConfig LlmConfig::FromEnv() {
+ 
+ LlmReply HttpLlmClient::Chat(const std::string& system, const std::string& user, bool jsonMode) {
+     LlmReply out;
++    if (cfg_.format == "cppcoder") {
++        // CppLocalLlmCodeAssist: no sampling options or response_format; it streams Ollama NDJSON.
++        const nlohmann::json body{{"model", cfg_.model},
++                                  {"messages", nlohmann::json::array({{{"role", "system"}, {"content", system}}, {{"role", "user"}, {"content", user}}})}};
++        try {
++            httplib::Client cli(cfg_.baseUrl);
++            cli.set_connection_timeout(5);
++            cli.set_read_timeout(cfg_.timeoutSec);
++            cli.set_write_timeout(10);
++            auto res = cli.Post(cfg_.path, body.dump(), "application/json");
++            if (!res) { out.error = "LLM request failed: " + httplib::to_string(res.error()); return out; }
++            if (res->status < 200 || res->status >= 300) { out.error = Cat("LLM HTTP ", res->status); return out; }
++            std::string err;
++            out.content = StripThink(ParseNdjsonChat(res->body, err));
++            if (!err.empty()) { out.error = err; out.content.clear(); return out; }
++            out.ok = !out.content.empty();
++            if (!out.ok) out.error = "LLM returned no content";
++        } catch (const std::exception& e) {
++            out.error = std::string("LLM client error: ") + e.what();
++        }
++        return out;
++    }
+     nlohmann::json body{{"model", cfg_.model},
+                         {"messages", nlohmann::json::array({{{"role", "system"}, {"content", system}}, {{"role", "user"}, {"content", user}}})},
+                         {"temperature", cfg_.temperature},
+@@ -210,9 +253,9 @@ Game::Narrator MakeLlmNarrator(std::shared_ptr<ILlmClient> client, const Game& g
+             default: return {};
+         }
+         const std::string system =
+-            "You are the narrator of a gritty gothic-horror Dungeons & Dragons 5e game. Reply with one or two vivid sentences of "
+-            "present-tense prose. Never state dice rolls, numbers or rules. Never invent new named characters, items or outcomes "
+-            "that the event does not state. Do not repeat the event text word for word.";
++            Cat("You are the narrator of a Dungeons & Dragons 5e game. The setting is: ", game.Module().setting, ". Match its tone. "
++                "Reply with one or two vivid sentences of present-tense prose. Never state dice rolls, numbers or rules. Never invent "
++                "new named characters, items or outcomes that the event does not state. Do not repeat the event text word for word.");
+         const std::string user = Cat("Setting: ", game.Module().setting, "\nLocation: ", game.LocationId(), "\nTime: ",
+                                      game.Module().IsNight(game.ClockHour()) ? "night" : "day", "\nThis is ", what, ":\n", e.text);
+         const LlmReply r = client->Chat(system, user, false);
+@@ -374,6 +417,20 @@ std::string Low(std::string s) {
+     return s;
+ }
+ bool Has(const std::string& hay, const std::string& needle) { return !needle.empty() && hay.find(needle) != std::string::npos; }
++// Is `word` in the clause as a word of its own, allowing a plain inflection ("rest", "resting", "rests")? "rest" is not in
++// "forest" and "ask" is not in "task".
++bool HasWord(const std::string& hay, const std::string& word) {
++    const auto alnum = [&](std::size_t i) { return i < hay.size() && std::isalnum(static_cast<unsigned char>(hay[i])) != 0; };
++    for (std::size_t p = hay.find(word); !word.empty() && p != std::string::npos; p = hay.find(word, p + 1)) {
++        if (p > 0 && alnum(p - 1)) continue;
++        const std::size_t e = p + word.size();
++        for (const char* suffix : {"", "s", "es", "ed", "d", "ing"}) {
++            const std::string sfx = suffix;
++            if (hay.compare(e, sfx.size(), sfx) == 0 && !alnum(e + sfx.size())) return true;
++        }
++    }
++    return false;
++}
+ // Does the clause mention this name (whole, or any word of it longer than 3 letters)?
+ bool Mentions(const std::string& clause, const std::string& name) {
+     const std::string n = Low(name);
+@@ -411,22 +468,22 @@ SayResult SayOffline(Game& game, const std::string& text) {
+         const LocationDef& here = *game.Module().FindLocation(game.LocationId());
+         CmdResult r{false, ""};
+         std::string did;
+-        const bool wantTalk = Has(c, "ask") || Has(c, "talk") || Has(c, "speak") || Has(c, "chat");
++        const bool wantTalk = HasWord(c, "ask") || HasWord(c, "talk") || HasWord(c, "speak") || HasWord(c, "chat");
+         const NpcDef* npc = nullptr;
+         for (const auto& n : here.npcs) if (Mentions(c, n.name) || Mentions(c, n.id)) npc = &n;
+-        if (wantTalk || (npc && !Has(c, "go ") && !Has(c, "travel"))) {
++        if (wantTalk || (npc && !HasWord(c, "go") && !HasWord(c, "travel"))) {
+             if (!npc) return fail("Nobody here by that name. People here: " + [&] { std::string s; for (const auto& n : here.npcs) s += (s.empty() ? "" : ", ") + n.name; return s.empty() ? std::string("nobody") : s; }() + ".");
+             const TopicDef* pick = nullptr;
+             for (const auto& tp : npc->topics) if (Mentions(c, tp.id) || Mentions(c, tp.text.substr(0, 40))) pick = &tp;
+             if (pick) r = game.Talk(npc->id, pick->id);
+             else for (const auto& tp : npc->topics) { r = game.Talk(npc->id, tp.id); if (r.ok) break; }
+             did = "talk to " + npc->name;
+-        } else if (Has(c, "search") || Has(c, "look") || Has(c, "explore") || Has(c, "investigate")) {
++        } else if (HasWord(c, "search") || HasWord(c, "look") || HasWord(c, "explore") || HasWord(c, "investigate")) {
+             r = game.Search(); did = "search";
+-        } else if (Has(c, "rest") || Has(c, "sleep") || Has(c, "camp")) {
+-            const bool lng = Has(c, "long") || Has(c, "sleep") || Has(c, "night") || Has(c, "camp");
++        } else if (HasWord(c, "rest") || HasWord(c, "sleep") || HasWord(c, "camp")) {
++            const bool lng = HasWord(c, "long") || HasWord(c, "sleep") || HasWord(c, "night") || HasWord(c, "camp");
+             r = game.Rest(lng ? "long" : "short"); did = lng ? "long rest" : "short rest";
+-        } else if (Has(c, "wait")) {
++        } else if (HasWord(c, "wait")) {
+             int h = 1;
+             for (std::size_t i = 0; i < c.size(); ++i) if (std::isdigit(static_cast<unsigned char>(c[i]))) { h = std::atoi(c.c_str() + i); break; }
+             r = game.Wait(std::clamp(h, 1, 24)); did = "wait " + std::to_string(std::clamp(h, 1, 24)) + " hour(s)";
+diff --git a/sim/tests/README.md b/sim/tests/README.md
+index b3e2dcb..6c77a5b 100644
+--- a/sim/tests/README.md
++++ b/sim/tests/README.md
+@@ -12,7 +12,7 @@
+ | `test_art.cpp` | the AUTOMATIC1111 client against a fake local server (txt2img, img2img, errors, probe) and camera pictures through the art service (files, seeds, failures, bad ids) |
+ | `test_scene.cpp` | one end-to-end pass over the camera, scene and prompt words |
+ | `test_camera.cpp` | the camera model in detail: clamping, projection for every heading, lens and pitch, camera words, scene layout, the words a view produces (parameterized) |
+-| `test_modules.cpp` | every shipped module: connected graph, no dead ends, every flag requirement satisfiable for every draw, drawn values used, ids unique, maps with room for a party, the autopilot finishes and often wins; CyberHood's routes |
++| `test_modules.cpp` | every shipped module: connected graph, no dead ends, every flag requirement satisfiable for every draw, drawn values used, ids unique, maps with room for a party, the autopilot finishes and often wins; CyberHood's routes; The Hollow Crown's alternate routes and draws |
+ | `sessions_smoke.py` | sessions against a real server: names, listing order, rename limits, state identical after a restart, play continues, delete removes the file for good, a damaged file is skipped |
+ | `api_smoke.py` | plays a whole module through the HTTP API: creating a game, acting as the hero, autopilot, saving and loading |
+ 
+diff --git a/sim/tests/test_game.cpp b/sim/tests/test_game.cpp
+index b4b96e1..a7ea76e 100644
+--- a/sim/tests/test_game.cpp
++++ b/sim/tests/test_game.cpp
+@@ -238,6 +238,24 @@ TEST(Game, DifficultyScalesModuleEncounters) {
+     EXPECT_LT(medium, hard);
+ }
+ 
++TEST(Game, TypedCommandsMatchWholeWords) {
++    GameConfig cfg;
++    cfg.moduleId = "ravenmoor";
++    cfg.seed = 4;
++    Game g(cfg);
++    // "forest" contains "rest", but here it names a place to go to, not an instruction to sleep.
++    const SayResult go = SayOffline(g, "take the forest track");
++    ASSERT_TRUE(go.ok) << go.message;
++    ASSERT_EQ(go.steps.size(), 1u);
++    EXPECT_EQ(go.steps[0], "travel to whispering_wood");
++    // A real rest, however it is inflected, still works.
++    Game h(cfg);
++    const SayResult rest = SayOffline(h, "we are resting here");
++    ASSERT_TRUE(rest.ok) << rest.message;
++    ASSERT_EQ(rest.steps.size(), 1u);
++    EXPECT_EQ(rest.steps[0], "short rest");
++}
++
+ TEST(Game, TypedCommandsWorkWithoutAModel) {
+     GameConfig cfg;
+     cfg.moduleId = "ravenmoor";
+diff --git a/sim/tests/test_llm.cpp b/sim/tests/test_llm.cpp
+index 98e5279..b85fe0b 100644
+--- a/sim/tests/test_llm.cpp
++++ b/sim/tests/test_llm.cpp
+@@ -9,6 +9,10 @@
+ #include <mutex>
+ #include <set>
+ #include <sstream>
++#include <thread>
++
++#include <httplib.h>
++#include <nlohmann/json.hpp>
+ 
+ #include "dnd/AI.hpp"
+ #include "dnd/Agents.hpp"
+@@ -71,6 +75,28 @@ TEST(Llm, Pipeline) {
+     EXPECT_TRUE(!mi.exists && mi.path.find("no-such-model") != std::string::npos);
+ }
+ 
++TEST(Llm, NarratorPromptFollowsTheModuleSetting) {
++    GameConfig cfg;
++    cfg.moduleId = "cyberhood";
++    cfg.seed = 2;
++    Game g(cfg);
++    std::string system;
++    auto mock = std::make_shared<MockLlmClient>([&system](const std::string& sys, const std::string&, bool) {
++        system = sys;
++        LlmReply r;
++        r.ok = true;
++        r.content = "Neon hums overhead.";
++        return r;
++    });
++    const auto narrate = MakeLlmNarrator(mock, g);
++    Event e;
++    e.type = EventType::Scene;
++    e.text = "The doors hiss shut.";
++    EXPECT_EQ(narrate(e), "Neon hums overhead.");
++    EXPECT_NE(system.find("cyberpunk"), std::string::npos) << system;
++    EXPECT_EQ(system.find("gothic"), std::string::npos) << system;
++}
++
+ TEST(Llm, Say) {
+     GameConfig cfg;
+     cfg.moduleId = "ravenmoor";
+@@ -265,3 +291,57 @@ TEST(Llm, Agents) {
+         EXPECT_EQ(g.LocationId(), "greywick");  // three votes beat one
+     }
+ }
++
++TEST(Llm, ParsesOllamaNdjson) {
++    std::string err;
++    const std::string raw = "{\"message\":{\"role\":\"assistant\",\"content\":\"Hel\"},\"done\":false}\n"
++                            "\n{\"message\":{\"content\":\"lo\"},\"done\":false}\n"
++                            "{\"done\":true}\n";
++    EXPECT_EQ(ParseNdjsonChat(raw, err), "Hello");
++    EXPECT_TRUE(err.empty());
++    EXPECT_EQ(ParseNdjsonChat("{\"message\":{\"content\":\"a\"}}\n{\"error\":\"Ollama returned HTTP 404\"}\n", err), "a");
++    EXPECT_EQ(err, "Ollama returned HTTP 404");
++}
++
++TEST(Llm, CppCoderBackendFormat) {
++    std::string err;
++    const auto cfg = AgentsConfig::Parse(Json::parse(R"({"backends":{"cc":{"url":"http://127.0.0.1:8765","format":"cppcoder"}},
++        "defaults":{"backend":"cc","model":"m"}})"), err);
++    ASSERT_TRUE(cfg) << err;
++    EXPECT_EQ(cfg->FindBackend("cc")->path, "/api/chat");
++    AgentDef d;
++    d.backend = "cc";
++    d.model = "m";
++    const LlmConfig lc = cfg->ToLlmConfig(d);
++    EXPECT_EQ(lc.format, "cppcoder");
++    EXPECT_EQ(lc.path, "/api/chat");
++}
++
++TEST(Llm, CppCoderClientTalksToTheChatEndpoint) {
++    httplib::Server svr;
++    std::string seenModel, seenSystem, seenUser;
++    svr.Post("/api/chat", [&](const httplib::Request& req, httplib::Response& res) {
++        const auto j = nlohmann::json::parse(req.body);
++        seenModel = j["model"];
++        seenSystem = j["messages"][0]["content"];
++        seenUser = j["messages"][1]["content"];
++        res.set_content("{\"message\":{\"content\":\"{\\\"actions\\\":\"},\"done\":false}\n{\"message\":{\"content\":\"[]}\"},\"done\":true}\n", "application/x-ndjson");
++    });
++    const int port = svr.bind_to_any_port("127.0.0.1");
++    std::thread t([&] { svr.listen_after_bind(); });
++    svr.wait_until_ready();
++    LlmConfig lc;
++    lc.baseUrl = "http://127.0.0.1:" + std::to_string(port);
++    lc.path = "/api/chat";
++    lc.format = "cppcoder";
++    lc.model = "qwen2.5:7b";
++    HttpLlmClient client(lc);
++    const LlmReply r = client.Chat("sys", "usr", true);
++    svr.stop();
++    t.join();
++    EXPECT_TRUE(r.ok) << r.error;
++    EXPECT_EQ(r.content, "{\"actions\":[]}");
++    EXPECT_EQ(seenModel, "qwen2.5:7b");
++    EXPECT_EQ(seenSystem, "sys");
++    EXPECT_EQ(seenUser, "usr");
++}
+diff --git a/sim/tests/test_modules.cpp b/sim/tests/test_modules.cpp
+index ec54b88..4b8abe9 100644
+--- a/sim/tests/test_modules.cpp
++++ b/sim/tests/test_modules.cpp
+@@ -243,10 +243,10 @@ TEST_P(ModuleContent, TheAutopilotAlwaysFinishesAndOftenWins) {
+     EXPECT_GE(won, 3) << "the autopilot should win at least a third of the time";
+ }
+ 
+-INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood"));
++INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown"));
+ 
+ TEST(Modules, EveryShippedModuleIsCovered) {
+-    EXPECT_EQ(Content::Modules().size(), 2u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
++    EXPECT_EQ(Content::Modules().size(), 3u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
+ }
+ 
+ // ---------------------------------------------------------------- CyberHood specifics
+@@ -292,3 +292,62 @@ TEST(CyberHood, TheOverrideKeyIsDrawnFromTwoPlaces) {
+     }
+     EXPECT_EQ(seen, (std::set<std::string>{"canopy", "undergrid"}));
+ }
++
++// ---------------------------------------------------------------- The Hollow Crown specifics
++
++TEST(HollowCrown, HasTwentyScenesAndOnlyShippedCreatures) {
++    const ModuleDef* m = Content::FindModule("hollow_crown");
++    ASSERT_NE(m, nullptr);
++    EXPECT_EQ(m->locations.size(), 20u);
++    EXPECT_EQ(m->start, "thornwick");
++}
++
++TEST(HollowCrown, AshfallPassCanBeCrossedByBridgeOrByTheHuntersTrail) {
++    const ModuleDef* m = Content::FindModule("hollow_crown");
++    ASSERT_NE(m, nullptr);
++    const Flags draw{{"seal", "chapel"}, {"spy", "perrin"}};
++    // without the bridge fight, only the trail leads in
++    ModuleDef noBridge = *m;
++    for (auto& l : noBridge.locations)
++        for (auto& e : l.events) e.setsFlags.erase(std::remove(e.setsFlags.begin(), e.setsFlags.end(), "bridge_cleared"), e.setsFlags.end());
++    EXPECT_TRUE(Closure(noBridge, draw).places.count("ashfall_pass"));
++    // without the wolves or the guide, only the bridge does
++    ModuleDef noTrail = *m;
++    for (auto& l : noTrail.locations) {
++        for (auto& e : l.events) e.setsFlags.erase(std::remove(e.setsFlags.begin(), e.setsFlags.end(), "wolves_slain"), e.setsFlags.end());
++        for (auto& n : l.npcs)
++            for (auto& t : n.topics) t.setsFlags.erase(std::remove(t.setsFlags.begin(), t.setsFlags.end(), "knows_hunters_trail"), t.setsFlags.end());
++    }
++    EXPECT_TRUE(Closure(noTrail, draw).places.count("ashfall_pass"));
++}
++
++TEST(HollowCrown, HollowmereCanBeReachedThroughTheFortOrTheSmugglersTunnel) {
++    const ModuleDef* m = Content::FindModule("hollow_crown");
++    ASSERT_NE(m, nullptr);
++    const Flags draw{{"seal", "mill"}, {"spy", "odo"}};
++    ModuleDef noFort = *m;
++    for (auto& l : noFort.locations)
++        for (auto& e : l.events) e.setsFlags.erase(std::remove(e.setsFlags.begin(), e.setsFlags.end(), "fort_cleared"), e.setsFlags.end());
++    EXPECT_TRUE(Closure(noFort, draw).places.count("hollowmere"));
++    ModuleDef noWarren = *m;
++    for (auto& l : noWarren.locations)
++        for (auto& e : l.events) e.setsFlags.erase(std::remove(e.setsFlags.begin(), e.setsFlags.end(), "warren_cleared"), e.setsFlags.end());
++    EXPECT_TRUE(Closure(noWarren, draw).places.count("hollowmere"));
++}
++
++TEST(HollowCrown, TheSealAndTheSpyAreEachDrawnFromTwoPlaces) {
++    std::set<std::string> seals, spies;
++    for (std::uint64_t seed = 1; seed <= 40; ++seed) {
++        GameConfig c;
++        c.moduleId = "hollow_crown";
++        c.seed = seed;
++        c.role = Role::Spectator;
++        Game g(c);
++        ASSERT_TRUE(g.HasFlag("seal"));
++        ASSERT_TRUE(g.HasFlag("spy"));
++        seals.insert(g.FlagValue("seal"));
++        spies.insert(g.FlagValue("spy"));
++    }
++    EXPECT_EQ(seals, (std::set<std::string>{"chapel", "mill"}));
++    EXPECT_EQ(spies, (std::set<std::string>{"perrin", "odo"}));
++}

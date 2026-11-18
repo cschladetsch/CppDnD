@@ -63,6 +63,8 @@ std::optional<AgentsConfig> AgentsConfig::Parse(const Json& j, std::string& err)
                 b.url = o.value("url", b.url);
                 b.path = o.value("path", b.path);
                 b.apiKey = o.value("apiKey", b.apiKey);
+                b.format = o.value("format", b.format);
+                if (b.format == "cppcoder" && !o.contains("path")) b.path = "/api/chat";
                 b.stream = o.value("stream", b.stream);
                 b.timeoutSec = o.value("timeoutSec", b.timeoutSec);
                 c.backends[it.key()] = b;
@@ -204,6 +206,7 @@ LlmConfig AgentsConfig::ToLlmConfig(const AgentDef& d) const {
         c.baseUrl = b->url;
         c.path = b->path;
         c.apiKey = b->apiKey;
+        c.format = b->format;
         c.stream = b->stream;
         c.timeoutSec = b->timeoutSec;
     }

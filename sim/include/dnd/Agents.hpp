@@ -19,6 +19,7 @@ struct BackendDef {
     std::string url = "http://127.0.0.1:11434";
     std::string path = "/v1/chat/completions";
     std::string apiKey;
+    std::string format = "openai";  // "openai" or "cppcoder" (CppLocalLlmCodeAssist; use path "/api/chat")
     bool stream = false;
     int timeoutSec = 120;
 };

@@ -30,6 +30,9 @@ std::vector<ModelInfo> ListModels();
 struct LlmConfig {
     std::string baseUrl = "http://127.0.0.1:8080";  // scheme://host:port (plain http; terminate TLS in a proxy)
     std::string path = "/v1/chat/completions";
+    // "openai": OpenAI-compatible /v1/chat/completions. "cppcoder": CppLocalLlmCodeAssist's POST /api/chat
+    // (Ollama NDJSON: one {"message":{"content"},"done"} object per line); set path to "/api/chat".
+    std::string format = "openai";
     std::string model;                              // sent as "model"; also looked up in the model store
     std::string apiKey;
     int timeoutSec = 60;
@@ -54,6 +57,9 @@ public:
     virtual LlmReply Chat(const std::string& system, const std::string& user, bool jsonMode) = 0;
     virtual std::string Describe() const = 0;
 };
+
+// Joins the "message.content" pieces of an Ollama NDJSON stream. Sets err on an {"error"} line.
+std::string ParseNdjsonChat(const std::string& raw, std::string& err);
 
 // Removes <think>...</think> blocks that some servers inline instead of using reasoning_content.
 std::string StripThink(std::string s);

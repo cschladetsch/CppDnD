@@ -9,6 +9,10 @@
 #include <mutex>
 #include <set>
 #include <sstream>
+#include <thread>
+
+#include <httplib.h>
+#include <nlohmann/json.hpp>
 
 #include "dnd/AI.hpp"
 #include "dnd/Agents.hpp"
@@ -286,4 +290,58 @@ TEST(Llm, Agents) {
         EXPECT_TRUE(g.AutoStep().ok);
         EXPECT_EQ(g.LocationId(), "greywick");  // three votes beat one
     }
+}
+
+TEST(Llm, ParsesOllamaNdjson) {
+    std::string err;
+    const std::string raw = "{\"message\":{\"role\":\"assistant\",\"content\":\"Hel\"},\"done\":false}\n"
+                            "\n{\"message\":{\"content\":\"lo\"},\"done\":false}\n"
+                            "{\"done\":true}\n";
+    EXPECT_EQ(ParseNdjsonChat(raw, err), "Hello");
+    EXPECT_TRUE(err.empty());
+    EXPECT_EQ(ParseNdjsonChat("{\"message\":{\"content\":\"a\"}}\n{\"error\":\"Ollama returned HTTP 404\"}\n", err), "a");
+    EXPECT_EQ(err, "Ollama returned HTTP 404");
+}
+
+TEST(Llm, CppCoderBackendFormat) {
+    std::string err;
+    const auto cfg = AgentsConfig::Parse(Json::parse(R"({"backends":{"cc":{"url":"http://127.0.0.1:8765","format":"cppcoder"}},
+        "defaults":{"backend":"cc","model":"m"}})"), err);
+    ASSERT_TRUE(cfg) << err;
+    EXPECT_EQ(cfg->FindBackend("cc")->path, "/api/chat");
+    AgentDef d;
+    d.backend = "cc";
+    d.model = "m";
+    const LlmConfig lc = cfg->ToLlmConfig(d);
+    EXPECT_EQ(lc.format, "cppcoder");
+    EXPECT_EQ(lc.path, "/api/chat");
+}
+
+TEST(Llm, CppCoderClientTalksToTheChatEndpoint) {
+    httplib::Server svr;
+    std::string seenModel, seenSystem, seenUser;
+    svr.Post("/api/chat", [&](const httplib::Request& req, httplib::Response& res) {
+        const auto j = nlohmann::json::parse(req.body);
+        seenModel = j["model"];
+        seenSystem = j["messages"][0]["content"];
+        seenUser = j["messages"][1]["content"];
+        res.set_content("{\"message\":{\"content\":\"{\\\"actions\\\":\"},\"done\":false}\n{\"message\":{\"content\":\"[]}\"},\"done\":true}\n", "application/x-ndjson");
+    });
+    const int port = svr.bind_to_any_port("127.0.0.1");
+    std::thread t([&] { svr.listen_after_bind(); });
+    svr.wait_until_ready();
+    LlmConfig lc;
+    lc.baseUrl = "http://127.0.0.1:" + std::to_string(port);
+    lc.path = "/api/chat";
+    lc.format = "cppcoder";
+    lc.model = "qwen2.5:7b";
+    HttpLlmClient client(lc);
+    const LlmReply r = client.Chat("sys", "usr", true);
+    svr.stop();
+    t.join();
+    EXPECT_TRUE(r.ok) << r.error;
+    EXPECT_EQ(r.content, "{\"actions\":[]}");
+    EXPECT_EQ(seenModel, "qwen2.5:7b");
+    EXPECT_EQ(seenSystem, "sys");
+    EXPECT_EQ(seenUser, "usr");
 }

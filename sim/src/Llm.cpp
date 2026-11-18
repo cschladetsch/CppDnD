@@ -98,12 +98,33 @@ std::string ExtractJsonObject(const std::string& s) {
     return {};
 }
 
+std::string ParseNdjsonChat(const std::string& raw, std::string& err) {
+    std::string out;
+    std::size_t pos = 0;
+    while (pos < raw.size()) {
+        std::size_t nl = raw.find('\n', pos);
+        if (nl == std::string::npos) nl = raw.size();
+        const std::string line = Trim(raw.substr(pos, nl - pos));
+        pos = nl + 1;
+        if (line.empty()) continue;
+        const auto j = nlohmann::json::parse(line, nullptr, false);
+        if (j.is_discarded() || !j.is_object()) continue;
+        if (j.contains("error")) { err = j["error"].is_string() ? j["error"].get<std::string>() : j["error"].dump(); return out; }
+        if (j.contains("message") && j["message"].is_object()) {
+            const auto& m = j["message"];
+            if (m.contains("content") && m["content"].is_string()) out += m["content"].get<std::string>();
+        }
+    }
+    return out;
+}
+
 // ---------------------------------------------------------------- client
 
 LlmConfig LlmConfig::FromEnv() {
     LlmConfig c;
     c.baseUrl = Env("DND_LLM_URL", c.baseUrl);
-    c.path = Env("DND_LLM_PATH", c.path);
+    c.format = Env("DND_LLM_FORMAT", c.format);
+    c.path = Env("DND_LLM_PATH", c.format == "cppcoder" ? "/api/chat" : c.path);
     c.model = Env("DND_LLM_MODEL");
     c.apiKey = Env("DND_LLM_KEY");
     if (const auto t = Env("DND_LLM_TIMEOUT"); !t.empty()) c.timeoutSec = std::max(1, std::atoi(t.c_str()));
@@ -113,6 +134,28 @@ LlmConfig LlmConfig::FromEnv() {
 
 LlmReply HttpLlmClient::Chat(const std::string& system, const std::string& user, bool jsonMode) {
     LlmReply out;
+    if (cfg_.format == "cppcoder") {
+        // CppLocalLlmCodeAssist: no sampling options or response_format; it streams Ollama NDJSON.
+        const nlohmann::json body{{"model", cfg_.model},
+                                  {"messages", nlohmann::json::array({{{"role", "system"}, {"content", system}}, {{"role", "user"}, {"content", user}}})}};
+        try {
+            httplib::Client cli(cfg_.baseUrl);
+            cli.set_connection_timeout(5);
+            cli.set_read_timeout(cfg_.timeoutSec);
+            cli.set_write_timeout(10);
+            auto res = cli.Post(cfg_.path, body.dump(), "application/json");
+            if (!res) { out.error = "LLM request failed: " + httplib::to_string(res.error()); return out; }
+            if (res->status < 200 || res->status >= 300) { out.error = Cat("LLM HTTP ", res->status); return out; }
+            std::string err;
+            out.content = StripThink(ParseNdjsonChat(res->body, err));
+            if (!err.empty()) { out.error = err; out.content.clear(); return out; }
+            out.ok = !out.content.empty();
+            if (!out.ok) out.error = "LLM returned no content";
+        } catch (const std::exception& e) {
+            out.error = std::string("LLM client error: ") + e.what();
+        }
+        return out;
+    }
     nlohmann::json body{{"model", cfg_.model},
                         {"messages", nlohmann::json::array({{{"role", "system"}, {"content", system}}, {{"role", "user"}, {"content", user}}})},
                         {"temperature", cfg_.temperature},
