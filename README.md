@@ -4,7 +4,7 @@ A Dungeons & Dragons 5e simulator in C++20, built as a backend for a web game. O
 
 ## Demo
 
-![Demo Image](resources/Image1.png]
+![Demo Image](resources/Image1.png)
 
 Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_simulator_architecture.md)
 
