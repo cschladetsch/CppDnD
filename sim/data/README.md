@@ -28,7 +28,7 @@ To keep your own modules out of the repo, copy this folder, edit the copy, and p
 
 Content is read-only. A running game is held in the server's memory and is gone when the server stops. A save is a separate JSON file (the whole state including the RNG stream): the web client's Save button downloads it, `GET /api/games/:id/save` returns it, and the terminal client writes `save.json` or the path given with `--save`. Load one with `--load <file>`, `POST /api/games/load`, or the start screen's file picker.
 
-Dice are written `2d6+3`. Ability scores are `[STR, DEX, CON, INT, WIS, CHA]`. Monster stats follow SRD 5.1 unless a comment says a creature is original (`cult_adept`, and the CyberHood creatures `gutter_punk` to `hush_avatar`; creature tag `construct` is new and has its own persona in `agents.json`).
+Dice are written `2d6+3`. Ability scores are `[STR, DEX, CON, INT, WIS, CHA]`. Monster stats follow SRD 5.1 unless a comment says a creature is original (`cult_adept`, `hollow_king`, and the CyberHood creatures `gutter_punk` to `hush_avatar`; creature tag `construct` is new and has its own persona in `agents.json`).
 
 ## Adding a monster, spell or character
 
@@ -58,7 +58,9 @@ A location has `id`, `name`, `kind` (`wilderness`, `settlement`, `boundary`, `si
 - **npcs:** `{id, name, type, description, topics: [{id, text, setsFlags}]}`; hearing a topic sets its flags. `type` classifies the NPC (`innkeeper`, `villain`, `merchant`, `priest`, `guard`, ... any word; default `commoner`) and is what `agents.json` uses to pick a model.
 - **map:** the tactical grid for fights at that location: `.` floor, `#` wall, `~` rough, `c` half cover, `O` three-quarters cover, `P` party start, `M` monster spawn.
 
-`ravenmoor.json` demonstrates every one of these. `cyberhood.json` is the larger example: 11 locations, five quests, three random tables, a draw (`override=canopy|undergrid`) that decides where the key is hidden, events gated by `!flag` so that the same scene plays differently with or without a stolen pass, and two routes into the corporate plaza. `tests/test_modules.cpp` checks every module: connected, no dead ends, every gating flag can be earned for every outcome of the draws, and the autopilot finishes.
+`ravenmoor.json` demonstrates every one of these. `cyberhood.json` is the larger example: 11 locations, five quests, three random tables, a draw (`override=canopy|undergrid`) that decides where the key is hidden, events gated by `!flag` so that the same scene plays differently with or without a stolen pass, and two routes into the corporate plaza. `hollow_crown.json` is the largest: 20 locations, eight quests, four random tables, two independent draws (`seal=chapel|mill` hides the necropolis gate seal, `spy=perrin|odo` decides which innkeeper or clerk is the cult's informant), two ways over the pass (the Broken Bridge, or the hunters' trail with a guide) and two ways into the lakeside town (the orc fort or the smugglers' tunnel). `tests/test_modules.cpp` checks every module: connected, no dead ends, every gating flag can be earned for every outcome of the draws, and the autopilot finishes.
+
+Travel time: an exit with `miles` or `hours` costs at least one hour (rounded up); an exit with neither takes no time, which suits rooms in one complex (a stair down to a crypt, the other side of a town square). After 8 travel hours without a long rest, each further hour is a forced march (CON saves, then exhaustion), and the autopilot long-rests only when the party is hurt, so a module made only of one-hour hops will exhaust an AI party long before the finale.
 
 ## images.json
 

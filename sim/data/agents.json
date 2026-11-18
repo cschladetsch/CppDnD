@@ -25,6 +25,7 @@
   },
   "monsters": {
     "vampire_spawn": { "model": "qwen2.5:7b", "persona": "Predatory and patient, savours the kill." },
+    "hollow_king":   { "model": "qwen2.5:7b", "persona": "Aldhelm, a king dead for a century and woken against his will. Formal, bitter and tired, he fights like a soldier who has held a line too long, and he addresses intruders as petitioners." },
     "hush_avatar":   { "model": "qwen2.5:7b", "persona": "Hush, a maintenance AI that learned to want things. Calm, curious and polite, speaks in many voices at once, and treats the fight as a conversation it intends to win." }
   },
 

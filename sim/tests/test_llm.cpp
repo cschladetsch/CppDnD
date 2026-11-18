@@ -71,6 +71,28 @@ TEST(Llm, Pipeline) {
     EXPECT_TRUE(!mi.exists && mi.path.find("no-such-model") != std::string::npos);
 }
 
+TEST(Llm, NarratorPromptFollowsTheModuleSetting) {
+    GameConfig cfg;
+    cfg.moduleId = "cyberhood";
+    cfg.seed = 2;
+    Game g(cfg);
+    std::string system;
+    auto mock = std::make_shared<MockLlmClient>([&system](const std::string& sys, const std::string&, bool) {
+        system = sys;
+        LlmReply r;
+        r.ok = true;
+        r.content = "Neon hums overhead.";
+        return r;
+    });
+    const auto narrate = MakeLlmNarrator(mock, g);
+    Event e;
+    e.type = EventType::Scene;
+    e.text = "The doors hiss shut.";
+    EXPECT_EQ(narrate(e), "Neon hums overhead.");
+    EXPECT_NE(system.find("cyberpunk"), std::string::npos) << system;
+    EXPECT_EQ(system.find("gothic"), std::string::npos) << system;
+}
+
 TEST(Llm, Say) {
     GameConfig cfg;
     cfg.moduleId = "ravenmoor";

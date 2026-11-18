@@ -243,10 +243,10 @@ TEST_P(ModuleContent, TheAutopilotAlwaysFinishesAndOftenWins) {
     EXPECT_GE(won, 3) << "the autopilot should win at least a third of the time";
 }
 
-INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood"));
+INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown"));
 
 TEST(Modules, EveryShippedModuleIsCovered) {
-    EXPECT_EQ(Content::Modules().size(), 2u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
+    EXPECT_EQ(Content::Modules().size(), 3u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
 }
 
 // ---------------------------------------------------------------- CyberHood specifics
@@ -291,4 +291,63 @@ TEST(CyberHood, TheOverrideKeyIsDrawnFromTwoPlaces) {
         seen.insert(g.FlagValue("override"));
     }
     EXPECT_EQ(seen, (std::set<std::string>{"canopy", "undergrid"}));
+}
+
+// ---------------------------------------------------------------- The Hollow Crown specifics
+
+TEST(HollowCrown, HasTwentyScenesAndOnlyShippedCreatures) {
+    const ModuleDef* m = Content::FindModule("hollow_crown");
+    ASSERT_NE(m, nullptr);
+    EXPECT_EQ(m->locations.size(), 20u);
+    EXPECT_EQ(m->start, "thornwick");
+}
+
+TEST(HollowCrown, AshfallPassCanBeCrossedByBridgeOrByTheHuntersTrail) {
+    const ModuleDef* m = Content::FindModule("hollow_crown");
+    ASSERT_NE(m, nullptr);
+    const Flags draw{{"seal", "chapel"}, {"spy", "perrin"}};
+    // without the bridge fight, only the trail leads in
+    ModuleDef noBridge = *m;
+    for (auto& l : noBridge.locations)
+        for (auto& e : l.events) e.setsFlags.erase(std::remove(e.setsFlags.begin(), e.setsFlags.end(), "bridge_cleared"), e.setsFlags.end());
+    EXPECT_TRUE(Closure(noBridge, draw).places.count("ashfall_pass"));
+    // without the wolves or the guide, only the bridge does
+    ModuleDef noTrail = *m;
+    for (auto& l : noTrail.locations) {
+        for (auto& e : l.events) e.setsFlags.erase(std::remove(e.setsFlags.begin(), e.setsFlags.end(), "wolves_slain"), e.setsFlags.end());
+        for (auto& n : l.npcs)
+            for (auto& t : n.topics) t.setsFlags.erase(std::remove(t.setsFlags.begin(), t.setsFlags.end(), "knows_hunters_trail"), t.setsFlags.end());
+    }
+    EXPECT_TRUE(Closure(noTrail, draw).places.count("ashfall_pass"));
+}
+
+TEST(HollowCrown, HollowmereCanBeReachedThroughTheFortOrTheSmugglersTunnel) {
+    const ModuleDef* m = Content::FindModule("hollow_crown");
+    ASSERT_NE(m, nullptr);
+    const Flags draw{{"seal", "mill"}, {"spy", "odo"}};
+    ModuleDef noFort = *m;
+    for (auto& l : noFort.locations)
+        for (auto& e : l.events) e.setsFlags.erase(std::remove(e.setsFlags.begin(), e.setsFlags.end(), "fort_cleared"), e.setsFlags.end());
+    EXPECT_TRUE(Closure(noFort, draw).places.count("hollowmere"));
+    ModuleDef noWarren = *m;
+    for (auto& l : noWarren.locations)
+        for (auto& e : l.events) e.setsFlags.erase(std::remove(e.setsFlags.begin(), e.setsFlags.end(), "warren_cleared"), e.setsFlags.end());
+    EXPECT_TRUE(Closure(noWarren, draw).places.count("hollowmere"));
+}
+
+TEST(HollowCrown, TheSealAndTheSpyAreEachDrawnFromTwoPlaces) {
+    std::set<std::string> seals, spies;
+    for (std::uint64_t seed = 1; seed <= 40; ++seed) {
+        GameConfig c;
+        c.moduleId = "hollow_crown";
+        c.seed = seed;
+        c.role = Role::Spectator;
+        Game g(c);
+        ASSERT_TRUE(g.HasFlag("seal"));
+        ASSERT_TRUE(g.HasFlag("spy"));
+        seals.insert(g.FlagValue("seal"));
+        spies.insert(g.FlagValue("spy"));
+    }
+    EXPECT_EQ(seals, (std::set<std::string>{"chapel", "mill"}));
+    EXPECT_EQ(spies, (std::set<std::string>{"perrin", "odo"}));
 }

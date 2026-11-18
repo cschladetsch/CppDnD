@@ -1,4 +1,4 @@
-/* SRD 5.1 stat blocks (values checked against dnd5eapi.co), except "cult_adept" and the CyberHood creatures (gutter_punk to hush_avatar), which are original. */
+/* SRD 5.1 stat blocks (values checked against dnd5eapi.co), except "cult_adept", "hollow_king" and the CyberHood creatures (gutter_punk to hush_avatar), which are original. */
 [
   { "id": "cultist", "name": "Cultist", "cr": "1/8", "xp": 25, "ac": 12, "hp": 9, "speed": 30,
     "scores": [11,12,10,10,11,10], "tags": ["humanoid"],
@@ -91,5 +91,14 @@
     "traits": { "regeneration": 5 },
     "attacksPerAction": 2,
     "attacks": [ { "name": "data lash", "toHit": 8, "damage": "2d8+4", "type": "psychic", "range": [30,60] },
-                 { "name": "overload arc", "toHit": 8, "damage": "3d6", "type": "lightning", "range": [60,120] } ] }
+                 { "name": "overload arc", "toHit": 8, "damage": "3d6", "type": "lightning", "range": [60,120] } ] },
+
+  /* The Hollow Crown boss: a dead king woken by a cult. Deliberately has no regeneration and no resistance to
+     ordinary weapons, so that an unprepared party can still win the finale. */
+  { "id": "hollow_king", "name": "Aldhelm, the Hollow King", "cr": "5", "xp": 1800, "ac": 18, "hp": 150, "speed": 30,
+    "scores": [19,12,17,11,12,16], "tags": ["undead"], "saves": ["str","con"],
+    "resist": ["necrotic"], "immune": ["poison"], "conditionImmune": ["poisoned","frightened"],
+    "attacksPerAction": 2,
+    "attacks": [ { "name": "broken sword", "toHit": 8, "damage": "2d8+5", "type": "slashing" },
+                 { "name": "grave touch", "toHit": 8, "damage": "2d8+4", "type": "necrotic" } ] }
 ]

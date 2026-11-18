@@ -238,6 +238,24 @@ TEST(Game, DifficultyScalesModuleEncounters) {
     EXPECT_LT(medium, hard);
 }
 
+TEST(Game, TypedCommandsMatchWholeWords) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 4;
+    Game g(cfg);
+    // "forest" contains "rest", but here it names a place to go to, not an instruction to sleep.
+    const SayResult go = SayOffline(g, "take the forest track");
+    ASSERT_TRUE(go.ok) << go.message;
+    ASSERT_EQ(go.steps.size(), 1u);
+    EXPECT_EQ(go.steps[0], "travel to whispering_wood");
+    // A real rest, however it is inflected, still works.
+    Game h(cfg);
+    const SayResult rest = SayOffline(h, "we are resting here");
+    ASSERT_TRUE(rest.ok) << rest.message;
+    ASSERT_EQ(rest.steps.size(), 1u);
+    EXPECT_EQ(rest.steps[0], "short rest");
+}
+
 TEST(Game, TypedCommandsWorkWithoutAModel) {
     GameConfig cfg;
     cfg.moduleId = "ravenmoor";

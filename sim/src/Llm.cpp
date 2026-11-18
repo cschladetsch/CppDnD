@@ -210,9 +210,9 @@ Game::Narrator MakeLlmNarrator(std::shared_ptr<ILlmClient> client, const Game& g
             default: return {};
         }
         const std::string system =
-            "You are the narrator of a gritty gothic-horror Dungeons & Dragons 5e game. Reply with one or two vivid sentences of "
-            "present-tense prose. Never state dice rolls, numbers or rules. Never invent new named characters, items or outcomes "
-            "that the event does not state. Do not repeat the event text word for word.";
+            Cat("You are the narrator of a Dungeons & Dragons 5e game. The setting is: ", game.Module().setting, ". Match its tone. "
+                "Reply with one or two vivid sentences of present-tense prose. Never state dice rolls, numbers or rules. Never invent "
+                "new named characters, items or outcomes that the event does not state. Do not repeat the event text word for word.");
         const std::string user = Cat("Setting: ", game.Module().setting, "\nLocation: ", game.LocationId(), "\nTime: ",
                                      game.Module().IsNight(game.ClockHour()) ? "night" : "day", "\nThis is ", what, ":\n", e.text);
         const LlmReply r = client->Chat(system, user, false);
@@ -374,6 +374,20 @@ std::string Low(std::string s) {
     return s;
 }
 bool Has(const std::string& hay, const std::string& needle) { return !needle.empty() && hay.find(needle) != std::string::npos; }
+// Is `word` in the clause as a word of its own, allowing a plain inflection ("rest", "resting", "rests")? "rest" is not in
+// "forest" and "ask" is not in "task".
+bool HasWord(const std::string& hay, const std::string& word) {
+    const auto alnum = [&](std::size_t i) { return i < hay.size() && std::isalnum(static_cast<unsigned char>(hay[i])) != 0; };
+    for (std::size_t p = hay.find(word); !word.empty() && p != std::string::npos; p = hay.find(word, p + 1)) {
+        if (p > 0 && alnum(p - 1)) continue;
+        const std::size_t e = p + word.size();
+        for (const char* suffix : {"", "s", "es", "ed", "d", "ing"}) {
+            const std::string sfx = suffix;
+            if (hay.compare(e, sfx.size(), sfx) == 0 && !alnum(e + sfx.size())) return true;
+        }
+    }
+    return false;
+}
 // Does the clause mention this name (whole, or any word of it longer than 3 letters)?
 bool Mentions(const std::string& clause, const std::string& name) {
     const std::string n = Low(name);
@@ -411,22 +425,22 @@ SayResult SayOffline(Game& game, const std::string& text) {
         const LocationDef& here = *game.Module().FindLocation(game.LocationId());
         CmdResult r{false, ""};
         std::string did;
-        const bool wantTalk = Has(c, "ask") || Has(c, "talk") || Has(c, "speak") || Has(c, "chat");
+        const bool wantTalk = HasWord(c, "ask") || HasWord(c, "talk") || HasWord(c, "speak") || HasWord(c, "chat");
         const NpcDef* npc = nullptr;
         for (const auto& n : here.npcs) if (Mentions(c, n.name) || Mentions(c, n.id)) npc = &n;
-        if (wantTalk || (npc && !Has(c, "go ") && !Has(c, "travel"))) {
+        if (wantTalk || (npc && !HasWord(c, "go") && !HasWord(c, "travel"))) {
             if (!npc) return fail("Nobody here by that name. People here: " + [&] { std::string s; for (const auto& n : here.npcs) s += (s.empty() ? "" : ", ") + n.name; return s.empty() ? std::string("nobody") : s; }() + ".");
             const TopicDef* pick = nullptr;
             for (const auto& tp : npc->topics) if (Mentions(c, tp.id) || Mentions(c, tp.text.substr(0, 40))) pick = &tp;
             if (pick) r = game.Talk(npc->id, pick->id);
             else for (const auto& tp : npc->topics) { r = game.Talk(npc->id, tp.id); if (r.ok) break; }
             did = "talk to " + npc->name;
-        } else if (Has(c, "search") || Has(c, "look") || Has(c, "explore") || Has(c, "investigate")) {
+        } else if (HasWord(c, "search") || HasWord(c, "look") || HasWord(c, "explore") || HasWord(c, "investigate")) {
             r = game.Search(); did = "search";
-        } else if (Has(c, "rest") || Has(c, "sleep") || Has(c, "camp")) {
-            const bool lng = Has(c, "long") || Has(c, "sleep") || Has(c, "night") || Has(c, "camp");
+        } else if (HasWord(c, "rest") || HasWord(c, "sleep") || HasWord(c, "camp")) {
+            const bool lng = HasWord(c, "long") || HasWord(c, "sleep") || HasWord(c, "night") || HasWord(c, "camp");
             r = game.Rest(lng ? "long" : "short"); did = lng ? "long rest" : "short rest";
-        } else if (Has(c, "wait")) {
+        } else if (HasWord(c, "wait")) {
             int h = 1;
             for (std::size_t i = 0; i < c.size(); ++i) if (std::isdigit(static_cast<unsigned char>(c[i]))) { h = std::atoi(c.c_str() + i); break; }
             r = game.Wait(std::clamp(h, 1, 24)); did = "wait " + std::to_string(std::clamp(h, 1, 24)) + " hour(s)";
