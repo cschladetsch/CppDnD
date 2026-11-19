@@ -107,7 +107,7 @@ $env:DND_LLM_MODEL = "deepseek-r1"
 Other variables: `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STREAM=0|1`. With a model configured:
 
 - the web client's prompt box and `POST /api/games/:id/say` accept plain English;
-- create a game with `"llmNarration": true` for prose scenes and `"llmDm": true` for a model-run Dungeon Master (CLI: `--llm-narration`, `--llm-dm`, `--llm-say`).
+- create a game with `"llmNarration": true` for prose scenes and a unique model-written description of each room (written once, on first visit, and saved with the game; the authored text is the fallback) and `"llmDm": true` for a model-run Dungeon Master (CLI: `--llm-narration`, `--llm-dm`, `--llm-say`).
 
 Reasoning models are supported: `reasoning_content` and `<think>` blocks are stripped and never shown. `GET /api/llm` reports the model's location in the store (`DEEPSEEK_MODEL_HOME`). `--mock-llm` runs the whole pipeline without a model, which is what the tests use.
 

@@ -271,6 +271,39 @@ Game::Narrator MakeLlmNarrator(std::shared_ptr<ILlmClient> client, const Game& g
     };
 }
 
+Game::Describer MakeLlmDescriber(std::shared_ptr<ILlmClient> client, const Game& game) {
+    struct State { int failures = 0; int skip = 0; std::vector<std::string> recent; };
+    auto st = std::make_shared<State>();
+    return [client, &game, st](const LocationDef& l) -> std::string {
+        if (st->skip > 0) { --st->skip; return {}; }
+        const std::string system =
+            Cat("You write room descriptions for a Dungeons & Dragons 5e game. The setting is: ", game.Module().setting, ". Match its tone. "
+                "Write four or five sentences of present-tense prose addressed to the party as 'you'. Be concrete and sensory: what is seen, heard, "
+                "smelled and underfoot. Keep every fact in the authored description, and keep the mood it sets. Never invent named characters, "
+                "creatures, items, doors, exits or outcomes that the facts do not state. Never mention dice, numbers or rules. Do not use dashes. "
+                "Reply with the description only, as one paragraph.");
+        std::string user = Cat("Place: ", l.name, " (", l.kind, ")\nTime: ", game.Module().IsNight(game.ClockHour()) ? "night" : "day",
+                               "\nAuthored description (the facts to keep): ", l.description, "\nWays out: ");
+        for (const auto& x : l.exits) user += Cat(x.label.empty() ? x.to : x.label, "; ");
+        if (!st->recent.empty()) {
+            user += "\nDo not reuse the wording or imagery of these earlier rooms:";
+            for (const auto& r : st->recent) user += Cat("\n- ", r);
+        }
+        const LlmReply r = client->Chat(system, user, false);
+        if (!r.ok || r.content.empty()) {
+            if (++st->failures >= 3) { st->failures = 0; st->skip = 20; }
+            return {};
+        }
+        st->failures = 0;
+        std::string t = r.content;
+        if (t.size() > 1100) { t.resize(1100); const auto dot = t.find_last_of(".!?"); if (dot != std::string::npos) t.resize(dot + 1); }
+        std::replace(t.begin(), t.end(), '\n', ' ');
+        st->recent.push_back(t.substr(0, 160));
+        if (st->recent.size() > 3) st->recent.erase(st->recent.begin());
+        return t;
+    };
+}
+
 // ---------------------------------------------------------------- LLM DM
 
 LlmDmController::LlmDmController(std::shared_ptr<ILlmClient> client) : client_(std::move(client)), fallback_(std::make_unique<AIController>()) {}

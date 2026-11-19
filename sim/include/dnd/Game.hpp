@@ -72,6 +72,13 @@ public:
 
     // ---- wiring (re-applied to a running fight)
     void SetNarrator(Narrator n) { narrator_ = std::move(n); }
+    // Writes a room's description the first time the party sees it (so every game reads differently). The text is kept with the
+    // game and saved with it. An empty result keeps the authored description. The current room is described straight away
+    // if it has not been yet, since the start room is entered before anything can be wired.
+    using Describer = std::function<std::string(const LocationDef&)>;
+    void SetDescriber(Describer d);
+    // What the party reads for this place: the generated text if there is one, else the authored description.
+    const std::string& DescriptionOf(const LocationDef& l) const;
     void SetHumanFactory(ControllerFactory f);    // default: RemoteController (never blocks)
     void SetMonsterFactory(ControllerFactory f);  // default: AIController; an LLM DM plugs in here
     void SetListener(Listener l) { listener_ = std::move(l); }
@@ -191,6 +198,8 @@ private:
     Rng rng_;
     EventBus bus_;
     Narrator narrator_;
+    Describer describer_;
+    std::map<std::string, std::string> roomText_;  // location id -> generated description
     Listener listener_;
     ControllerFactory humanFactory_, monsterFactory_;
     PartyFactory partyFactory_;

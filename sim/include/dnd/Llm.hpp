@@ -98,6 +98,9 @@ private:
 // Prose for the events that benefit from it (scenes, downs, deaths, victories, quests). Failures
 // degrade silently to the plain event text; after repeated failures the narrator backs off.
 Game::Narrator MakeLlmNarrator(std::shared_ptr<ILlmClient> client, const Game& game);
+// Writes each room's description once, in the module's tone, keeping the authored facts and not repeating earlier rooms' wording.
+// Returns an empty string when the model fails, which keeps the authored text.
+Game::Describer MakeLlmDescriber(std::shared_ptr<ILlmClient> client, const Game& game);
 
 // ---------------------------------------------------------------- LLM Dungeon Master
 

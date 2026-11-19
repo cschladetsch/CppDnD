@@ -369,3 +369,51 @@ TEST(Quests, TheViewListsWhatEachQuestNeedsAndWhetherItIsMet) {
         for (const auto& r : q["requirements"]) EXPECT_FALSE(r["met"].get<bool>()) << "nothing is done at the start: " << r["condition"];
     }
 }
+
+// ---------------------------------------------------------------- generated room descriptions
+
+TEST(RoomText, ADescriberWritesEachRoomOnceAndItIsSaved) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 5;
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    int calls = 0;
+    g.SetDescriber([&](const LocationDef& l) { ++calls; return "Written for " + l.name + "."; });
+    // the room the party already stands in is described straight away
+    EXPECT_EQ(g.View(0)["location"]["description"], "Written for The Mist Road.");
+    EXPECT_EQ(calls, 1);
+    ASSERT_TRUE(g.Travel("greywick").ok);
+    EXPECT_EQ(g.View(0)["location"]["description"], "Written for Greywick.");
+    // going back does not write it again
+    ASSERT_TRUE(g.Travel("mist_road").ok);
+    EXPECT_EQ(calls, 2);
+    // and a loaded game keeps the same text without asking the model
+    const auto loaded = Game::Load(g.Save());
+    EXPECT_EQ(loaded->View(0)["location"]["description"], "Written for The Mist Road.");
+}
+
+TEST(RoomText, AFailedDescriberKeepsTheAuthoredText) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    g.SetDescriber([](const LocationDef&) { return std::string(); });
+    EXPECT_NE(g.View(0)["location"]["description"].get<std::string>().find("cairn"), std::string::npos);
+}
+
+TEST(RoomText, TheLlmDescriberAsksForFactsAndSkipsRepeats) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    auto mock = std::make_shared<MockLlmClient>([](const std::string&, const std::string&, bool) {
+        LlmReply r; r.ok = true; r.content = "Fog drifts over the black stones.\nA raven watches."; return r; });
+    g.SetDescriber(MakeLlmDescriber(mock, g));
+    EXPECT_EQ(mock->Calls(), 1);
+    EXPECT_NE(mock->LastUser().find("cairn of black stones"), std::string::npos);  // the authored facts go in
+    const std::string d = g.View(0)["location"]["description"];
+    EXPECT_EQ(d, "Fog drifts over the black stones. A raven watches.");
+    ASSERT_TRUE(g.Travel("greywick").ok);
+    EXPECT_NE(mock->LastUser().find("Do not reuse"), std::string::npos);
+}

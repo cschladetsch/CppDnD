@@ -84,7 +84,7 @@ std::shared_ptr<AgentTable> Wire(Server& s, Game& g) {
     }
     if (!c.llmDm && !c.llmNarration) return nullptr;
     if (!s.llm) throw HttpError{400, "LLM features were requested but no model is configured (set DND_LLM_MODEL / DND_LLM_URL, or run with --mock-llm)"};
-    if (c.llmNarration) g.SetNarrator(MakeLlmNarrator(s.llm, g));
+    if (c.llmNarration) { g.SetNarrator(MakeLlmNarrator(s.llm, g)); g.SetDescriber(MakeLlmDescriber(s.llm, g)); }
     if (c.llmDm) {
         auto client = s.llm;
         g.SetMonsterFactory([client] { return std::make_unique<LlmDmController>(client); });

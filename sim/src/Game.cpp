@@ -353,9 +353,28 @@ void Game::Arrive(const std::string& locId) {
     location_ = locId;
     const bool first = visited_.insert(locId).second;
     const LocationDef& l = Here();
-    Emit(EventType::Scene, first ? Cat(l.name, "\n", l.description) : Cat(l.name));
+    if (first && describer_ && !loading_ && !roomText_.count(l.id)) {
+        std::string t;
+        try { t = describer_(l); } catch (...) { t.clear(); }
+        if (!t.empty()) roomText_[l.id] = std::move(t);
+    }
+    Emit(EventType::Scene, first ? Cat(l.name, "\n", DescriptionOf(l)) : Cat(l.name));
     QueueEvents("enter");
     RunQueue();
+}
+
+const std::string& Game::DescriptionOf(const LocationDef& l) const {
+    const auto it = roomText_.find(l.id);
+    return it != roomText_.end() ? it->second : l.description;
+}
+
+void Game::SetDescriber(Describer d) {
+    describer_ = std::move(d);
+    if (!describer_ || loading_ || roomText_.count(location_) || !visited_.count(location_)) return;
+    const LocationDef& l = Here();
+    std::string t;
+    try { t = describer_(l); } catch (...) { t.clear(); }
+    if (!t.empty()) roomText_[l.id] = std::move(t);
 }
 
 void Game::QueueEvents(const std::string& trigger) {

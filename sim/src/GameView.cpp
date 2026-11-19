@@ -72,7 +72,7 @@ Json Game::View(int sinceSeq) const {
                 if (Satisfied(t.needs)) topics.push_back(Json{{"id", t.id}, {"heard", fired_.count("topic:" + n.id + "/" + t.id) > 0}});
             npcs.push_back(Json{{"id", n.id}, {"name", n.name}, {"type", n.type}, {"description", n.description}, {"topics", topics}});
         }
-        v["location"] = Json{{"id", l->id}, {"name", l->name}, {"kind", l->kind}, {"description", l->description}, {"rest", l->rest},
+        v["location"] = Json{{"id", l->id}, {"name", l->name}, {"kind", l->kind}, {"description", DescriptionOf(*l)}, {"rest", l->rest},
                              {"exits", exits}, {"npcs", npcs}};
     }
     {   // The world map: places the party has been, and the places those lead to (nothing further is revealed).
@@ -134,6 +134,7 @@ Json Game::Save() const {
     j["lastLongRestHour"] = lastLongRestHour_;
     j["travelHoursToday"] = travelHoursToday_;
     j["flags"] = flags_;
+    j["roomText"] = roomText_;
     j["fired"] = fired_;
     j["visited"] = visited_;
     j["questsDone"] = questsDone_;
@@ -179,6 +180,7 @@ std::unique_ptr<Game> Game::Load(const Json& j) {
     g->lastLongRestHour_ = j.value("lastLongRestHour", -1000);
     g->travelHoursToday_ = j.value("travelHoursToday", 0);
     g->flags_ = j.value("flags", std::map<std::string, std::string>{});
+    g->roomText_ = j.value("roomText", std::map<std::string, std::string>{});
     for (const auto& s : j.value("fired", std::vector<std::string>{})) g->fired_.insert(s);
     for (const auto& s : j.value("visited", std::vector<std::string>{})) g->visited_.insert(s);
     for (const auto& s : j.value("questsDone", std::vector<std::string>{})) g->questsDone_.insert(s);

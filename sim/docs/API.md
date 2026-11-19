@@ -101,7 +101,7 @@ loop:
 
 ## LLM
 
-Set `DND_LLM_URL`, `DND_LLM_MODEL`, optionally `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STREAM=0|1`, or pass `--llm-url` and `--llm-model`. Creating a game with `llmNarration` adds prose (`events[].flavour`) to scenes, falls, deaths, victories and quests. `llmDm` lets the model plan each monster turn; every action still goes through the rules engine and any failure hands the rest of that turn to the built-in AI.
+Set `DND_LLM_URL`, `DND_LLM_MODEL`, optionally `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STREAM=0|1`, or pass `--llm-url` and `--llm-model`. Creating a game with `llmNarration` adds prose (`events[].flavour`) to scenes, falls, deaths, victories and quests, and has the model write each room's description the first time the party sees it (`view.location.description`; kept in the save, with the authored text as the fallback if the model fails). `llmDm` lets the model plan each monster turn; every action still goes through the rules engine and any failure hands the rest of that turn to the built-in AI.
 
 ## Web client
 
