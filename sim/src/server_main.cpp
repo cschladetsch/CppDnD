@@ -84,7 +84,7 @@ std::shared_ptr<AgentTable> Wire(Server& s, Game& g) {
     }
     if (!c.llmDm && !c.llmNarration) return nullptr;
     if (!s.llm) throw HttpError{400, "LLM features were requested but no model is configured (set DND_LLM_MODEL / DND_LLM_URL, or run with --mock-llm)"};
-    if (c.llmNarration) { g.SetNarrator(MakeLlmNarrator(s.llm, g)); g.SetDescriber(MakeLlmDescriber(s.llm, g)); }
+    if (c.llmNarration) { g.SetNarrator(MakeLlmNarrator(s.llm, g)); g.SetDescriber(MakeLlmDescriber(s.llm, g)); g.SetRoomWriter(MakeLlmRoomWriter(s.llm, g)); }
     if (c.llmDm) {
         auto client = s.llm;
         g.SetMonsterFactory([client] { return std::make_unique<LlmDmController>(client); });
@@ -498,6 +498,7 @@ int main(int argc, char** argv) {
     };
     command("travel", [](Game& g, const Json& b) { return g.Travel(b.value("to", "")); });
     command("search", [](Game& g, const Json&) { return g.Search(); });
+    command("explore", [](Game& g, const Json&) { return g.Explore(); });
     command("talk", [](Game& g, const Json& b) { return g.Talk(b.value("npc", ""), b.value("topic", "")); });
     command("rest", [](Game& g, const Json& b) { return g.Rest(b.value("kind", "short"), b.value("hitDice", 99)); });
     command("wait", [](Game& g, const Json& b) { return g.Wait(b.value("hours", 1)); });

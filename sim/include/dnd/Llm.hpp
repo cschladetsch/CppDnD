@@ -101,6 +101,9 @@ Game::Narrator MakeLlmNarrator(std::shared_ptr<ILlmClient> client, const Game& g
 // Writes each room's description once, in the module's tone, keeping the authored facts and not repeating earlier rooms' wording.
 // Returns an empty string when the model fails, which keeps the authored text.
 Game::Describer MakeLlmDescriber(std::shared_ptr<ILlmClient> client, const Game& game);
+// Invents a new room beside the current one for Game::Explore: a name, kind, description, whether it holds danger, and the label
+// of the path to it. nullopt on any failure or unusable reply, which makes Explore use its built-in rooms.
+Game::RoomWriter MakeLlmRoomWriter(std::shared_ptr<ILlmClient> client, const Game& game);
 
 // ---------------------------------------------------------------- LLM Dungeon Master
 

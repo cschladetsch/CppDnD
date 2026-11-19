@@ -272,6 +272,15 @@ TEST(Game, TypedCommandsWorkWithoutAModel) {
     EXPECT_TRUE(SayOffline(g, "wait 1 hour").ok || g.GetMode() != Mode::Exploring);
 }
 
+namespace {
+// A piece of the game's view, returned by value so a range-for over it does not loop over a destroyed temporary.
+Json ViewAt(const Game& g, std::initializer_list<const char*> path) {
+    Json v = g.View(0);
+    for (const char* k : path) v = Json(v[k]);
+    return v;
+}
+}  // namespace
+
 // ---------------------------------------------------------------- equipment
 
 namespace {
@@ -301,7 +310,7 @@ TEST(Equipment, WeaponsAndPotionsMoveBetweenCharactersWhileExploring) {
     EXPECT_EQ(WeaponsOf(g.View(0), "thorin"), (std::vector<std::string>{"warhammer", "dagger"}));
     EXPECT_EQ(WeaponsOf(g.View(0), "elara"), (std::vector<std::string>{"handaxe"}));
     int dagger = -99;
-    for (const auto& m : g.View(0)["party"]) if (m["id"] == "thorin") dagger = m["attacks"][1]["toHit"];
+    for (const auto& m : ViewAt(g, {"party"})) if (m["id"] == "thorin") dagger = m["attacks"][1]["toHit"];
     EXPECT_NE(dagger, daggerToHit);  // Thorin's strength and Elara's dexterity differ, so does the bonus
 
     // a gift is refused when it would leave the giver unarmed, or for a weapon they do not have
@@ -314,15 +323,15 @@ TEST(Equipment, WeaponsAndPotionsMoveBetweenCharactersWhileExploring) {
     // potions: the party starts with a few, held by whoever the character sheets name
     std::string giver;
     int potions = 0;
-    for (const auto& m : g.View(0)["party"])
+    for (const auto& m : ViewAt(g, {"party"}))
         if (giver.empty() && m["id"] != "elara" && m["potions"].get<int>() > 0) { giver = m["id"]; potions = m["potions"]; }
     if (giver.empty()) {  // none held at the start: one is found on the road
         ASSERT_TRUE(g.MoveItem("elara", "thorin", "potion", "", err) == false);
     } else {
         int elara = 0;
-        for (const auto& m : g.View(0)["party"]) if (m["id"] == "elara") elara = m["potions"];
+        for (const auto& m : ViewAt(g, {"party"})) if (m["id"] == "elara") elara = m["potions"];
         ASSERT_TRUE(g.MoveItem(giver, "elara", "potion", "", err)) << err;
-        for (const auto& m : g.View(0)["party"]) {
+        for (const auto& m : ViewAt(g, {"party"})) {
             if (m["id"] == giver) EXPECT_EQ(m["potions"].get<int>(), potions - 1);
             if (m["id"] == "elara") EXPECT_EQ(m["potions"].get<int>(), elara + 1);
         }
@@ -349,7 +358,7 @@ TEST(Equipment, TheViewCarriesFullStats) {
     cfg.moduleId = "ravenmoor";
     cfg.role = Role::Spectator;
     Game g(cfg);
-    for (const auto& m : g.View(0)["party"]) {
+    for (const auto& m : ViewAt(g, {"party"})) {
         EXPECT_EQ(m["abilities"].size(), 6u) << m["name"];
         EXPECT_GE(m["attacks"].size(), 1u);
         EXPECT_GE(m["proficiency"].get<int>(), 2);
@@ -416,4 +425,99 @@ TEST(RoomText, TheLlmDescriberAsksForFactsAndSkipsRepeats) {
     EXPECT_EQ(d, "Fog drifts over the black stones. A raven watches.");
     ASSERT_TRUE(g.Travel("greywick").ok);
     EXPECT_NE(mock->LastUser().find("Do not reuse"), std::string::npos);
+}
+
+// ---------------------------------------------------------------- rooms found while exploring
+
+TEST(Explore, FindsANewRoomWithPathsBothWaysAndSavesIt) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 9;
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    const std::size_t before = g.Module().locations.size();
+    g.SetRoomWriter([](const LocationDef& parent, const std::vector<std::string>&) {
+        ExtraRoom r;
+        r.name = "The Bone Orchard";
+        r.kind = "wilderness";
+        r.description = "Pale trees stand in rows, each hung with small bones that click together in the wind, off the " + parent.name + ".";
+        r.exitLabel = "Through the dead hedge";
+        r.fight = false;
+        return std::optional<ExtraRoom>(r);
+    });
+    const int hour = g.View(0)["clock"]["hour"];
+    const CmdResult res = g.Explore();
+    ASSERT_TRUE(res.ok) << res.message;
+    ASSERT_EQ(res.message, "x1");  // a random encounter on the road would have interrupted, so this seed must be quiet
+    EXPECT_EQ(g.Module().locations.size(), before + 1);
+    EXPECT_EQ(g.View(0)["clock"]["hour"].get<int>(), hour + 2);
+    bool offered = false;
+    for (const auto& x : ViewAt(g, {"location", "exits"})) offered = offered || (x["to"] == "x1" && x["label"] == "Through the dead hedge");
+    EXPECT_TRUE(offered);
+    ASSERT_TRUE(g.Travel("x1").ok);
+    EXPECT_EQ(g.View(0)["location"]["name"], "The Bone Orchard");
+    EXPECT_NE(g.View(0)["location"]["description"].get<std::string>().find("Pale trees"), std::string::npos);
+    bool back = false;
+    for (const auto& x : ViewAt(g, {"location", "exits"})) back = back || x["to"] == "mist_road";
+    EXPECT_TRUE(back);
+    // a saved game keeps the room, its way in and its description
+    const auto loaded = Game::Load(g.Save());
+    EXPECT_EQ(loaded->Module().locations.size(), before + 1);
+    EXPECT_EQ(loaded->View(0)["location"]["name"], "The Bone Orchard");
+    EXPECT_EQ(loaded->ExtraRooms().size(), 1u);
+    // the authored module itself is untouched
+    EXPECT_EQ(Content::FindModule("ravenmoor")->locations.size(), before);
+}
+
+TEST(Explore, WorksWithoutAModelAndIsLimitedPerRoom) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 2;
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    int found = 0;
+    for (int i = 0; i < 12 && g.GetMode() == Mode::Exploring; ++i) {
+        const CmdResult r = g.Explore();
+        if (r.ok && r.message != "interrupted") ++found;
+        if (g.GetMode() != Mode::Exploring) break;
+    }
+    EXPECT_LE(found, 3);  // at most three rooms off any one place
+    if (g.GetMode() == Mode::Exploring) {
+        EXPECT_FALSE(g.Explore().ok);
+        for (const auto& r : g.ExtraRooms()) EXPECT_FALSE(r.name.empty());
+    }
+}
+
+TEST(Explore, AFightRoomStartsACombatWhenEntered) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 4;
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    g.SetRoomWriter([](const LocationDef&, const std::vector<std::string>&) {
+        ExtraRoom r; r.name = "The Wolf Den"; r.description = "Bones and fur litter a low cave, and the stink of animals is thick in the air here."; r.fight = true; return std::optional<ExtraRoom>(r); });
+    const CmdResult res = g.Explore();
+    ASSERT_TRUE(res.ok);
+    if (res.message == "interrupted") GTEST_SKIP() << "a random encounter got there first with this seed";
+    ASSERT_TRUE(g.Travel("x1").ok);
+    EXPECT_EQ(g.GetMode(), Mode::Combat);
+}
+
+TEST(Explore, TheLlmRoomWriterParsesAndRejectsBadReplies) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    std::string reply = R"({"name":"The Salt Cellar","kind":"site","description":"Crusted white salt coats every surface of this low cellar, and your lamplight glitters back from the walls in a thousand points.","exitLabel":"A trapdoor under the rug","danger":"fight"})";
+    auto mock = std::make_shared<MockLlmClient>([&](const std::string&, const std::string&, bool) { LlmReply r; r.ok = true; r.content = reply; return r; });
+    auto writer = MakeLlmRoomWriter(mock, g);
+    const auto good = writer(g.Module().locations.front(), {"Greywick"});
+    ASSERT_TRUE(good.has_value());
+    EXPECT_EQ(good->name, "The Salt Cellar");
+    EXPECT_TRUE(good->fight);
+    EXPECT_EQ(good->exitLabel, "A trapdoor under the rug");
+    reply = "I cannot do that";
+    EXPECT_FALSE(writer(g.Module().locations.front(), {}).has_value());
+    reply = R"({"name":"X","kind":"site","description":"short"})";
+    EXPECT_FALSE(writer(g.Module().locations.front(), {}).has_value());
 }

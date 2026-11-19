@@ -52,6 +52,14 @@ struct PartyMember {
 //
 // Thread-safety: none. The server serialises access per game. Every mutating call installs this
 // game's own RNG, so concurrent games are independent and a loaded game replays identically.
+// A room found by exploring while the game is under way. Only these few facts are kept (and saved); the full location, with its
+// exits and events, is rebuilt from them.
+struct ExtraRoom {
+    std::string id, parent, name, kind = "site", description, exitLabel;
+    bool fight = false;  // the room holds a fight that starts when the party enters
+    bool cache = false;  // a hidden healing potion, found by searching
+};
+
 class Game {
 public:
     using Narrator = std::function<std::string(const Event&)>;
@@ -106,6 +114,13 @@ public:
     // ---- exploration
     CmdResult Travel(const std::string& to);
     CmdResult Search();
+    // Spends two hours looking for a way on from here and finds a new room beside the current one (at most three per room and
+    // forty in a game). The room comes from the writer if one is set, else from a built-in set. It becomes a normal place with
+    // a path to it and back.
+    CmdResult Explore();
+    using RoomWriter = std::function<std::optional<ExtraRoom>(const LocationDef& parent, const std::vector<std::string>& takenNames)>;
+    void SetRoomWriter(RoomWriter w) { roomWriter_ = std::move(w); }
+    const std::vector<ExtraRoom>& ExtraRooms() const { return extra_; }
     CmdResult Talk(const std::string& npc, const std::string& topic);
     CmdResult Rest(const std::string& kind, int maxHitDice = 99);  // "short" | "long"
     CmdResult Wait(int hours);
@@ -199,6 +214,9 @@ private:
     EventBus bus_;
     Narrator narrator_;
     Describer describer_;
+    RoomWriter roomWriter_;
+    std::vector<ExtraRoom> extra_;
+    void AddExtraRoom(const ExtraRoom& r);
     std::map<std::string, std::string> roomText_;  // location id -> generated description
     Listener listener_;
     ControllerFactory humanFactory_, monsterFactory_;

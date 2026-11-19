@@ -518,6 +518,111 @@ CmdResult Game::Search() {
     return {true, "ok"};
 }
 
+namespace {
+struct RoomSeed { const char* name; const char* text; };
+// What exploring finds when no model is writing rooms. Kept general, so it suits most settings.
+const RoomSeed kSiteRooms[] = {
+    {"A Hidden Side Room", "A narrow way you had walked past opens into a small room. The air is still and stale, and your footsteps seem loud. Old scratches mark the walls at head height, and a few mouldering belongings lie where someone dropped them."},
+    {"A Forgotten Store", "Behind a jammed door lies a cramped store, its shelves collapsed into heaps of rotten boxes and split sacks. Something small has made a nest in the corner, and the whole room smells of damp and old straw."},
+    {"A Quiet Alcove", "A shallow recess hides here, easy to miss in the gloom. A bench of worn stone runs along one wall, and a cold lamp hangs from a bracket above it. Someone once sat here to rest, and the place still feels as if it expects them back."},
+};
+const RoomSeed kWildRooms[] = {
+    {"A Sheltered Hollow", "A fold in the land hides a hollow out of the wind, ringed by stunted trees. The ground is soft with old leaves, and a ring of blackened stones marks where someone once kept a fire."},
+    {"A Trampled Clearing", "Beyond a screen of brush the ground opens into a clearing flattened by many feet. Bootprints and hoofprints cross and recross in dried mud, and a snapped spear shaft lies in the grass."},
+};
+const RoomSeed kTownRooms[] = {
+    {"A Back Courtyard", "A gate off the lane leads to a small walled courtyard, its cobbles green with moss. Washing hangs motionless from a line, and a single shuttered window overlooks the space."},
+    {"A Quiet Lane", "A crooked lane runs off between two buildings that lean together overhead. It is narrow enough that you could touch both walls, and the sounds of the main street fade behind you."},
+};
+template <std::size_t N> const RoomSeed& Pick(const RoomSeed (&a)[N]) { return a[static_cast<std::size_t>(DiceRoller::Index(static_cast<int>(N)))]; }
+}  // namespace
+
+CmdResult Game::Explore() {
+    if (mode_ != Mode::Exploring) return {false, "You cannot explore right now."};
+    DiceRoller::Scope scope(rng_);
+    const LocationDef& here = Here();
+    const std::string parentId = here.id;
+    int children = 0;
+    for (const auto& r : extra_) if (r.parent == parentId) ++children;
+    if (extra_.size() >= 40) return {false, "You have found everything that can be found here."};
+    if (children >= 3) return {false, "You have searched this place from end to end; nothing more is hidden here."};
+    Emit(EventType::Narration, "You spend two hours looking for a way on.");
+    for (int i = 0; i < 2; ++i)
+        if (PassHour("", 1.0, Here().rest != "safe")) return {true, "interrupted"};
+
+    std::vector<std::string> taken;
+    for (const auto& l : module_.locations) taken.push_back(l.name);
+    std::optional<ExtraRoom> made;
+    if (roomWriter_) {
+        try { made = roomWriter_(Here(), taken); } catch (...) { made.reset(); }
+    }
+    ExtraRoom r;
+    if (made) r = *made;
+    else {
+        const RoomSeed& s = here.kind == "wilderness" ? Pick(kWildRooms) : here.kind == "settlement" ? Pick(kTownRooms) : Pick(kSiteRooms);
+        r.name = s.name;
+        r.kind = here.kind == "settlement" ? "settlement" : here.kind == "wilderness" ? "wilderness" : "site";
+        r.description = s.text;
+        r.fight = DiceRoller::Percentile() <= 55;
+        r.cache = DiceRoller::Percentile() <= 35;
+    }
+    r.id = "x" + std::to_string(extra_.size() + 1);
+    r.parent = parentId;
+    if (r.exitLabel.empty()) r.exitLabel = "A newly found way: " + r.name;
+    std::string unique = r.name;
+    for (int n = 2; std::any_of(module_.locations.begin(), module_.locations.end(), [&](const LocationDef& l) { return l.name == unique; }); ++n) unique = r.name + " " + std::to_string(n);
+    r.name = unique;
+    extra_.push_back(r);
+    AddExtraRoom(r);
+    Emit(EventType::Narration, Cat("Your search turns up a way to ", r.name, "."));
+    return {true, r.id};
+}
+
+void Game::AddExtraRoom(const ExtraRoom& r) {
+    LocationDef l;
+    l.id = r.id;
+    l.name = r.name;
+    l.kind = r.kind;
+    l.description = r.description;
+    l.rest = r.kind == "settlement" ? "safe" : "risky";
+    l.map = Content::DefaultRoomMap();
+    std::string table;
+    for (auto& p : module_.locations)
+        if (p.id == r.parent) table = p.randomTable;
+    l.randomTable = table;
+    if (r.fight) {
+        EventDef e;
+        e.id = "ambush";
+        e.trigger = "enter";
+        e.once = true;
+        e.encounter = EncounterDef{{}, cfg_.difficulty.empty() ? "medium" : cfg_.difficulty};
+        l.events.push_back(std::move(e));
+    }
+    if (r.cache) {
+        EventDef e;
+        e.id = "cache";
+        e.trigger = "search";
+        e.once = true;
+        e.potions = 1;
+        e.narration = "Wedged out of sight you find a forgotten healing potion.";
+        l.events.push_back(std::move(e));
+    }
+    ExitDef back;
+    back.to = r.parent;
+    back.hours = 1;
+    for (const auto& p : module_.locations)
+        if (p.id == r.parent) back.label = "Back to " + p.name;
+    l.exits.push_back(std::move(back));
+    ExitDef in;
+    in.to = r.id;
+    in.hours = 1;
+    in.label = r.exitLabel;
+    roomText_[r.id] = r.description;
+    module_.locations.push_back(std::move(l));
+    for (auto& p : module_.locations)
+        if (p.id == r.parent) { p.exits.push_back(std::move(in)); break; }
+}
+
 CmdResult Game::Talk(const std::string& npcId, const std::string& topicId) {
     if (mode_ != Mode::Exploring) return {false, "Not now."};
     DiceRoller::Scope scope(rng_);

@@ -135,6 +135,9 @@ Json Game::Save() const {
     j["travelHoursToday"] = travelHoursToday_;
     j["flags"] = flags_;
     j["roomText"] = roomText_;
+    Json extra = Json::array();
+    for (const auto& r : extra_) extra.push_back(Json{{"id", r.id}, {"parent", r.parent}, {"name", r.name}, {"kind", r.kind}, {"description", r.description}, {"exitLabel", r.exitLabel}, {"fight", r.fight}, {"cache", r.cache}});
+    j["extraRooms"] = extra;
     j["fired"] = fired_;
     j["visited"] = visited_;
     j["questsDone"] = questsDone_;
@@ -181,6 +184,15 @@ std::unique_ptr<Game> Game::Load(const Json& j) {
     g->travelHoursToday_ = j.value("travelHoursToday", 0);
     g->flags_ = j.value("flags", std::map<std::string, std::string>{});
     g->roomText_ = j.value("roomText", std::map<std::string, std::string>{});
+    if (j.contains("extraRooms"))
+        for (const auto& e : j.at("extraRooms")) {
+            ExtraRoom r;
+            r.id = e.value("id", ""); r.parent = e.value("parent", ""); r.name = e.value("name", ""); r.kind = e.value("kind", "site");
+            r.description = e.value("description", ""); r.exitLabel = e.value("exitLabel", ""); r.fight = e.value("fight", false); r.cache = e.value("cache", false);
+            if (r.id.empty() || r.parent.empty()) continue;
+            g->extra_.push_back(r);
+            g->AddExtraRoom(r);
+        }
     for (const auto& s : j.value("fired", std::vector<std::string>{})) g->fired_.insert(s);
     for (const auto& s : j.value("visited", std::vector<std::string>{})) g->visited_.insert(s);
     for (const auto& s : j.value("questsDone", std::vector<std::string>{})) g->questsDone_.insert(s);

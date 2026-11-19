@@ -304,6 +304,40 @@ Game::Describer MakeLlmDescriber(std::shared_ptr<ILlmClient> client, const Game&
     };
 }
 
+Game::RoomWriter MakeLlmRoomWriter(std::shared_ptr<ILlmClient> client, const Game& game) {
+    return [client, &game](const LocationDef& parent, const std::vector<std::string>& taken) -> std::optional<ExtraRoom> {
+        const std::string system =
+            Cat("You invent one new room for a Dungeons & Dragons 5e game. The setting is: ", game.Module().setting, ". Match its tone. "
+                "The party has been exploring and has just found a place next to the one they are in. Reply with one JSON object only: "
+                "{\"name\": a short place name of two to five words, \"kind\": \"site\" or \"wilderness\" or \"settlement\", "
+                "\"description\": four or five sentences of present-tense prose addressed to the party as 'you', concrete and sensory, "
+                "\"exitLabel\": a short phrase for the path leading there, \"danger\": \"fight\" or \"quiet\"}. "
+                "Never name characters, never include dice, numbers or rules, never use dashes, and do not repeat a name already used.");
+        std::string user = Cat("The party stands in: ", parent.name, " (", parent.kind, ")\n", parent.description, "\nNames already used: ");
+        for (const auto& t : taken) user += t + "; ";
+        const LlmReply r = client->Chat(system, user, true);
+        if (!r.ok) return std::nullopt;
+        try {
+            const Json j = Json::parse(ExtractJsonObject(r.content));
+            ExtraRoom out;
+            out.name = j.value("name", "");
+            out.kind = j.value("kind", "site");
+            out.description = j.value("description", "");
+            out.exitLabel = j.value("exitLabel", "");
+            out.fight = j.value("danger", "quiet") == "fight";
+            out.cache = false;
+            std::replace(out.description.begin(), out.description.end(), '\n', ' ');
+            if (out.kind != "site" && out.kind != "wilderness" && out.kind != "settlement") out.kind = "site";
+            if (out.name.size() < 3 || out.name.size() > 48 || out.description.size() < 40) return std::nullopt;
+            if (out.description.size() > 1100) { out.description.resize(1100); const auto dot = out.description.find_last_of(".!?"); if (dot != std::string::npos) out.description.resize(dot + 1); }
+            if (out.exitLabel.size() > 80) out.exitLabel.clear();
+            return out;
+        } catch (...) {
+            return std::nullopt;
+        }
+    };
+}
+
 // ---------------------------------------------------------------- LLM DM
 
 LlmDmController::LlmDmController(std::shared_ptr<ILlmClient> client) : client_(std::move(client)), fallback_(std::make_unique<AIController>()) {}

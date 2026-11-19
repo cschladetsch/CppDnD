@@ -519,7 +519,7 @@ function renderScene() {
     rows.push(r);
   }
   const act = el("div", { className: "row" },
-    ...[["Search (1h)", () => cmd("search")], ["Short rest", () => cmd("rest", { kind: "short" })], ["Long rest", () => cmd("rest", { kind: "long" })], ["Wait 1h", () => cmd("wait", { hours: 1 })],
+    ...[["Search (1h)", () => cmd("search")], ["Explore (2h)", () => cmd("explore")], ["Short rest", () => cmd("rest", { kind: "short" })], ["Long rest", () => cmd("rest", { kind: "long" })], ["Wait 1h", () => cmd("wait", { hours: 1 })],
         ["Autopilot step", () => cmd("auto", { steps: 1 })], ["Autopilot x20", () => cmd("auto", { steps: 20 })]]
       .map(([t, f]) => el("button", { textContent: t, onclick: f, disabled: !exploring })),
     el("select", { onchange: e => cmd("pace", { pace: e.target.value }), disabled: !exploring }, ...["slow", "normal", "fast"].map(p => el("option", { value: p, textContent: "pace: " + p, selected: v.pace === p }))));
