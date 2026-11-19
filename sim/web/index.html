@@ -41,6 +41,7 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .pics .row { margin:6px 0; } .pics progress { width:100%; height:8px; } .pics .err { color:var(--bad); font-size:12px; }
 .hist { max-height:260px; overflow:auto; font-size:13px; margin-top:6px; }
 .hist div { padding:2px 0; } .hist .meta { color:var(--dim); font-size:11px; } .hist .from { color:var(--accent); }
+.mapwrap { overflow:auto; max-height:440px; border:1px solid var(--edge); border-radius:6px; background:#1b2416; } canvas.worldmap { display:block; max-width:none; }
 #grid { display:grid; gap:1px; background:#0c0a12; width:max-content; max-width:100%; overflow:auto; border:1px solid var(--edge); }
 .cell { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font:700 13px ui-monospace, monospace; background:#262235 var(--tile-floor) center/100% 100%; user-select:none; position:relative; }
 .cell.wall { background:#08070c var(--tile-wall) center/100% 100%; } .cell.rough { background:#322c3f var(--tile-rough) center/100% 100%; } .cell.half, .cell.three { background:#3a3326 var(--tile-cover) center/100% 100%; }
@@ -280,51 +281,215 @@ async function refreshTable() {
 // ---------------------------------------------------------------- world map
 const SVGNS = "http://www.w3.org/2000/svg";
 const svg = (tag, attrs = {}, text) => { const e = document.createElementNS(SVGNS, tag); for (const k in attrs) e.setAttribute(k, attrs[k]); if (text !== undefined) e.textContent = text; return e; };
-const KIND_FILL = { settlement: "#2c3a2f", wilderness: "#2b3140", site: "#3a2b2b", boundary: "#33302a" };
-function renderMap() {
-  const box = $("#map"), m = view.map; if (!box || !m) return;
-  if (!m.nodes.length) { box.replaceChildren(el("h2", { textContent: "Map" }), el("div", { className: "dim small", textContent: "No world map for this game." })); return; }
+// ---- the world map: a painted top-down view. Terrain, roads and each place are drawn with canvas 2D from a seed per place,
+// so the same map always looks the same. Light comes from the top left.
+const wmHash = s => { let h = 2166136261; for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619); } h ^= h >>> 16; h = Math.imul(h, 0x85ebca6b); h ^= h >>> 13; h = Math.imul(h, 0xc2b2ae35); h ^= h >>> 16; return h >>> 0; };
+const wmRng = seed => { let a = seed >>> 0; return () => { a = (a + 0x6D2B79F5) >>> 0; let t = a; t = Math.imul(t ^ (t >>> 15), t | 1); t ^= t + Math.imul(t ^ (t >>> 7), t | 61); return ((t ^ (t >>> 14)) >>> 0) / 4294967296; }; };
+const wmMix = (a, b, t) => a + (b - a) * t;
+const wmRgb = (c1, c2, t) => `rgb(${wmMix(c1[0], c2[0], t) | 0},${wmMix(c1[1], c2[1], t) | 0},${wmMix(c1[2], c2[2], t) | 0})`;
+const WM_R = 62;   // how far a place's ground spreads
+
+// smooth value noise over a lattice, summed over three scales, in 0..1
+function wmNoise(seed) {
+  const cache = new Map();
+  const lat = (x, y) => { const k = x + "," + y; let v = cache.get(k); if (v === undefined) { v = wmHash(seed + ":" + k) / 4294967296; cache.set(k, v); } return v; };
+  const one = (x, y) => { const xi = Math.floor(x), yi = Math.floor(y), xf = x - xi, yf = y - yi, u = xf * xf * (3 - 2 * xf), w = yf * yf * (3 - 2 * yf);
+    return wmMix(wmMix(lat(xi, yi), lat(xi + 1, yi), u), wmMix(lat(xi, yi + 1), lat(xi + 1, yi + 1), u), w); };
+  return (x, y) => (one(x / 90, y / 90) * 0.55 + one(x / 34, y / 34) * 0.3 + one(x / 13, y / 13) * 0.15);
+}
+
+// the ground under everything: patchy grass and earth with grain, drawn once per size and reused
+const wmGround = new Map();
+function wmBase(W, H, key, doc) {
+  const id = `${key}|${W}|${H}`; if (wmGround.has(id)) return wmGround.get(id);
+  const s = 6, w = Math.ceil(W / s), h = Math.ceil(H / s), small = doc.createElement("canvas"); small.width = w; small.height = h;
+  const sc = small.getContext("2d"), img = sc.createImageData(w, h), n = wmNoise(key), n2 = wmNoise(key + "b");
+  const grass = [[40, 58, 32], [78, 96, 48]], earth = [[84, 68, 44], [118, 98, 62]];
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const v = n(x * s, y * s), patch = n2(x * s + 400, y * s + 400);
+    const a = wmRgb(grass[0], grass[1], v), b = wmRgb(earth[0], earth[1], v), t = Math.max(0, Math.min(1, (patch - 0.52) * 5));
+    const m = /(\d+),(\d+),(\d+)/.exec(a), q = /(\d+),(\d+),(\d+)/.exec(b), i = (y * w + x) * 4;
+    img.data[i] = wmMix(+m[1], +q[1], t); img.data[i + 1] = wmMix(+m[2], +q[2], t); img.data[i + 2] = wmMix(+m[3], +q[3], t); img.data[i + 3] = 255;
+  }
+  sc.putImageData(img, 0, 0);
+  const c = doc.createElement("canvas"); c.width = W; c.height = H; const x = c.getContext("2d");
+  x.imageSmoothingEnabled = true; x.imageSmoothingQuality = "high"; x.drawImage(small, 0, 0, w * s, h * s);
+  const r = wmRng(wmHash(key));
+  for (let i = 0; i < W * H / 38; i++) {   // grain: blades and specks
+    const px = r() * W, py = r() * H, d = r();
+    x.fillStyle = d < 0.5 ? `rgba(20,30,12,${0.06 + r() * 0.1})` : `rgba(190,200,120,${0.04 + r() * 0.07})`;
+    x.fillRect(px, py, 1 + r() * 1.5, 1 + r() * 2.5);
+  }
+  if (wmGround.size > 6) wmGround.clear();
+  wmGround.set(id, c); return c;
+}
+
+function wmShadowEllipse(x, cx, cy, rx, ry, a) { x.fillStyle = `rgba(0,0,0,${a})`; x.beginPath(); x.ellipse(cx + 4, cy + 5, rx, ry, 0, 0, 7); x.fill(); }
+
+function wmTree(x, r, cx, cy, size) {
+  wmShadowEllipse(x, cx, cy, size * 0.95, size * 0.8, 0.28);
+  const g = x.createRadialGradient(cx - size * 0.35, cy - size * 0.4, size * 0.1, cx, cy, size);
+  const hue = r() < 0.3 ? [[96, 128, 52], [34, 66, 28]] : [[70, 112, 52], [22, 52, 30]];
+  g.addColorStop(0, wmRgb(hue[0], hue[0], 0)); g.addColorStop(1, wmRgb(hue[1], hue[1], 0));
+  x.fillStyle = g; x.beginPath();
+  for (let a = 0; a < 7; a++) { const ang = a / 7 * Math.PI * 2, rr = size * (0.86 + r() * 0.2); x.lineTo(cx + Math.cos(ang) * rr, cy + Math.sin(ang) * rr); }
+  x.closePath(); x.fill();
+  x.fillStyle = "rgba(210,230,140,.16)"; x.beginPath(); x.arc(cx - size * 0.3, cy - size * 0.32, size * 0.34, 0, 7); x.fill();
+}
+function wmHouse(x, r, cx, cy, w, h, rot) {
+  x.save(); x.translate(cx, cy); x.rotate(rot);
+  x.fillStyle = "rgba(0,0,0,.34)"; x.fillRect(-w / 2 + 4, -h / 2 + 5, w, h);
+  const palette = [[150, 70, 52], [96, 100, 112], [176, 150, 90], [120, 78, 58]], c = palette[(r() * palette.length) | 0];
+  const lit = x.createLinearGradient(0, -h / 2, 0, h / 2);
+  lit.addColorStop(0, wmRgb(c, [255, 235, 200], 0.2)); lit.addColorStop(0.5, wmRgb(c, c, 0)); lit.addColorStop(0.5, wmRgb(c, [0, 0, 0], 0.32)); lit.addColorStop(1, wmRgb(c, [0, 0, 0], 0.42));
+  x.fillStyle = lit; x.fillRect(-w / 2, -h / 2, w, h);
+  x.strokeStyle = "rgba(0,0,0,.45)"; x.lineWidth = 1; x.strokeRect(-w / 2, -h / 2, w, h);
+  x.strokeStyle = "rgba(255,235,200,.35)"; x.beginPath(); x.moveTo(-w / 2, 0); x.lineTo(w / 2, 0); x.stroke();
+  x.restore();
+}
+function wmStone(x, r, cx, cy, w, h, rot) {
+  x.save(); x.translate(cx, cy); x.rotate(rot);
+  x.fillStyle = "rgba(0,0,0,.35)"; x.fillRect(-w / 2 + 3, -h / 2 + 4, w, h);
+  const v = 118 + r() * 50, g = x.createLinearGradient(-w / 2, -h / 2, w / 2, h / 2);
+  g.addColorStop(0, `rgb(${v + 28},${v + 24},${v + 22})`); g.addColorStop(1, `rgb(${v - 26},${v - 28},${v - 24})`);
+  x.fillStyle = g; x.fillRect(-w / 2, -h / 2, w, h); x.strokeStyle = "rgba(0,0,0,.5)"; x.lineWidth = 1; x.strokeRect(-w / 2, -h / 2, w, h);
+  x.restore();
+}
+
+// one place, painted by kind
+function wmPlace(x, n, p, nm) {
+  const r = wmRng(wmHash(n.id)), R = WM_R;
+  const ground = { settlement: [[132, 112, 70], [70, 62, 40]], wilderness: [[40, 74, 36], [30, 52, 28]], site: [[96, 92, 96], [54, 52, 60]], boundary: [[82, 80, 86], [38, 36, 44]] }[n.kind] || [[100, 90, 70], [60, 52, 40]];
+  const gr = x.createRadialGradient(p.x, p.y, R * 0.2, p.x, p.y, R);
+  gr.addColorStop(0, `rgba(${ground[0]},0.92)`); gr.addColorStop(0.7, `rgba(${ground[1]},0.7)`); gr.addColorStop(1, `rgba(${ground[1]},0)`);
+  x.fillStyle = gr; x.beginPath(); x.arc(p.x, p.y, R, 0, 7); x.fill();
+  if (n.kind === "settlement") {
+    x.fillStyle = "rgba(210,190,120,.16)"; for (let i = 0; i < 14; i++) { const a = r() * 7, d = r() * R * 0.9; x.fillRect(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 5, 2); }
+    const count = 6 + ((r() * 4) | 0);
+    for (let i = 0; i < count; i++) { const a = i / count * Math.PI * 2 + r() * 0.5, d = 18 + r() * 24; wmHouse(x, r, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 15 + r() * 10, 11 + r() * 7, a + Math.PI / 2 + (r() - 0.5) * 0.5); }
+    x.fillStyle = "rgba(60,90,120,.9)"; x.beginPath(); x.arc(p.x, p.y, 5, 0, 7); x.fill(); x.strokeStyle = "rgba(170,160,140,.9)"; x.lineWidth = 2; x.stroke();
+  } else if (n.kind === "wilderness") {
+    const count = 14 + ((r() * 6) | 0), spots = [];
+    for (let i = 0; i < count; i++) { const a = r() * 7, d = Math.sqrt(r()) * R * 0.82; spots.push([p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 8 + r() * 8]); }
+    spots.sort((a, b) => a[1] - b[1]); for (const s of spots) wmTree(x, r, s[0], s[1], s[2]);
+  } else if (n.kind === "site") {
+    for (let i = 0; i < 40; i++) { const a = r() * 7, d = r() * R * 0.8; x.fillStyle = `rgba(30,30,36,${0.1 + r() * 0.1})`; x.fillRect(p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 7, 7); }
+    const blocks = 22;
+    for (let i = 0; i < blocks; i++) { if (r() < 0.28) continue; const a = i / blocks * Math.PI * 2, d = 32 + r() * 3; wmStone(x, r, p.x + Math.cos(a) * d, p.y + Math.sin(a) * d, 9 + r() * 3, 6, a + Math.PI / 2); }
+    wmStone(x, r, p.x - 2, p.y - 2, 22, 16, (r() - 0.5) * 0.5);
+    for (let i = 0; i < 3; i++) wmStone(x, r, p.x + (r() - 0.5) * 50, p.y + (r() - 0.5) * 50, 5, 5, r());
+  } else {   // boundary: a gate between two towers, with mist
+    const tw = (cx, cy) => { wmShadowEllipse(x, cx, cy, 13, 12, 0.34); const g = x.createRadialGradient(cx - 4, cy - 4, 2, cx, cy, 13); g.addColorStop(0, "#b2aeb4"); g.addColorStop(1, "#4a4850"); x.fillStyle = g; x.beginPath(); x.arc(cx, cy, 12, 0, 7); x.fill(); x.strokeStyle = "rgba(0,0,0,.55)"; x.lineWidth = 1.2; x.stroke(); x.fillStyle = "#2a2830"; x.beginPath(); x.arc(cx, cy, 5, 0, 7); x.fill(); };
+    wmStone(x, r, p.x, p.y - 20, 58, 7, 0); wmStone(x, r, p.x, p.y + 20, 58, 7, 0); tw(p.x - 30, p.y); tw(p.x + 30, p.y);
+    x.fillStyle = "#1c1a20"; x.fillRect(p.x - 17, p.y - 4, 34, 8);
+    for (let i = 0; i < 6; i++) { x.fillStyle = "rgba(225,228,240,.08)"; x.beginPath(); x.arc(p.x + (r() - 0.5) * R * 1.4, p.y + (r() - 0.5) * R * 1.2, 16 + r() * 14, 0, 7); x.fill(); }
+  }
+}
+
+// layout: [{id, x, y}] -> draw everything. m is the view's map, flags say how to dress each place.
+function drawWorldMap(canvas, m, pos, o) {
+  const doc = canvas.ownerDocument || document, W = o.W, H = o.H, dpr = o.dpr || 1;
+  canvas.width = Math.round(W * dpr); canvas.height = Math.round(H * dpr);
+  const x = canvas.getContext("2d"); x.setTransform(dpr, 0, 0, dpr, 0, 0);
+  x.drawImage(wmBase(W, H, o.key || "map", doc), 0, 0);
+  const byId = new Map(m.nodes.map(n => [n.id, n]));
+  // roads: a dark verge, packed earth, a pale worn middle, ruts. Closed ways are barred and dimmer.
+  const drawn = new Set(), labels = [];
+  for (const e of m.edges) {
+    const a = pos.get(e.from), b = pos.get(e.to); if (!a || !b) continue;
+    const key = [e.from, e.to].sort().join("|"); if (drawn.has(key)) continue; drawn.add(key);
+    const r = wmRng(wmHash(key)), dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1, bend = (r() - 0.5) * Math.min(70, len * 0.35);
+    const cx = (a.x + b.x) / 2 - dy / len * bend, cy = (a.y + b.y) / 2 + dx / len * bend;
+    const path = () => { x.beginPath(); x.moveTo(a.x, a.y); x.quadraticCurveTo(cx, cy, b.x, b.y); };
+    x.lineCap = "round"; x.setLineDash([]);
+    path(); x.strokeStyle = "rgba(10,12,6,.38)"; x.lineWidth = 12; x.stroke();
+    x.save(); x.translate(2, 3); path(); x.strokeStyle = "rgba(0,0,0,.22)"; x.lineWidth = 9; x.stroke(); x.restore();
+    path(); x.strokeStyle = e.open ? "#7a6340" : "#4c4034"; x.lineWidth = 8; x.stroke();
+    path(); x.strokeStyle = e.open ? "#a68d60" : "#6a5a46"; x.lineWidth = 4.5; if (!e.open) x.setLineDash([9, 7]); x.stroke(); x.setLineDash([]);
+    path(); x.strokeStyle = "rgba(60,44,26,.45)"; x.lineWidth = 0.8; x.stroke();
+    if (!e.open) { const t = 0.5, mx = (1 - t) * (1 - t) * a.x + 2 * (1 - t) * t * cx + t * t * b.x, my = (1 - t) * (1 - t) * a.y + 2 * (1 - t) * t * cy + t * t * b.y; x.save(); x.translate(mx, my); x.fillStyle = "#3b2a1c"; x.strokeStyle = "#1a120b"; x.lineWidth = 1.5; x.fillRect(-9, -3, 18, 6); x.strokeRect(-9, -3, 18, 6); x.restore(); }
+    const lbl = e.hours ? `${e.hours}h` : e.miles ? `${e.miles} mi` : "";
+    if (lbl) labels.push([(a.x + 2 * cx + b.x) / 4, (a.y + 2 * cy + b.y) / 4 - 8, lbl]);
+  }
+  const places = [...m.nodes].sort((p, q) => pos.get(p.id).y - pos.get(q.id).y);
+  for (const n of places) {
+    const p = pos.get(n.id); wmPlace(x, n, p);
+    if (!n.visited && !n.current) {   // not seen yet: a veil of fog over the place
+      const f = x.createRadialGradient(p.x, p.y, 6, p.x, p.y, WM_R + 6); f.addColorStop(0, "rgba(20,22,30,.62)"); f.addColorStop(0.75, "rgba(20,22,30,.55)"); f.addColorStop(1, "rgba(20,22,30,0)");
+      x.fillStyle = f; x.beginPath(); x.arc(p.x, p.y, WM_R + 6, 0, 7); x.fill();
+      x.fillStyle = "rgba(235,230,215,.75)"; x.font = "700 22px Georgia, serif"; x.textAlign = "center"; x.textBaseline = "middle"; x.fillText("?", p.x, p.y);
+    }
+    if (o.open.has(n.id)) {   // somewhere you can go now
+      x.strokeStyle = "rgba(240,200,90,.9)"; x.lineWidth = 2.5; x.setLineDash([6, 4]); x.beginPath(); x.arc(p.x, p.y, 46, 0, 7); x.stroke(); x.setLineDash([]);
+      const g = x.createRadialGradient(p.x, p.y, 36, p.x, p.y, 54); g.addColorStop(0, "rgba(240,200,90,0)"); g.addColorStop(0.7, "rgba(240,200,90,.22)"); g.addColorStop(1, "rgba(240,200,90,0)"); x.fillStyle = g; x.beginPath(); x.arc(p.x, p.y, 54, 0, 7); x.fill();
+    }
+  }
+  x.font = "600 10px Georgia, serif"; x.textAlign = "center"; x.textBaseline = "middle";
+  for (const [lx, ly, t] of labels) { const w = x.measureText(t).width + 10; x.fillStyle = "rgba(24,18,10,.78)"; x.beginPath(); x.roundRect ? x.roundRect(lx - w / 2, ly - 8, w, 16, 8) : x.rect(lx - w / 2, ly - 8, w, 16); x.fill(); x.fillStyle = "#e8d9b0"; x.fillText(t, lx, ly + 0.5); }
+  // names, then the party's marker on top
+  for (const n of places) {
+    const p = pos.get(n.id), name = n.name.length > 26 ? n.name.slice(0, 25) + "…" : n.name;
+    x.font = `${n.current ? 700 : 600} 13px Georgia, serif`; x.textAlign = "center"; x.textBaseline = "middle";
+    x.lineJoin = "round"; x.lineWidth = 4; x.strokeStyle = "rgba(14,10,6,.9)"; x.strokeText(name, p.x, p.y + WM_R - 4);
+    x.fillStyle = n.current ? "#ffe39a" : n.visited ? "#f1e6c8" : "#aeb0b8"; x.fillText(name, p.x, p.y + WM_R - 4);
+  }
+  const cur = m.nodes.find(n => n.current);
+  if (cur) {
+    const p = pos.get(cur.id), col = o.fighting ? [214, 90, 90] : [240, 200, 90];
+    const g = x.createRadialGradient(p.x, p.y, 36, p.x, p.y, 62); g.addColorStop(0, `rgba(${col},0)`); g.addColorStop(0.75, `rgba(${col},.3)`); g.addColorStop(1, `rgba(${col},0)`); x.fillStyle = g; x.beginPath(); x.arc(p.x, p.y, 62, 0, 7); x.fill();
+    x.strokeStyle = `rgb(${col})`; x.lineWidth = 3; x.beginPath(); x.arc(p.x, p.y, 50, 0, 7); x.stroke();
+    // the party: a round standard seen from above, set on the ring, with a shadow
+    const sx = p.x, sy = p.y - 50;
+    x.fillStyle = "rgba(0,0,0,.4)"; x.beginPath(); x.ellipse(sx + 4, sy + 6, 12, 9, 0, 0, 7); x.fill();
+    const t = x.createRadialGradient(sx - 4, sy - 4, 2, sx, sy, 13); t.addColorStop(0, o.fighting ? "#f08080" : "#8fc2ff"); t.addColorStop(1, o.fighting ? "#7a1f1f" : "#1d4f99");
+    x.fillStyle = t; x.beginPath(); x.arc(sx, sy, 12, 0, 7); x.fill(); x.strokeStyle = "#0b1a33"; x.lineWidth = 1.5; x.stroke();
+    x.fillStyle = "#f4ead0"; x.beginPath(); x.arc(sx, sy, 3.8, 0, 7); x.fill();
+  }
+  // a soft vignette, like the edge of an old map
+  const v = x.createRadialGradient(W / 2, H / 2, Math.min(W, H) * 0.35, W / 2, H / 2, Math.hypot(W, H) * 0.55); v.addColorStop(0, "rgba(0,0,0,0)"); v.addColorStop(1, "rgba(0,0,0,.45)"); x.fillStyle = v; x.fillRect(0, 0, W, H);
+}
+
+// Place the nodes: columns by distance from the start (so the way in runs left to right), rows spread evenly, each nudged
+// a little by its own hash so the map does not look like a table. Returns {pos, W, H}.
+function wmLayout(m) {
   const nodes = m.nodes, byId = new Map(nodes.map(n => [n.id, n]));
   const adj = new Map(nodes.map(n => [n.id, new Set()]));
   for (const e of m.edges) if (byId.has(e.from) && byId.has(e.to)) { adj.get(e.from).add(e.to); adj.get(e.to).add(e.from); }
   const depth = new Map(), root = byId.has(m.start) ? m.start : nodes[0].id, q = [root]; depth.set(root, 0);
   while (q.length) { const a = q.shift(); for (const b of adj.get(a)) if (!depth.has(b)) { depth.set(b, depth.get(a) + 1); q.push(b); } }
-  let extra = Math.max(...depth.values()) + 1; for (const n of nodes) if (!depth.has(n.id)) depth.set(n.id, extra);
+  const extra = Math.max(...depth.values()) + 1; for (const n of nodes) if (!depth.has(n.id)) depth.set(n.id, extra);
   const layers = []; for (const n of nodes) (layers[depth.get(n.id)] ||= []).push(n);
-  const NW = 140, NH = 30, GX = 30, GY = 14, pos = new Map();
-  const rows = Math.max(...layers.filter(Boolean).map(l => l.length));
-  const H = rows * (NH + GY) + GY, cols = layers.filter(Boolean);
-  cols.forEach((layer, ci) => { layer.sort((a, b) => a.name.localeCompare(b.name));
-    const top = (H - layer.length * (NH + GY) + GY) / 2;
-    layer.forEach((n, ri) => pos.set(n.id, { x: GY + ci * (NW + GX), y: top + ri * (NH + GY) })); });
-  const W = cols.length * (NW + GX) - GX + 2 * GY;
-  const root_ = svg("svg", { viewBox: `0 0 ${W} ${H}`, width: "100%", style: `max-height:${Math.max(180, H)}px` });
-  const centre = id => ({ x: pos.get(id).x + NW / 2, y: pos.get(id).y + NH / 2 });
-  const drawn = new Set();
-  for (const e of m.edges) {
-    if (!pos.has(e.from) || !pos.has(e.to)) continue;
-    const key = [e.from, e.to].sort().join("|"); if (drawn.has(key)) continue; drawn.add(key);
-    const a = centre(e.from), b = centre(e.to);
-    root_.append(svg("line", { x1: a.x, y1: a.y, x2: b.x, y2: b.y, stroke: e.open ? "#6b6485" : "#5a3a3a", "stroke-width": 1.5, "stroke-dasharray": e.open ? "" : "4 3" }));
-    const lbl = e.hours ? `${e.hours}h` : e.miles ? `${e.miles} mi` : "";
-    if (lbl) root_.append(svg("text", { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 - 2, fill: "#9a93ab", "font-size": 8, "text-anchor": "middle", style: "paint-order:stroke;stroke:#1d1a26;stroke-width:3px" }, lbl));
-  }
+  const cols = layers.filter(Boolean), COLW = 200, ROWH = 150, PAD = 100;
+  const rows = Math.max(...cols.map(l => l.length)), H = Math.max(300, rows * ROWH + PAD), W = cols.length * COLW + PAD;
+  const pos = new Map();
+  cols.forEach((layer, ci) => {
+    layer.sort((a, b) => a.name.localeCompare(b.name));
+    const top = (H - layer.length * ROWH) / 2 + ROWH / 2;
+    layer.forEach((n, ri) => { const r = wmRng(wmHash("p" + n.id)); pos.set(n.id, { x: PAD / 2 + COLW / 2 + ci * COLW + (r() - 0.5) * 36, y: top + ri * ROWH + (r() - 0.5) * 30 }); });
+  });
+  return { pos, W, H };
+}
+
+function renderMap() {
+  const box = $("#map"), m = view.map; if (!box || !m) return;
+  if (!m.nodes.length) { box.replaceChildren(el("h2", { textContent: "Map" }), el("div", { className: "dim small", textContent: "No world map for this game." })); return; }
+  const { pos, W, H } = wmLayout(m);
   const exploring = view.mode === "exploring", fighting = view.mode === "combat";
-  const open = new Set(view.location ? view.location.exits.filter(x => x.available).map(x => x.to) : []);
-  for (const n of nodes) {
-    const p = pos.get(n.id), go = exploring && open.has(n.id);
-    const g = svg("g", { style: go ? "cursor:pointer" : "" });
-    g.append(svg("title", {}, `${n.name}${n.current ? " (you are here)" : n.visited ? " (visited)" : " (not yet visited)"}`));
-    g.append(svg("rect", { x: p.x, y: p.y, width: NW, height: NH, rx: 6, fill: n.current ? "#c9a24d" : (KIND_FILL[n.kind] || "#2a2638"),
-      stroke: n.current && fighting ? "#d65a5a" : n.current ? "#c9a24d" : go ? "#c9a24d" : "#4a4460", "stroke-width": n.current && fighting ? 3 : 1.5, "stroke-dasharray": n.visited ? "" : "3 3" }));
-    g.append(svg("text", { x: p.x + NW / 2, y: p.y + (n.current ? 13 : 19), "text-anchor": "middle", "font-size": 10.5, fill: n.current ? "#1a1405" : n.visited ? "#e6e1ee" : "#9a93ab", "font-weight": n.current ? 700 : 400 }, n.name.length > 22 ? n.name.slice(0, 21) + "\u2026" : n.name));
-    if (n.current) g.append(svg("text", { x: p.x + NW / 2, y: p.y + 25, "text-anchor": "middle", "font-size": 8.5, fill: fighting ? "#8a1d1d" : "#1a1405" },
-      view.mode === "complete" ? "journey's end" : view.mode === "defeated" ? "fallen here" : fighting ? "fighting" : "you are here"));
-    if (go) g.onclick = () => cmd("travel", { to: n.id });
-    root_.append(g);
-  }
-  box.replaceChildren(el("h2", { textContent: "Map" }), root_,
-    el("div", { className: "dim small", textContent: "Solid: visited. Dashed: known, not yet visited. Click a lit place to travel there." }));
+  const open = new Set(exploring && view.location ? view.location.exits.filter(x => x.available).map(x => x.to) : []);
+  const canvas = el("canvas", { className: "worldmap" });
+  canvas.style.width = W + "px"; canvas.style.height = H + "px";
+  drawWorldMap(canvas, m, pos, { W, H, dpr: Math.min(2, window.devicePixelRatio || 1), key: view.module.id, open, fighting });
+  const hit = ev => { const r = canvas.getBoundingClientRect(), px = (ev.clientX - r.left) * W / r.width, py = (ev.clientY - r.top) * H / r.height;
+    return m.nodes.find(n => { const p = pos.get(n.id); return Math.hypot(p.x - px, p.y - py) < 50; }); };
+  canvas.onmousemove = ev => { const n = hit(ev); canvas.style.cursor = n && open.has(n.id) ? "pointer" : "default";
+    canvas.title = n ? `${n.name}${n.current ? " (you are here)" : n.visited ? " (visited)" : " (not yet visited)"}` : ""; };
+  canvas.onclick = ev => { const n = hit(ev); if (n && open.has(n.id)) cmd("travel", { to: n.id }); };
+  const keep = box.querySelector(".mapwrap");
+  const wrap = el("div", { className: "mapwrap" }, canvas);
+  box.replaceChildren(el("h2", { textContent: "Map" }), wrap,
+    el("div", { className: "dim small", textContent: "A top-down chart of the places you know. Fogged places are not yet visited. Click a ringed place to travel there." }));
+  const cur = m.nodes.find(n => n.current);
+  if (cur) { const p = pos.get(cur.id); wrap.scrollLeft = keep ? keep.scrollLeft : Math.max(0, p.x - wrap.clientWidth / 2); wrap.scrollTop = keep ? keep.scrollTop : Math.max(0, p.y - wrap.clientHeight / 2); }
 }
 
 // ---------------------------------------------------------------- exploration
@@ -686,7 +851,7 @@ function renderViewBar() {
   box.replaceChildren(el("div", { className: "viewbar" },
     el("button", { className: "primary", textContent: viewBusy ? "Drawing..." : `Show what ${name || "my hero"} sees`, disabled: viewBusy,
       title: "Draws the scene from this character's eyes with the local image model", onclick: () => showView() }),
-    el("button", { textContent: "Camera...", title: "Place the camera yourself, with a live preview", onclick: openCamera }),
+    el("button", { textContent: "Camera...", title: "Aim the camera yourself with a live preview, then draw a realistic picture of what it sees", onclick: openCamera }),
     el("span", { className: "viewmsg small " + (viewMsg.bad ? "err" : "dim"), textContent: viewMsg.text })));
 }
 function renderViewport() {
@@ -880,8 +1045,10 @@ async function openCamera() {
   const strength = el("input", { type: "range", min: 0.3, max: 0.95, step: 0.01, value: 0.72, style: "width:100%" });
   const strengthVal = el("span", { className: "dim small", textContent: "0.72" });
   strength.oninput = () => { strengthVal.textContent = (+strength.value).toFixed(2); };
-  const useInit = el("input", { type: "checkbox", checked: true, id: "camInit" });
-  const out = el("div", { className: "camout" }, el("div", { className: "dim small", textContent: "Nothing drawn yet. Move the camera, then press Draw this view. The picture also appears on the main screen." }));
+  strength.hidden = true;
+  const useInit = el("input", { type: "checkbox", checked: false, id: "camInit" });   // off: paint the view the way "Show what X sees" does
+  useInit.onchange = () => { strength.hidden = !useInit.checked; const f = document.getElementById("camFreedom"); if (f) f.hidden = !useInit.checked; };
+  const out = el("div", { className: "camout" }, el("div", { className: "dim small", textContent: "Nothing drawn yet. Move the camera, then press Draw this view for a realistic picture. It also appears on the main screen." }));
   const drawBtn = el("button", { className: "primary", textContent: "Draw this view" });
   drawBtn.onclick = async () => {
     if (viewBusy) return;
@@ -918,10 +1085,11 @@ async function openCamera() {
         el("div", {},
           el("h2", { textContent: "Position" }), fields, el("h2", { textContent: "Presets", style: "margin-top:10px" }), presets, el("div", { className: "row" }, looks),
           el("h2", { textContent: "Draw", style: "margin-top:10px" }),
-          el("label", { className: "small" }, useInit, " start from the live preview (the picture follows what you see)"),
-          el("div", { className: "small dim", style: "margin-top:6px" }, "Freedom ", strengthVal, ": low keeps close to the preview, high lets the model invent more"), strength,
+          el("div", { className: "small dim", textContent: "Draws a realistic picture of exactly what the camera sees, the same way as Show what " + (heroName() || "my hero") + " sees." }),
+          el("label", { className: "small", style: "display:block;margin-top:6px" }, useInit, " keep the preview's composition (blocky, but follows it closely)"),
+          el("div", { id: "camFreedom", className: "small dim", style: "margin-top:6px", hidden: true }, "Freedom ", strengthVal, ": low keeps close to the preview, high lets the model invent more"), strength,
           el("div", { className: "row" }, drawBtn, el("span", { className: "viewmsg small dim", textContent: viewMsg.text })),
-          el("div", { className: "dim small", textContent: "The preview is a plain stand-in: blue is your party, red is foes, green is other people. The model paints over it." })))));
+          el("div", { className: "dim small", textContent: "The live preview is only a plain guide to aim with: blue is your party, red is foes, green is other people." })))));
 
   const camCode = e => e.key && e.key.length === 1 && /[a-z]/i.test(e.key) ? "Key" + e.key.toUpperCase() : e.code;   // go by the letter typed, so it follows your keyboard layout
   const onKey = e => {

@@ -133,7 +133,7 @@
    "kind": "wilderness",
    "rest": "risky",
    "randomTable": "road",
-   "description": "A rutted road ends at a wall of luminous fog. A cairn of black stones marks the border, its top carved with a raven. Wolves howl somewhere east.",
+   "description": "A rutted road ends at a wall of luminous fog. A cairn of black stones marks the border, its top carved with a raven. Wolves howl somewhere east. The ruts are filled with standing water that reflects a moon larger and sicker than the one overhead. Behind you the way back is already fading into grey, and the horses refuse to look at the fog. Near the cairn someone has left a dead raven on a flat stone, its beak pointing the way in.",
    "events": [
     {
      "id": "arrival",
@@ -164,7 +164,7 @@
    "name": "Greywick",
    "kind": "settlement",
    "rest": "safe",
-   "description": "A huddle of shuttered cottages around a crooked well. Garlic hangs from every lintel. The only window with light belongs to the Bent Raven inn.",
+   "description": "A huddle of shuttered cottages around a crooked well. Garlic hangs from every lintel. The only window with light belongs to the Bent Raven inn. Nobody is on the street, but the shutters tick open a finger's width as you pass and snap shut again. The crooked well has been chained and padlocked, and the chain is hung with tiny iron bells that never ring. From the inn comes the smell of woodsmoke and stew, and the muffled murmur of people trying not to be overheard.",
    "events": [
     {
      "id": "welcome",
@@ -251,7 +251,7 @@
     "..~~....c....~~O....",
     "...................."
    ],
-   "description": "Black pines crowd the track. The wind makes a sound like muttered conversation, and the muttering stops whenever you do.",
+   "description": "Black pines crowd the track. The wind makes a sound like muttered conversation, and the muttering stops whenever you do. The ground is a bed of needles so deep your steps make no sound, which only makes the muttering above seem louder. Pale threads of fungus glow where the roots crack the path, and now and then a trunk bears a deep claw mark at the height of a man's chest. Every so often the trees creak together, as if turning to look.",
    "events": [
     {
      "id": "pack",
@@ -308,7 +308,7 @@
     "#....................#",
     "######################"
    ],
-   "description": "A roofless nave open to the sick moon. Pews lie splintered; the altar is cracked clean across.",
+   "description": "A roofless nave open to the sick moon. Pews lie splintered; the altar is cracked clean across. Ivy has crept through the broken windows and strangled the pulpit, and moonlight falls through the open roof in a single cold column onto the altar. Someone has painted a black raven across the east wall, with the eyes scratched out and the paint still tacky. The place smells of damp stone and, faintly, of something sweet gone bad.",
    "events": [
     {
      "id": "defilers",
@@ -376,7 +376,7 @@
     "......................",
     "......................"
    ],
-   "description": "A ring of leaning monoliths, each carved with a weeping face. The grass inside the ring is dead.",
+   "description": "A ring of leaning monoliths, each carved with a weeping face. The grass inside the ring is dead. Each weeping face is worn smooth, but the tracks beneath their eyes are wet and glisten in the moonlight. No bird crosses the ring and no insect hums, and your own breath sounds loud and borrowed. At the centre a low flat stone is scorched black, and the ground around it is scattered with small, careful offerings.",
    "events": [
     {
      "id": "haunting",
@@ -440,7 +440,7 @@
     "#.........#............#",
     "########################"
    ],
-   "description": "Cold air breathes from rows of sealed sarcophagi. Carved ravens peer down from every arch.",
+   "description": "Cold air breathes from rows of sealed sarcophagi. Carved ravens peer down from every arch. Names have been chiselled from every sarcophagus lid, leaving only the crest of the Vane family, a raven gripping a broken key. Dust lies in an even grey skin across the floor, except along one trampled path that leads between the tombs to the back wall. The cold here is not the cold of stone. It feels like being breathed on.",
    "events": [
     {
      "id": "nest",
@@ -507,7 +507,7 @@
     "#........................#",
     "##########################"
    ],
-   "description": "A hall of black stone and cold chandeliers. A cracked mirror covers one wall and reflects nothing of the room.",
+   "description": "A hall of black stone and cold chandeliers. A cracked mirror covers one wall and reflects nothing of the room. Chandeliers hang from chains as thick as a man's arm, each socket crusted with candle wax that has never been lit. A long table is laid for a banquet with plates and silver gone black with age, and every chair is pulled out as though the guests had just risen. Across the room the cracked mirror shows the table, the chairs and the candles, but it shows no one standing before it.",
    "events": [
     {
      "id": "countess",
@@ -538,7 +538,7 @@
    "kind": "boundary",
    "rest": "none",
    "randomTable": "mists",
-   "description": "White fog and no horizon. Whatever direction you walk, the cairn waits for you at the end.",
+   "description": "White fog and no horizon. Whatever direction you walk, the cairn waits for you at the end. Sound dies in the fog, so that even your own footsteps are swallowed a pace away. Shapes move at the edge of sight and resolve into nothing when you look straight at them. The light is the same everywhere, pearly and without a source, and it begins to seem possible that you have always been walking.",
    "events": [
     {
      "id": "turned_around",

@@ -9,7 +9,7 @@
 ## What it does
 
 - Start screen: module (or a procedural delve), role (player, Dungeon Master, spectator), hero, optional seed, or load a save file.
-- World map, shown in every state (exploring, fighting, complete, defeated): the places visited and the places they lead to, with travel times, your position highlighted (red while fighting), and click-to-travel on open exits. Nothing beyond the next step is revealed.
+- World map, shown in every state (exploring, fighting, complete, defeated): a painted top-down chart (terrain, roads, and a drawing of each village, wood, ruin or gate) of the places visited and the places they lead to, with travel times, fog over places not yet seen, your party's standard on its place (red while fighting), and click-to-travel on ringed places. Drawn with canvas 2D, so it needs no image model. Nothing beyond the next step is revealed.
 - Exploration: exits with travel times, NPC topics, search, short and long rest, wait, pace, autopilot.
 - Combat: the grid (click a square to move, click a creature to use the selected attack or spell), Dash, Dodge, potion, class features, End turn, and role swap at any time. Monster turns run automatically via `/advance`.
 - "You control" dropdown in the Party panel: switch which party member you play at any time (the current one is marked). Dead characters are greyed out.

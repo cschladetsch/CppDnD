@@ -560,6 +560,34 @@ const std::vector<std::string>& DefaultRoomMap() {
     return map;
 }
 
+namespace {
+// Rooms for a procedural delve. They are picked by position, never by the dice, so the same delve always reads the same
+// and the game's random stream is untouched.
+struct RoomText { const char* name; const char* text; };
+const RoomText kDelveEntrance{"The Descent",
+    "Worn steps end in a low vaulted landing where the daylight gives out. Old torch brackets line the walls, empty except for one that still holds a stub of tallow, cold and greasy to the touch. The air coming up from below is dry and tastes of dust and iron."};
+const RoomText kDelveFinal{"The Last Chamber",
+    "The passage opens into a round hall with a high, domed ceiling lost in shadow. Whatever once stood on the dais at the far end has been dragged away, leaving four long gouges in the stone and a ring of scorched flagstones. Nothing here is old enough to be quiet. It feels like a room that has been waiting."};
+const RoomText kDelveRooms[] = {
+    {"The Weeping Cistern", "A square cistern, long dry, with green stains running down the walls where the water once stood. Your footsteps ring off the empty basin, and somewhere above a slow drip keeps time. A heap of rotted rope and a broken bucket lie in one corner."},
+    {"The Soot Kitchen", "A vaulted kitchen blackened by an ancient fire. Iron hooks hang from the beams over a cold hearth the size of a wagon, and a long butchering table is scored with deep knife marks. A bone has been gnawed clean and left in the ash."},
+    {"The Hall of Tilted Pillars", "Two rows of stone pillars march down the room, every one leaning a little to the left as though the whole hall were slowly being pushed over. Cobwebs hang between them in sheets. The gaps make good cover and better ambushes."},
+    {"The Rusted Armoury", "Weapon racks cover the walls, most of them empty and the rest holding shapeless lumps of rust. A breastplate hangs from a stand, hollow and pierced through at the heart. Scraps of old livery lie scattered across the floor, once red and now the colour of dried mud."},
+    {"The Barrel Vault", "Casks stacked three high fill this low brick cellar, their staves swollen and split. The floor is sticky underfoot, and the sour smell of long-spoiled wine hangs thick in the dark. Something has been nesting between the barrels."},
+    {"The Shrine of Cracked Saints", "A narrow chapel whose statues have all had their faces struck off with a hammer. Candle stubs crowd the altar, some of them still warm, and a smear of fresh wax runs down the stone. The silence in here feels attentive."},
+    {"The Fungus Gallery", "Pale shelves of fungus cling to the walls and ceiling of this long gallery, giving off a sick green glow. Spores drift through the air like slow snow. The floor is soft underfoot and holds every print you leave."},
+    {"The Drowned Landing", "Black water has risen over the lower steps of a wide landing, so that the stairs seem to descend into a mirror. Bubbles break the surface now and then. A rotten boat lies on its side against the far wall, holed and empty."},
+    {"The Bone-Strewn Den", "The floor of this broad chamber is a litter of splintered bones, some of them clearly not from animals. Crude scratches cover the walls, tally marks in groups of five by the hundred. A heap of stolen blankets and torn banners forms a bed in the corner."},
+    {"The Choir Loft", "A gallery of carved stone benches circles a sunken floor, and the ceiling is a lattice of ribs that carries every sound. A single cracked bell hangs from a beam and sways without any draught. Dust lies thick everywhere except along one narrow path."},
+    {"The Collapsed Gallery", "Half the ceiling here has come down in a long slope of rubble, leaving a ragged hole to a dark above. Broken statues stick out of the debris like drowned men. You can move through, but every step sends loose stone skittering."},
+    {"The Smelter's Floor", "Cold furnaces squat along one wall, and slag has frozen on the floor in grey, glassy ropes. Tongs and moulds lie where their owners dropped them. The room still holds a ghost of heat, and the iron in the air makes your teeth ache."},
+    {"The Scriptorium of Ash", "Rows of slanted desks fill this room, each with a dish of dry ink and a quill worn to a stub. Burnt pages drift in the corners, and the words on the few surviving scraps have been scratched out with a blade. A chair has been pulled back from the nearest desk, as though someone had just stood up."},
+    {"The Mirror Passage", "Panels of tarnished bronze line both walls of this wide corridor, throwing back dim, wavering copies of you and your companions. One of the reflections is always a heartbeat slow. The corridor feels longer than it looks."},
+    {"The Oubliette Walk", "Iron grilles are set into the floor along the whole length of this passage, each one over a lightless drop. Cold air rises through them, carrying faint, patient scratchings. A ring of keys hangs from a nail, every one of them too small for the cell doors."},
+    {"The Guard Barracks", "Two rows of narrow cots face each other down the length of the room, their straw mattresses long since eaten away. Dice and a deck of greasy cards lie on an overturned shield, the game left unfinished. A cracked horn hangs by the door, within easy reach."},
+};
+}  // namespace
+
 ModuleDef MakeProceduralModule(int rooms, const std::string& difficulty) {
     ModuleDef m;
     m.id = "procedural";
@@ -572,9 +600,10 @@ ModuleDef MakeProceduralModule(int rooms, const std::string& difficulty) {
     for (int i = 1; i <= rooms; ++i) {
         LocationDef l;
         l.id = "room" + std::to_string(i);
-        l.name = "Chamber " + std::to_string(i);
+        const RoomText& rt = i == 1 ? kDelveEntrance : (i == rooms ? kDelveFinal : kDelveRooms[(static_cast<std::size_t>(i) * 5) % (sizeof(kDelveRooms) / sizeof(kDelveRooms[0]))]);
+        l.name = "Chamber " + std::to_string(i) + ": " + rt.name;
         l.kind = "site";
-        l.description = "A cold stone chamber, scarred by old fights.";
+        l.description = rt.text;
         l.rest = "risky";
         l.map = DefaultRoomMap();
         EventDef e;
