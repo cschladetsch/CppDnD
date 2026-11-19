@@ -162,6 +162,10 @@ const ModuleDef* FindModule(std::string_view id);
 
 // Class tables applied to a character definition at the requested level (0 = the definition's own level).
 CharacterSheet BuildCharacter(const CharacterDef& def, int level = 0);
+// The attack a weapon from weapons.json gives this character (to-hit and damage use their own scores); nullopt for an unknown id.
+std::optional<WeaponAttack> MakeWeaponAttack(const CharacterSheet& sheet, std::string_view weaponId);
+// Every weapon id in weapons.json.
+std::vector<std::string> WeaponIds();
 
 int XpForLevel(int level);  // SRD cumulative XP to reach `level`
 int LevelForXp(int xp);

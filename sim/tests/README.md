@@ -5,7 +5,7 @@
 | `main.cpp` | the GoogleTest entry point; loads the game content once for every test |
 | `test_support.hpp` | shared helpers (`Hero`, `Mon`) |
 | `test_core.cpp` | dice, grid and cover, rules (advantage, concentration, damage adjustment, Extra Attack), content loading, RNG, JSON round trips |
-| `test_game.cpp` | remote combat, modules, save and load determinism, procedural delves, role swap, switching the controlled hero mid-fight |
+| `test_game.cpp` | remote combat, modules, save and load determinism, procedural delves, role swap, switching the controlled hero mid-fight, trading weapons and potions between characters |
 | `test_llm.cpp` | the LLM pipeline with a mock model, spoken lines, per-actor agents |
 | `test_history.cpp` | the pair and group histories (files, saves, fights, NPC talk, private agent lines) |
 | `test_images.cpp` | picture subjects, configuration files, the art service queue with a mock image client, model store resolution |

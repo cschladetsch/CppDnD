@@ -70,6 +70,7 @@ Time rules: travel hours come from `miles` and pace (2, 3 or 4 mph) or the exit'
 | `POST /api/games/:id/advance` | | run until a human must act or the fight ends |
 | `POST /api/games/:id/action` | an action | answer the awaited actor, then run on |
 | `POST /api/games/:id/hero` | `{"hero": "elara"}` (character id or name) | change which party member you control, at any time, even mid-turn; makes you a player if you were the DM or a spectator. 422 for an unknown or dead character. Returns `{view}`; `view.hero` is the name you control |
+| `POST /api/games/:id/equipment` | `{"from": "thorin", "to": "elara", "give": "handaxe", "take": "dagger"}` | hand a weapon id (or `"potion"`) from one party member to another; a non-empty `take` makes it a swap. Weapons are rebuilt from the new owner's scores. Only while exploring; 422 when the giver would be left unarmed, a weapon is not carried, or someone is dead. Returns `{view}`; each `view.party[]` entry carries `abilities`, `attacks`, `proficiency`, `speed` and the other sheet fields |
 | `POST /api/games/:id/role` | `{"role": "dm", "hero": "elara"}` | change who plays what, at any time (`/hero` changes only the character) |
 
 Actions:

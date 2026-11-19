@@ -453,6 +453,12 @@ const Spell* FindSpell(std::string_view id) {
     return nullptr;
 }
 const std::vector<MonsterDef>& Monsters() { return Lib().monsters; }
+
+std::vector<std::string> WeaponIds() {
+    std::vector<std::string> out;
+    for (const auto& w : Lib().weapons) out.push_back(w.id);
+    return out;
+}
 const MonsterDef* FindMonster(std::string_view id) {
     for (const auto& m : Lib().monsters)
         if (m.id == id) return &m;
@@ -475,6 +481,23 @@ const ModuleDef* FindModule(std::string_view id) {
     for (const auto& m : Lib().modules)
         if (m.id == id) return &m;
     return nullptr;
+}
+
+std::optional<WeaponAttack> MakeWeaponAttack(const CharacterSheet& s, std::string_view id) {
+    for (const auto& w : Lib().weapons) {
+        if (w.id != id) continue;
+        WeaponAttack a = w.attack;
+        int mod;
+        if (w.ability == "str") mod = s.Mod(Ability::Str);
+        else if (w.ability == "dex") mod = s.Mod(Ability::Dex);
+        else if (a.IsRanged()) mod = s.Mod(Ability::Dex);
+        else if (a.finesse) mod = std::max(s.Mod(Ability::Str), s.Mod(Ability::Dex));
+        else mod = s.Mod(Ability::Str);
+        a.toHit = s.proficiency + mod;
+        a.damage.bonus += mod;
+        return a;
+    }
+    return std::nullopt;
 }
 
 CharacterSheet BuildCharacter(const CharacterDef& d, int levelOverride) {
@@ -512,21 +535,8 @@ CharacterSheet BuildCharacter(const CharacterDef& d, int levelOverride) {
         if (level >= from) s.featureUses[id] = s.featureMax[id] = FeatureUsesFor(id, level);
     s.potions = d.potions;
 
-    for (const auto& wid : d.weapons) {
-        for (const auto& w : Lib().weapons) {
-            if (w.id != wid) continue;
-            WeaponAttack a = w.attack;
-            int mod;
-            if (w.ability == "str") mod = s.Mod(Ability::Str);
-            else if (w.ability == "dex") mod = s.Mod(Ability::Dex);
-            else if (a.IsRanged()) mod = s.Mod(Ability::Dex);
-            else if (a.finesse) mod = std::max(s.Mod(Ability::Str), s.Mod(Ability::Dex));
-            else mod = s.Mod(Ability::Str);
-            a.toHit = s.proficiency + mod;
-            a.damage.bonus += mod;
-            s.attacks.push_back(std::move(a));
-        }
-    }
+    for (const auto& wid : d.weapons)
+        if (auto a = MakeWeaponAttack(s, wid)) s.attacks.push_back(std::move(*a));
     return s;
 }
 

@@ -32,6 +32,10 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .member.dead { opacity:.45; text-decoration:line-through; }
 .member.you { border-left:3px solid var(--accent); padding-left:8px; }
 .member.pick { cursor:pointer; } .member.pick:hover, .member.pick:focus-visible { background:var(--edge); outline:0; }
+.member.sel { background:var(--edge); } .sheet { background:#17141f; border:1px solid var(--edge); border-radius:6px; padding:8px 10px; margin:2px 0 8px; }
+.sheet h3 { margin:10px 0 4px; font-size:13px; color:var(--accent); } .sheet .kvrow { display:flex; flex-wrap:wrap; gap:4px 14px; font-size:12px; }
+.sheet table.abil { border-collapse:collapse; margin:8px 0; font-size:12px; } .abil th, .abil td { padding:1px 10px 1px 0; text-align:left; } .abil th { color:var(--dim); font-weight:normal; }
+.wep { display:flex; justify-content:space-between; align-items:center; gap:8px; padding:3px 0; font-size:12px; } select.give { max-width:48%; font-size:12px; }
 #sessSel { max-width:min(420px, 40vw); }
 .focus { display:flex; gap:8px; align-items:center; margin:2px 0 8px; } .focus select { flex:1; }
 .pics .row { margin:6px 0; } .pics progress { width:100%; height:8px; } .pics .err { color:var(--bad); font-size:12px; }
@@ -367,19 +371,69 @@ function renderParty() {
     const pct = Math.max(0, Math.round(100 * m.hp / m.maxHp));
     const slots = m.slots.map((n, i) => (m.slotsMax[i] ? `L${i}:${n}/${m.slotsMax[i]}` : "")).filter(Boolean).join(" ");
     const tok = picOrToken("characters", m.id, { team: "party", classId: m.class, hp: m.hp, maxHp: m.maxHp, effects: [] }, "portrait");
-    const isYou = mine && m.name === view.hero, pick = !m.dead && !isYou;
-    const row = el("div", { className: "member" + (m.dead ? " dead" : "") + (isYou ? " you" : "") + (pick ? " pick" : ""),
-      title: isYou ? "you control this character" : m.dead ? "" : `Click to control ${m.name}` },
+    const isYou = mine && m.name === view.hero, picked = selChar === m.id;
+    const row = el("div", { className: "member pick" + (m.dead ? " dead" : "") + (isYou ? " you" : "") + (picked ? " sel" : ""),
+      title: `Click to see ${m.name}'s stats and equipment`, tabIndex: 0, role: "button" },
       el("div", { className: "who" }, tok.nodeType === 1 && tok.tagName.toLowerCase() === "svg" ? (tok.style.width = "34px", tok.style.height = "34px", tok) : tok, el("span", {}, el("b", { textContent: m.name }), el("span", { className: "dim small", textContent: `  ${m.class} ${m.level}  AC ${m.ac}  HP ${m.hp}/${m.maxHp}` }))),
       el("div", { className: "bar" }, el("i", { style: `width:${pct}%` })),
       el("div", { className: "dim small", textContent: `XP ${m.xp}${m.nextLevelXp ? "/" + m.nextLevelXp : ""}  potions ${m.potions}  dice ${m.hitDice}${m.exhaustion ? "  exhaustion " + m.exhaustion : ""}${slots ? "  " + slots : ""}` }));
-    if (pick) {
-      row.tabIndex = 0; row.setAttribute("role", "button");
-      row.onclick = () => setHero(m.id);
-      row.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setHero(m.id); } };
-    }
+    const choose = () => { selChar = selChar === m.id ? "" : m.id; renderParty(); };
+    row.onclick = choose;
+    row.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); choose(); } };
     box.append(row);
+    if (picked) box.append(sheetPanel(m));
   }
+}
+let selChar = "";   // the party member whose sheet is open
+const SIGNED = n => (n >= 0 ? "+" : "") + n;
+async function moveItem(from, to, give, take) {
+  const { status, data } = await api("POST", `/api/games/${gid}/equipment?since=${lastSeq}`, { from, to, give, take: take || "" });
+  if (status === 200 && data.view) apply(data.view); else { toast(data.error || "cannot trade"); renderParty(); }
+}
+// the full sheet for one character, with the means to hand gear to the others
+function sheetPanel(m) {
+  const exploring = view.mode === "exploring";
+  const others = view.party.filter(o => o.id !== m.id && !o.dead);
+  const you = view.role === "player" && m.name === view.hero;
+  const box = el("div", { className: "sheet" });
+  const kv = (k, v) => el("span", { className: "kv" }, el("span", { className: "dim", textContent: k + " " }), el("b", { textContent: String(v) }));
+  box.append(el("div", { className: "kvrow" }, kv("Level", m.level), kv("Class", m.class), kv("AC", m.ac), kv("HP", `${m.hp}/${m.maxHp}${m.tempHp ? " +" + m.tempHp : ""}`),
+    kv("Speed", m.speed + " ft"), kv("Proficiency", SIGNED(m.proficiency)), kv("Hit dice", `${m.hitDice}d${m.hitDie}`), kv("Attacks/turn", m.attacksPerAction)));
+  if (m.tags && m.tags.length) box.append(el("div", { className: "dim small", textContent: m.tags.join(", ") }));
+  const ab = el("table", { className: "abil" }, el("tr", {}, ...["", "Score", "Mod", "Save"].map(h => el("th", { textContent: h }))));
+  for (const a of m.abilities) ab.append(el("tr", {}, el("td", { textContent: a.ability.toUpperCase() }), el("td", { textContent: a.score }), el("td", { textContent: SIGNED(a.mod) }),
+    el("td", { textContent: SIGNED(a.save) + (a.proficient ? " *" : "") })));
+  box.append(ab);
+  const extra = [];
+  if (m.sneakAttackDice) extra.push(`Sneak attack ${m.sneakAttackDice}d6`);
+  if (m.spellAbility) extra.push(`Spellcasting ${m.spellAbility.toUpperCase()}, save DC ${m.spellSaveDc}, attack ${SIGNED(m.spellAttack)}`);
+  if (m.resist && m.resist.length) extra.push("Resists " + m.resist.join(", "));
+  if (m.traits && m.traits.length) extra.push(m.traits.join(", "));
+  if (m.exhaustion) extra.push("Exhaustion " + m.exhaustion);
+  for (const t of extra) box.append(el("div", { className: "small", textContent: t }));
+  if (m.features && m.features.length) box.append(el("div", { className: "small", textContent: "Features: " + m.features.map(f => `${f.id.replace(/_/g, " ")} ${f.uses}/${f.max}`).join(", ") }));
+  if (m.spells && m.spells.length) box.append(el("div", { className: "small", textContent: "Spells: " + m.spells.map(sp => sp.name + (sp.level ? ` (L${sp.level})` : "")).join(", ") }));
+
+  box.append(el("h3", { textContent: "Equipment" }));
+  if (!exploring) box.append(el("div", { className: "dim small", textContent: "Gear can be swapped between fights." }));
+  for (const w of m.attacks) {
+    const sel = el("select", { className: "give", disabled: !exploring || !others.length, title: `Give or swap the ${w.name}`,
+      onchange: e => { const [kind, who, what] = e.target.value.split("|"); if (kind) moveItem(m.id, who, w.id, kind === "swap" ? what : ""); e.target.value = ""; } },
+      el("option", { value: "", textContent: "Give / swap..." }));
+    for (const o of others) {
+      if (o.attacks.some(x => x.id === w.id)) continue;
+      if (m.attacks.length > 1) sel.append(el("option", { value: `give|${o.id}`, textContent: `Give to ${o.name}` }));
+      for (const x of o.attacks) if (!m.attacks.some(y => y.id === x.id)) sel.append(el("option", { value: `swap|${o.id}|${x.id}`, textContent: `Swap with ${o.name}'s ${x.name}` }));
+    }
+    const rng = w.ranged ? `range ${w.normalRange}/${w.range} ft` : `reach ${w.normalRange} ft`;
+    box.append(el("div", { className: "wep" }, el("span", {}, el("b", { textContent: w.name }), el("span", { className: "dim small", textContent: `  ${SIGNED(w.toHit)} to hit, ${w.damage} ${w.type}, ${rng}${w.finesse ? ", finesse" : ""}` })), sel));
+  }
+  const ps = el("select", { className: "give", disabled: !exploring || !others.length || !m.potions, title: "Hand over a healing potion",
+    onchange: e => { if (e.target.value) moveItem(m.id, e.target.value, "potion"); e.target.value = ""; } }, el("option", { value: "", textContent: "Give potion..." }), ...others.map(o => el("option", { value: o.id, textContent: `Give to ${o.name}` })));
+  box.append(el("div", { className: "wep" }, el("span", {}, el("b", { textContent: "Healing potions" }), el("span", { className: "dim small", textContent: "  " + m.potions })), ps));
+  box.append(el("div", { className: "wep" }, el("span", { className: "dim small", textContent: you ? "You control this character." : "" }),
+    m.dead || you ? el("span") : el("button", { textContent: `Control ${m.name}`, onclick: () => setHero(m.id) })));
+  return box;
 }
 function renderQuests() {
   const box = $("#quests"); box.replaceChildren(el("h2", { textContent: "Quests" }));

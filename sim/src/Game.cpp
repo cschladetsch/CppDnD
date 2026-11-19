@@ -149,6 +149,58 @@ bool Game::SetHero(const std::string& who, std::string& err) {
     return true;
 }
 
+bool Game::MoveItem(const std::string& from, const std::string& to, const std::string& give, const std::string& take, std::string& err) {
+    if (mode_ != Mode::Exploring) { err = "equipment can only be changed while exploring"; return false; }
+    auto find = [&](const std::string& who) -> PartyMember* {
+        const std::string want = Lower(who);
+        for (auto& pm : party_)
+            if (Lower(pm.charId) == want || Lower(pm.sheet.name) == want) return &pm;
+        return nullptr;
+    };
+    PartyMember* a = find(from);
+    PartyMember* b = find(to);
+    if (!a) { err = "nobody in the party is called '" + from + "'"; return false; }
+    if (!b) { err = "nobody in the party is called '" + to + "'"; return false; }
+    if (a == b) { err = "pick a different character"; return false; }
+    if (a->dead || b->dead) { err = "the dead cannot trade"; return false; }
+    if (give.empty()) { err = "nothing to give"; return false; }
+    auto weaponAt = [](const CharacterSheet& s, const std::string& id) -> int {
+        for (std::size_t i = 0; i < s.attacks.size(); ++i)
+            if (s.attacks[i].name == id) return static_cast<int>(i);
+        return -1;
+    };
+    if (give == "potion") {
+        if (!take.empty()) { err = "a potion cannot be swapped for a weapon"; return false; }
+        if (a->sheet.potions <= 0) { err = a->sheet.name + " has no potions"; return false; }
+        --a->sheet.potions;
+        ++b->sheet.potions;
+        Emit(EventType::Info, Cat(a->sheet.name, " hands a potion to ", b->sheet.name, "."));
+        return true;
+    }
+    const int gi = weaponAt(a->sheet, give);
+    if (gi < 0) { err = a->sheet.name + " does not carry a " + give; return false; }
+    if (weaponAt(b->sheet, give) >= 0) { err = b->sheet.name + " already has a " + give; return false; }
+    int ti = -1;
+    if (!take.empty()) {
+        ti = weaponAt(b->sheet, take);
+        if (ti < 0) { err = b->sheet.name + " does not carry a " + take; return false; }
+        if (weaponAt(a->sheet, take) >= 0) { err = a->sheet.name + " already has a " + take; return false; }
+    } else if (a->sheet.attacks.size() <= 1) {
+        err = a->sheet.name + " would be left unarmed";
+        return false;
+    }
+    auto forB = Content::MakeWeaponAttack(b->sheet, give);
+    auto forA = take.empty() ? std::nullopt : Content::MakeWeaponAttack(a->sheet, take);
+    if (!forB || (!take.empty() && !forA)) { err = "unknown weapon"; return false; }
+    a->sheet.attacks.erase(a->sheet.attacks.begin() + gi);
+    if (ti >= 0) b->sheet.attacks.erase(b->sheet.attacks.begin() + ti);
+    b->sheet.attacks.push_back(std::move(*forB));
+    if (forA) a->sheet.attacks.push_back(std::move(*forA));
+    if (take.empty()) Emit(EventType::Info, Cat(a->sheet.name, " gives the ", give, " to ", b->sheet.name, "."));
+    else Emit(EventType::Info, Cat(a->sheet.name, " and ", b->sheet.name, " swap the ", give, " for the ", take, "."));
+    return true;
+}
+
 std::string Game::ActorName(int id) const {
     if (!combat_ || id < 0) return "";
     for (const auto& a : combat_->Actors())
@@ -519,9 +571,14 @@ void Game::CheckLevelUps() {
         const int target = std::min(20, Content::LevelForXp(pm.xp));
         if (!def || target <= pm.sheet.level) continue;
         const int potions = pm.sheet.potions, exhaustion = pm.sheet.exhaustion;
+        std::vector<std::string> carried;  // what they hold now, which trades may have changed from the starting kit
+        for (const auto& a : pm.sheet.attacks) carried.push_back(a.name);
         pm.sheet = Content::BuildCharacter(*def, target);
         pm.sheet.potions = potions;
         pm.sheet.exhaustion = exhaustion;
+        pm.sheet.attacks.clear();
+        for (const auto& id : carried)
+            if (auto a = Content::MakeWeaponAttack(pm.sheet, id)) pm.sheet.attacks.push_back(std::move(*a));
         Emit(EventType::Rest, Cat(pm.sheet.name, " reaches level ", target, "!"), target);
     }
 }

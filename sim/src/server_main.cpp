@@ -449,6 +449,16 @@ int main(int argc, char** argv) {
         Reply(res, 200, {{"view", slot->game->View(sinceOf(req))}});
     }));
 
+    // Hand a weapon or a potion from one party member to another: {from, to, give, take?}. Only while exploring.
+    svr.Post("/api/games/:id/equipment", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        const Json b = Body(req);
+        std::string err;
+        if (!slot->game->MoveItem(b.value("from", ""), b.value("to", ""), b.value("give", ""), b.value("take", ""), err)) throw HttpError{422, err};
+        Reply(res, 200, {{"view", slot->game->View(sinceOf(req))}});
+    }));
+
     // Histories: GET /history (what exists), /history/group, /history/:x/:y (x's private record of y). ?since=SEQ&limit=N
     auto limitOf = [](const httplib::Request& req) { return req.has_param("limit") ? std::clamp(std::atoi(req.get_param_value("limit").c_str()), 1, 2000) : 200; };
     svr.Get("/api/games/:id/history", guarded([&](const httplib::Request& req, httplib::Response& res) {

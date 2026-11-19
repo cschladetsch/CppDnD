@@ -18,7 +18,24 @@ Json PartyJson(const PartyMember& pm) {
     Json spells = Json::array();
     for (const auto& id : s.spells)
         if (const Spell* sp = Content::FindSpell(id)) spells.push_back(Json{{"id", sp->id}, {"name", sp->name}, {"level", sp->level}});
-    return Json{{"id", pm.charId}, {"name", s.name}, {"class", s.classId}, {"level", s.level}, {"xp", pm.xp},
+    Json abilities = Json::array();
+    for (int i = 0; i < 6; ++i) {
+        const Ability ab = static_cast<Ability>(i);
+        abilities.push_back(Json{{"ability", std::string(ToString(ab))}, {"score", s.Score(ab)}, {"mod", s.Mod(ab)}, {"save", s.SaveBonus(ab)}, {"proficient", s.saveProficient[static_cast<std::size_t>(i)]}});
+    }
+    Json attacks = Json::array();
+    for (const auto& a : s.attacks)
+        attacks.push_back(Json{{"id", a.name}, {"name", a.name}, {"toHit", a.toHit}, {"damage", a.damage.ToString()}, {"type", std::string(ToString(a.type))},
+                               {"range", a.IsRanged() ? a.longRangeFt : a.rangeFt}, {"normalRange", a.rangeFt}, {"ranged", a.IsRanged()}, {"finesse", a.finesse}, {"magical", a.magical}});
+    Json resist = Json::array();
+    for (DamageType t : s.resist) resist.push_back(std::string(ToString(t)));
+    Json traits = Json::array();
+    for (const auto& [k, v] : s.traits) traits.push_back(v ? k + ":" + std::to_string(v) : k);
+    return Json{{"abilities", abilities}, {"attacks", attacks}, {"resist", resist}, {"traits", traits}, {"tags", s.tags}, {"proficiency", s.proficiency},
+                {"speed", s.speedFt}, {"attacksPerAction", s.attacksPerAction}, {"sneakAttackDice", s.sneakAttackDice}, {"tempHp", s.tempHp},
+                {"spellAbility", s.spells.empty() ? std::string() : std::string(ToString(s.spellAbility))},
+                {"spellSaveDc", s.spells.empty() ? 0 : s.SpellSaveDc()}, {"spellAttack", s.spells.empty() ? 0 : s.SpellAttackBonus()},
+                {"id", pm.charId}, {"name", s.name}, {"class", s.classId}, {"level", s.level}, {"xp", pm.xp},
                 {"nextLevelXp", s.level >= 20 ? 0 : Content::XpForLevel(s.level + 1)}, {"hp", s.hp}, {"maxHp", s.maxHp},
                 {"ac", s.armorClass}, {"dead", pm.dead}, {"exhaustion", s.exhaustion}, {"hitDice", s.hitDiceLeft}, {"hitDie", s.hitDie},
                 {"potions", s.potions}, {"slots", s.slots}, {"slotsMax", s.slotsMax}, {"features", features}, {"spells", spells}};

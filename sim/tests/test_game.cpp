@@ -271,3 +271,87 @@ TEST(Game, TypedCommandsWorkWithoutAModel) {
     if (go.ok) EXPECT_NE(g.Module().FindLocation(g.LocationId())->id, start); else EXPECT_FALSE(go.message.empty());
     EXPECT_TRUE(SayOffline(g, "wait 1 hour").ok || g.GetMode() != Mode::Exploring);
 }
+
+// ---------------------------------------------------------------- equipment
+
+namespace {
+std::vector<std::string> WeaponsOf(const Json& view, const std::string& id) {
+    std::vector<std::string> out;
+    for (const auto& m : view["party"])
+        if (m["id"] == id)
+            for (const auto& a : m["attacks"]) out.push_back(a["id"].get<std::string>());
+    return out;
+}
+}  // namespace
+
+TEST(Equipment, WeaponsAndPotionsMoveBetweenCharactersWhileExploring) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 3;
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    ASSERT_EQ(g.GetMode(), Mode::Exploring);
+    std::string err;
+
+    // a swap: Thorin's handaxe for Elara's dagger, each rebuilt from the new owner's scores
+    const Json before = g.View(0);
+    int daggerToHit = 0;
+    for (const auto& m : before["party"]) if (m["id"] == "elara") daggerToHit = m["attacks"][0]["toHit"];
+    ASSERT_TRUE(g.MoveItem("thorin", "elara", "handaxe", "dagger", err)) << err;
+    EXPECT_EQ(WeaponsOf(g.View(0), "thorin"), (std::vector<std::string>{"warhammer", "dagger"}));
+    EXPECT_EQ(WeaponsOf(g.View(0), "elara"), (std::vector<std::string>{"handaxe"}));
+    int dagger = -99;
+    for (const auto& m : g.View(0)["party"]) if (m["id"] == "thorin") dagger = m["attacks"][1]["toHit"];
+    EXPECT_NE(dagger, daggerToHit);  // Thorin's strength and Elara's dexterity differ, so does the bonus
+
+    // a gift is refused when it would leave the giver unarmed, or for a weapon they do not have
+    EXPECT_FALSE(g.MoveItem("elara", "thorin", "handaxe", "", err));
+    EXPECT_NE(err.find("unarmed"), std::string::npos);
+    EXPECT_FALSE(g.MoveItem("elara", "thorin", "longbow", "", err));
+    EXPECT_FALSE(g.MoveItem("thorin", "thorin", "dagger", "", err));
+    EXPECT_FALSE(g.MoveItem("thorin", "nobody", "dagger", "", err));
+
+    // potions: the party starts with a few, held by whoever the character sheets name
+    std::string giver;
+    int potions = 0;
+    for (const auto& m : g.View(0)["party"])
+        if (giver.empty() && m["id"] != "elara" && m["potions"].get<int>() > 0) { giver = m["id"]; potions = m["potions"]; }
+    if (giver.empty()) {  // none held at the start: one is found on the road
+        ASSERT_TRUE(g.MoveItem("elara", "thorin", "potion", "", err) == false);
+    } else {
+        int elara = 0;
+        for (const auto& m : g.View(0)["party"]) if (m["id"] == "elara") elara = m["potions"];
+        ASSERT_TRUE(g.MoveItem(giver, "elara", "potion", "", err)) << err;
+        for (const auto& m : g.View(0)["party"]) {
+            if (m["id"] == giver) EXPECT_EQ(m["potions"].get<int>(), potions - 1);
+            if (m["id"] == "elara") EXPECT_EQ(m["potions"].get<int>(), elara + 1);
+        }
+    }
+    EXPECT_FALSE(g.MoveItem("aldric", "elara", "potion", "", err));
+
+    // it all survives a save and load
+    const auto loaded = Game::Load(g.Save());
+    EXPECT_EQ(WeaponsOf(loaded->View(0), "elara"), (std::vector<std::string>{"handaxe"}));
+}
+
+TEST(Equipment, CannotBeChangedInTheMiddleOfAFight) {
+    GameConfig cfg;
+    cfg.rooms = 1; cfg.difficulty = "easy"; cfg.seed = 12; cfg.role = Role::Player; cfg.hero = "elara";
+    Game g(cfg);
+    ASSERT_EQ(g.GetMode(), Mode::Combat);
+    std::string err;
+    EXPECT_FALSE(g.MoveItem("thorin", "elara", "handaxe", "dagger", err));
+    EXPECT_NE(err.find("exploring"), std::string::npos);
+}
+
+TEST(Equipment, TheViewCarriesFullStats) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    for (const auto& m : g.View(0)["party"]) {
+        EXPECT_EQ(m["abilities"].size(), 6u) << m["name"];
+        EXPECT_GE(m["attacks"].size(), 1u);
+        EXPECT_GE(m["proficiency"].get<int>(), 2);
+    }
+}

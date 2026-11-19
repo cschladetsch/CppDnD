@@ -82,6 +82,9 @@ public:
     void SetRole(Role r, const std::string& hero = "");
     // Change which party member the user controls (and make the user a player). Fails for an unknown or dead member.
     bool SetHero(const std::string& who, std::string& err);
+    // Hands `give` (a weapon id, or "potion") from one party member to another while exploring. A non-empty `take` makes it a
+    // swap: the receiver hands that weapon back. Weapons are rebuilt from the new owner's scores. Nobody is left without a weapon.
+    bool MoveItem(const std::string& from, const std::string& to, const std::string& give, const std::string& take, std::string& err);
     const std::string& Hero() const { return hero_; }
     // Table talk. Empty `to`: said to the whole table (shown in the log, kept in group history). Otherwise a
     // private line to one actor, kept only in that pair's histories.
