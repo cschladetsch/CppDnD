@@ -1,4 +1,4 @@
-/* SRD 5.1 stat blocks (values checked against dnd5eapi.co), except "cult_adept", "hollow_king" and the CyberHood creatures (gutter_punk to hush_avatar), which are original. */
+/* SRD 5.1 stat blocks (values checked against dnd5eapi.co), except "cult_adept", "hollow_king", "pale_abbess" and the CyberHood creatures (gutter_punk to hush_avatar), which are original. */
 [
   { "id": "cultist", "name": "Cultist", "cr": "1/8", "xp": 25, "ac": 12, "hp": 9, "speed": 30,
     "scores": [11,12,10,10,11,10], "tags": ["humanoid"],
@@ -100,5 +100,15 @@
     "resist": ["necrotic"], "immune": ["poison"], "conditionImmune": ["poisoned","frightened"],
     "attacksPerAction": 2,
     "attacks": [ { "name": "broken sword", "toHit": 8, "damage": "2d8+5", "type": "slashing" },
-                 { "name": "grave touch", "toHit": 8, "damage": "2d8+4", "type": "necrotic" } ] }
+                 { "name": "grave touch", "toHit": 8, "damage": "2d8+4", "type": "necrotic" } ] },
+
+  /* The Sunless Abbey boss: an abbess turned vampire. Like the Hollow King she has no regeneration and no resistance to
+     ordinary weapons, so that an unprepared party can still win the finale. She hits harder than a vampire spawn and has
+     more hit points, but cannot heal herself. */
+  { "id": "pale_abbess", "name": "Abbess Vesper Caul", "cr": "5", "xp": 1800, "ac": 15, "hp": 100, "speed": 30,
+    "scores": [16,16,16,12,14,16], "tags": ["undead"], "saves": ["dex","wis"],
+    "resist": ["necrotic"],
+    "attacksPerAction": 2,
+    "attacks": [ { "name": "claws", "toHit": 7, "damage": "2d6+3", "type": "slashing" },
+                 { "name": "bite", "toHit": 7, "damage": "1d8+4", "type": "necrotic" } ] }
 ]

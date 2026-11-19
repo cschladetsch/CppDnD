@@ -243,10 +243,10 @@ TEST_P(ModuleContent, TheAutopilotAlwaysFinishesAndOftenWins) {
     EXPECT_GE(won, 3) << "the autopilot should win at least a third of the time";
 }
 
-INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown"));
+INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown", "sunless_abbey"));
 
 TEST(Modules, EveryShippedModuleIsCovered) {
-    EXPECT_EQ(Content::Modules().size(), 3u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
+    EXPECT_EQ(Content::Modules().size(), 4u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
 }
 
 // ---------------------------------------------------------------- CyberHood specifics
@@ -350,4 +350,87 @@ TEST(HollowCrown, TheSealAndTheSpyAreEachDrawnFromTwoPlaces) {
     }
     EXPECT_EQ(seals, (std::set<std::string>{"chapel", "mill"}));
     EXPECT_EQ(spies, (std::set<std::string>{"perrin", "odo"}));
+}
+
+// ---------------------------------------------------------------- The Sunless Abbey specifics
+
+namespace {
+// The module with the given flags made impossible to earn, to prove the other way round still works.
+ModuleDef Without(const ModuleDef& m, const std::vector<std::string>& flags) {
+    ModuleDef out = m;
+    for (auto& l : out.locations) {
+        for (auto& e : l.events)
+            for (const auto& f : flags) e.setsFlags.erase(std::remove(e.setsFlags.begin(), e.setsFlags.end(), f), e.setsFlags.end());
+        for (auto& n : l.npcs)
+            for (auto& t : n.topics)
+                for (const auto& f : flags) t.setsFlags.erase(std::remove(t.setsFlags.begin(), t.setsFlags.end(), f), t.setsFlags.end());
+    }
+    return out;
+}
+}  // namespace
+
+TEST(SunlessAbbey, HasFiftyRoomsAndItsOwnBoss) {
+    const ModuleDef* m = Content::FindModule("sunless_abbey");
+    ASSERT_NE(m, nullptr);
+    EXPECT_EQ(m->locations.size(), 50u);
+    EXPECT_EQ(m->start, "candlemere");
+    EXPECT_EQ(m->quests.size(), 7u);
+    bool boss = false;
+    for (const auto& mon : Content::Monsters()) boss = boss || mon.id == "pale_abbess";
+    EXPECT_TRUE(boss);
+}
+
+TEST(SunlessAbbey, TheAbbeyCanBeEnteredByTheGateOrThroughTheOrchard) {
+    const ModuleDef* m = Content::FindModule("sunless_abbey");
+    ASSERT_NE(m, nullptr);
+    const Flags draw{{"key", "scriptorium"}, {"thrall", "bess"}};
+    // without the orchard breach, only the gate and the Outer Court lead in
+    EXPECT_TRUE(Closure(Without(*m, {"found_breach"}), draw).places.count("cloister_garth"));
+    // without the Outer Court won, only the breach and the kitchens do
+    EXPECT_TRUE(Closure(Without(*m, {"court_cleared"}), draw).places.count("cloister_garth"));
+}
+
+TEST(SunlessAbbey, TheUndercroftCanBeReachedByTheCellarKeyOrTheGoblinTrack) {
+    const ModuleDef* m = Content::FindModule("sunless_abbey");
+    ASSERT_NE(m, nullptr);
+    const Flags draw{{"key", "infirmary"}, {"thrall", "tolliver"}};
+    // without the cellar key, the mine and the goblins' hole lead to the wine cellars
+    EXPECT_TRUE(Closure(Without(*m, {"has_cellar_key"}), draw).places.count("undercroft_stair"));
+    // without the goblin rumour, the cellar key still opens the way down
+    EXPECT_TRUE(Closure(Without(*m, {"heard_goblin_rumour"}), draw).places.count("goblin_warren"));
+}
+
+TEST(SunlessAbbey, TheOssuaryCanBeReachedByTheCryptWordOrTheOreLift) {
+    const ModuleDef* m = Content::FindModule("sunless_abbey");
+    ASSERT_NE(m, nullptr);
+    const Flags draw{{"key", "scriptorium"}, {"thrall", "tolliver"}};
+    EXPECT_TRUE(Closure(Without(*m, {"knows_crypt_word"}), draw).places.count("ossuary_stair"));
+    EXPECT_TRUE(Closure(Without(*m, {"warren_cleared"}), draw).places.count("ossuary_stair"));
+}
+
+TEST(SunlessAbbey, TheSanctumNeedsThreeLampsAndASilencedBell) {
+    const ModuleDef* m = Content::FindModule("sunless_abbey");
+    ASSERT_NE(m, nullptr);
+    const Flags draw{{"key", "scriptorium"}, {"thrall", "bess"}};
+    EXPECT_TRUE(Closure(*m, draw).places.count("abbess_sanctum"));
+    for (const char* lamp : {"lamp_chapel", "lamp_mine", "lamp_ossuary"})
+        EXPECT_FALSE(Closure(Without(*m, {lamp}), draw).places.count("abbess_sanctum")) << "the sanctum opened without " << lamp;
+    EXPECT_FALSE(Closure(Without(*m, {"bell_silenced"}), draw).places.count("abbess_sanctum"));
+}
+
+TEST(SunlessAbbey, TheKeyAndTheThrallAreEachDrawnFromTwoPlaces) {
+    std::set<std::string> keys, thralls;
+    for (std::uint64_t seed = 1; seed <= 40; ++seed) {
+        GameConfig c;
+        c.moduleId = "sunless_abbey";
+        c.seed = seed;
+        c.role = Role::Spectator;
+        Game g(c);
+        ASSERT_TRUE(g.HasFlag("key"));
+        ASSERT_TRUE(g.HasFlag("thrall"));
+        keys.insert(g.FlagValue("key"));
+        thralls.insert(g.FlagValue("thrall"));
+    }
+    EXPECT_EQ(keys, (std::set<std::string>{"scriptorium", "infirmary"}));
+    EXPECT_EQ(thralls, (std::set<std::string>{"bess", "tolliver"}));
 }

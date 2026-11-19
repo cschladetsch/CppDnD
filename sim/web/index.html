@@ -670,7 +670,7 @@ async function showView(opts = {}) {
 }
 
 // ---- the camera editor: a live 3D preview of the scene you can fly around in, then draw what it sees
-let cam = null, camScene = null, camLoop = 0, camKeys = new Set(), camDrag = null, camDirty = true, camTime = 0, camOpen = false;
+let camTapped = new Set(), camLast = "", cam = null, camScene = null, camLoop = 0, camKeys = new Set(), camDrag = null, camDirty = true, camTime = 0, camOpen = false;
 const CAM_FIELDS = [["x", "x (east)", 0.1], ["y", "y (south)", 0.1], ["z", "height", 0.1], ["yaw", "yaw (0 = north)", 1], ["pitch", "pitch (+ up)", 1], ["fov", "field of view", 1]];
 const camClamp = c => {
   c.pitch = Math.max(-89, Math.min(89, c.pitch)); c.fov = Math.max(15, Math.min(120, c.fov)); c.z = Math.max(0.05, Math.min(60, c.z));
@@ -753,8 +753,19 @@ function camRender(ctx, overlay) {
   if (!overlay) return;
   ctx.strokeStyle = "rgba(236,232,245,.35)"; ctx.lineWidth = 1;
   ctx.beginPath(); ctx.moveTo(W / 2 - 8, H / 2); ctx.lineTo(W / 2 + 8, H / 2); ctx.moveTo(W / 2, H / 2 - 8); ctx.lineTo(W / 2, H / 2 + 8); ctx.stroke();
+  {   // a small plan view so you can see where the camera is and which way it faces (north is up, east is right)
+    const g2 = camScene.grid, S = Math.min(150 / g2.width, 110 / g2.height), mw = g2.width * S, mh = g2.height * S, mx = W - mw - 10, my = 10;
+    const px = x => mx + x * S, py = y => my + y * S;
+    ctx.fillStyle = "rgba(12,10,18,.75)"; ctx.fillRect(mx - 3, my - 3, mw + 6, mh + 6);
+    ctx.strokeStyle = "rgba(236,232,245,.35)"; ctx.lineWidth = 1; ctx.strokeRect(mx, my, mw, mh);
+    for (let yy = 0; yy < g2.height; yy++) for (let xx = 0; xx < g2.width; xx++) if (g2.rows[yy][xx] === "#") { ctx.fillStyle = "#4a4463"; ctx.fillRect(px(xx), py(yy), S, S); }
+    for (const p of camScene.props) { if (p.life === "dead") continue; ctx.fillStyle = p.team === "party" ? "#5b8def" : p.team === "foe" ? "#d05a5a" : "#6fbf73"; ctx.beginPath(); ctx.arc(px(p.x + .5), py(p.y + .5), Math.max(2, S * 0.3), 0, 7); ctx.fill(); }
+    const cx = px(c.x), cy = py(c.y), ya = c.yaw * Math.PI / 180, fx2 = Math.sin(ya), fy2 = -Math.cos(ya), L = 11;
+    ctx.fillStyle = "#e0b84a"; ctx.beginPath(); ctx.moveTo(cx + fx2 * L, cy + fy2 * L); ctx.lineTo(cx - fy2 * 4.5 - fx2 * 4, cy + fx2 * 4.5 - fy2 * 4); ctx.lineTo(cx + fy2 * 4.5 - fx2 * 4, cy - fx2 * 4.5 - fy2 * 4); ctx.closePath(); ctx.fill();
+  }
   ctx.font = "12px ui-monospace, monospace"; ctx.textAlign = "left"; ctx.fillStyle = "rgba(236,232,245,.8)";
-  ctx.fillText(`x ${c.x.toFixed(1)}  y ${c.y.toFixed(1)}  z ${c.z.toFixed(1)}   yaw ${c.yaw.toFixed(0)}  pitch ${c.pitch.toFixed(0)}  fov ${c.fov.toFixed(0)}`, 8, H - 8);
+  ctx.fillText(`x ${c.x.toFixed(1)}  y ${c.y.toFixed(1)}  z ${c.z.toFixed(1)}   yaw ${c.yaw.toFixed(0)}  pitch ${c.pitch.toFixed(0)}  fov ${c.fov.toFixed(0)}   keys: ${[...camKeys].map(k => k.replace("Key", "")).join("+")}`, 8, H - 8);
+  ctx.fillText(`last key: ${camLast}`, 8, H - 24);
 }
 
 function camPresets() {
@@ -777,7 +788,8 @@ function camSync() {
   for (const [k] of CAM_FIELDS) { const i = $("#cam_" + k); if (i && document.activeElement !== i) i.value = cam[k].toFixed(k === "x" || k === "y" || k === "z" ? 2 : 0); }
 }
 function camStep(dt) {
-  const K = camKeys, fast = K.has("ShiftLeft") || K.has("ShiftRight") ? 3 : 1, sp = 4 * fast * dt, turn = 90 * dt;
+  const K = new Set([...camKeys, ...camTapped]); camTapped.clear();   // a key pressed and released within one frame still counts for that frame
+  const fast = K.has("ShiftLeft") || K.has("ShiftRight") ? 3 : 1, sp = 4 * fast * dt, turn = 90 * dt;
   const y = cam.yaw * Math.PI / 180, fx = Math.sin(y), fy = -Math.cos(y), rx = Math.cos(y), ry = Math.sin(y);
   let moved = false;
   const mv = (dx, dy, dz) => { cam.x += dx; cam.y += dy; cam.z += dz; moved = true; };
@@ -827,8 +839,8 @@ async function openCamera() {
     fields.append(el("label", { textContent: label, className: "dim" }), inp);
   }
   const presets = el("div", { className: "row" });
-  for (const [name, c] of Object.entries(camPresets())) presets.append(el("button", { textContent: name, onclick: () => { cam = { ...cam, ...c }; camClamp(cam); camDirty = true; camSync(); } }));
-  const looks = el("select", { onchange: e => { const p = camScene.props[+e.target.value]; if (p) { camLookAt(p); camSync(); } e.target.value = ""; } },
+  for (const [name, c] of Object.entries(camPresets())) presets.append(el("button", { textContent: name, onclick: () => { cam = { ...cam, ...c }; camClamp(cam); camDirty = true; camSync(); canvas.focus(); } }));
+  const looks = el("select", { onchange: e => { const p = camScene.props[+e.target.value]; if (p) { camLookAt(p); camSync(); } e.target.value = ""; e.target.blur(); canvas.focus(); } },
     el("option", { value: "", textContent: "Look at..." }), ...camScene.props.map((p, i) => p.hero ? null : el("option", { value: i, textContent: p.name })).filter(Boolean));
 
   const close = () => { camOpen = false; cancelAnimationFrame(camLoop); window.removeEventListener("keydown", onKey); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", onBlur); dlg.remove(); };
@@ -848,14 +860,17 @@ async function openCamera() {
           el("div", { className: "row" }, drawBtn, el("span", { className: "viewmsg small dim", textContent: viewMsg.text })),
           el("div", { className: "dim small", textContent: "The preview is a plain stand-in: blue is your party, red is foes, green is other people. The model paints over it." })))));
 
+  const camCode = e => e.key && e.key.length === 1 && /[a-z]/i.test(e.key) ? "Key" + e.key.toUpperCase() : e.code;   // go by the letter typed, so it follows your keyboard layout
   const onKey = e => {
     if (!camOpen) return;
-    const tag = (e.target && e.target.tagName) || "";
+    camLast = `${e.code || "?"} / "${e.key}" on ${(e.target && e.target.tagName) || "?"}`; camDirty = true;
+    const tag = (e.target && e.target.tagName) || "", ty = (e.target && e.target.type) || "";
     if (e.code === "Escape" && tag !== "SELECT") { close(); return; }
-    if (tag === "INPUT" || tag === "SELECT" || tag === "TEXTAREA") return;
-    if (/^(Key[WASDQEC]|Space|Arrow(Left|Right|Up|Down)|Shift(Left|Right))$/.test(e.code)) { camKeys.add(e.code); e.preventDefault(); }
+    // only real text entry keeps its keys; a slider, checkbox or button that merely has focus must not swallow WASD
+    if (tag === "TEXTAREA" || tag === "SELECT" || (tag === "INPUT" && !/^(range|checkbox|radio|button)$/.test(ty))) return;
+    const kc = camCode(e); if (/^(Key[WASDQEC]|Space|Arrow(Left|Right|Up|Down)|Shift(Left|Right))$/.test(kc)) { camKeys.add(kc); camTapped.add(kc); camDirty = true; e.preventDefault(); }
   };
-  const onKeyUp = e => { camKeys.delete(e.code); if (e.code === "Space" && camOpen) e.preventDefault(); };
+  const onKeyUp = e => { camKeys.delete(e.code); camKeys.delete(camCode(e)); camDirty = true; if (e.code === "Space" && camOpen) e.preventDefault(); };
   const onBlur = () => camKeys.clear();
   window.addEventListener("keydown", onKey); window.addEventListener("keyup", onKeyUp); window.addEventListener("blur", onBlur);
 

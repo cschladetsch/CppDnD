@@ -182,7 +182,7 @@ TEST(Game, HeroSwitchShowsTheNewHeroOptionsAtOnce) {
 
 TEST(Game, HeroSwitch) {
     GameConfig cfg;
-    cfg.rooms = 1; cfg.difficulty = "easy"; cfg.seed = 11; cfg.role = Role::Player; cfg.hero = "elara";
+    cfg.rooms = 1; cfg.difficulty = "easy"; cfg.seed = 12; cfg.role = Role::Player; cfg.hero = "elara";
     Game g(cfg);
     EXPECT_TRUE(g.GetMode() == Mode::Combat && g.Hero() == "Elara");
     std::string err;

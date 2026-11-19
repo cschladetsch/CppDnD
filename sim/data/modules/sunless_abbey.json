@@ -1,0 +1,2580 @@
+{
+  "id": "sunless_abbey",
+  "name": "The Sunless Abbey",
+  "setting": "dark fantasy dungeon crawl: the sealed Abbey of Saint Veyra, whose lamps were put out ten years ago and have just been lit again by something that was once its abbess",
+  "recommendedLevel": 5,
+  "hardHp": 1.1,
+  "intro": "Ten years ago the lamps of Saint Veyra's Abbey went out, one by one, and the monks stopped coming down to market. Nobody went up to ask. This spring the lamps came back in the Abbey's windows, and people have started vanishing off the Pilgrim Road at dusk. The reeve of Candlemere has sixty crowns and a rusty key. Above the village the Abbey waits on its hill, with fifty rooms and a bell that rings itself.",
+  "endText": "The Abbess's coffin burns with a flame that gives off no smoke, and the great lamp over it goes out like a held breath. Down in the stone and up in the tower, the bell finally rests. Three miles away in Candlemere, forty candles gutter in forty windows and for the first time in ten years nobody lights them again. The Abbey of Saint Veyra is dark, and this time it is only a ruin.",
+  "clock": {
+    "startHour": 15,
+    "nightStart": 19,
+    "nightEnd": 6
+  },
+  "start": "candlemere",
+  "draws": [
+    {
+      "id": "key",
+      "choices": [
+        "scriptorium",
+        "infirmary"
+      ]
+    },
+    {
+      "id": "thrall",
+      "choices": [
+        "bess",
+        "tolliver"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "id": "lane",
+      "chanceDay": 2,
+      "chanceNight": 5,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "wolf",
+            "wolf"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "goblin",
+            "goblin",
+            "goblin"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "cultist",
+            "cultist"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "abbey",
+      "chanceDay": 3,
+      "chanceNight": 6,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "skeleton",
+            "skeleton",
+            "skeleton"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "zombie",
+            "zombie",
+            "zombie"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "cultist",
+            "cultist",
+            "cult_adept"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "under",
+      "chanceDay": 3,
+      "chanceNight": 6,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "goblin",
+            "goblin",
+            "goblin",
+            "goblin"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "bugbear",
+            "bugbear"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "ghoul",
+            "ghoul"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "ogre"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "ossuary",
+      "chanceDay": 3,
+      "chanceNight": 6,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "skeleton",
+            "skeleton",
+            "skeleton",
+            "skeleton"
+          ]
+        },
+        {
+          "weight": 3,
+          "monsters": [
+            "ghoul",
+            "ghoul"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "specter",
+            "specter"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "zombie",
+            "zombie",
+            "zombie",
+            "zombie"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "sanctum",
+      "chanceDay": 3,
+      "chanceNight": 6,
+      "entries": [
+        {
+          "weight": 2,
+          "monsters": [
+            "ghoul",
+            "ghoul",
+            "ghoul"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "specter",
+            "specter"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "cult_adept",
+            "cult_adept"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "ghoul",
+            "specter"
+          ]
+        }
+      ]
+    }
+  ],
+  "quests": [
+    {
+      "id": "light_in_the_window",
+      "name": "A Light in the Window",
+      "description": "Walk up the Pilgrim Road and reach the gate of the Abbey of Saint Veyra.",
+      "completeWhen": [
+        "reached_gate"
+      ],
+      "xp": 100
+    },
+    {
+      "id": "a_candle_in_the_dark",
+      "name": "A Candle in the Dark",
+      "description": "Somebody in Candlemere has been feeding the Abbey. Search the inn and the chandlery.",
+      "completeWhen": [
+        "thrall_exposed"
+      ],
+      "xp": 250
+    },
+    {
+      "id": "the_cellar_key",
+      "name": "The Cellar Key",
+      "description": "A great iron key opens the cellar door under the refectory. The scribes and the sick both kept things hidden.",
+      "completeWhen": [
+        "has_cellar_key"
+      ],
+      "xp": 200
+    },
+    {
+      "id": "goblin_trouble",
+      "name": "Goblin Trouble",
+      "description": "A war-band of goblins and bugbears holds the old mine under the Abbey. Break it.",
+      "completeWhen": [
+        "warren_cleared"
+      ],
+      "xp": 300
+    },
+    {
+      "id": "three_lamps",
+      "name": "Three Lamps",
+      "description": "Light the lamps of Veyra in the chapel, the mine and the ossuary, and open the Black Door.",
+      "completeWhen": [
+        "lamp_chapel",
+        "lamp_mine",
+        "lamp_ossuary",
+        "lamps_lit"
+      ],
+      "xp": 500
+    },
+    {
+      "id": "silence_the_bell",
+      "name": "Silence the Bell",
+      "description": "The Abbess hears the bell in her coffin. Climb the tower and stop the ringing.",
+      "completeWhen": [
+        "bell_silenced"
+      ],
+      "xp": 400
+    },
+    {
+      "id": "the_abbess",
+      "name": "The Last Lamp",
+      "description": "Find Abbess Vesper Caul in her sanctum and put an end to her.",
+      "completeWhen": [
+        "abbess_destroyed"
+      ],
+      "xp": 1000
+    }
+  ],
+  "endWhen": [
+    "abbess_destroyed"
+  ],
+  "locations": [
+    {
+      "id": "candlemere",
+      "name": "Candlemere",
+      "kind": "settlement",
+      "rest": "safe",
+      "description": "A grey hamlet of forty chimneys on a lake shore, three miles below the dark hill where the Abbey of Saint Veyra stands. Every window holds a candle burning in broad daylight, and the villagers flinch whenever one gutters.",
+      "events": [
+        {
+          "id": "arrival",
+          "trigger": "enter",
+          "narration": "Doors close along the lane as you ride in, but a candle in every window follows you, steady as an eye. On the green a woman in a reeve's chain is waiting, as though she has been counting the hours until someone came."
+        }
+      ],
+      "npcs": [
+        {
+          "id": "tamsin",
+          "name": "Reeve Tamsin Vole",
+          "type": "official",
+          "description": "A lean, weathered woman of sixty with a reeve's chain and the stoop of someone who has been carrying a village for years.",
+          "topics": [
+            {
+              "id": "job",
+              "text": "\"Ten years the Abbey has been dark and we were glad to let it lie. This spring the lamps came back in its windows, and since then something has been taking our people on the lane at dusk. Go up. Find out what is lit and put it out. Sixty crowns, and every candle in Candlemere.\"",
+              "setsFlags": [
+                "heard_job"
+              ]
+            },
+            {
+              "id": "key",
+              "text": "\"This is the great key to the gatehouse. My grandmother kept it for the Abbey's warden, and it has not been turned since the lamps went out. Do not lose it. There is no smith in the valley who would forge another at midnight.\"",
+              "requires": [
+                "heard_job"
+              ],
+              "setsFlags": [
+                "has_gate_key"
+              ]
+            },
+            {
+              "id": "hand",
+              "text": "\"Somebody in Candlemere has been feeding the Abbey. Grain goes up the hill and nothing comes down. I would look at whoever sells light, and whoever sells beds. I will not say more until I am sure, and I am not sure.\""
+            }
+          ]
+        },
+        {
+          "id": "pim",
+          "name": "Gaffer Pim",
+          "type": "commoner",
+          "description": "A bent old man on a bench by the pump, whittling a candlestick he never finishes.",
+          "topics": [
+            {
+              "id": "abbess",
+              "text": "\"Abbess Vesper Caul. A hard, handsome woman, the last to argue with the Bishop and win. She took the sealing of the Black Door on her own shoulders. After that nobody heard her speak, only the bell, which rang each night for a year and then stopped. Now it rings again.\""
+            },
+            {
+              "id": "orchard",
+              "text": "\"Brother Hale used to say the orchard wall was only mortar and spite. A man could get through it by the north corner if he had the stomach for the trees. There is a way in that does not pass the gate, if you would sooner not ask the Abbey's leave.\""
+            }
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "guttering_candle",
+          "label": "Into the Guttering Candle"
+        },
+        {
+          "to": "chandlery",
+          "label": "To Tolliver's Chandlery"
+        },
+        {
+          "to": "pilgrim_road",
+          "label": "Up the Pilgrim Road",
+          "miles": 2
+        }
+      ]
+    },
+    {
+      "id": "guttering_candle",
+      "name": "The Guttering Candle",
+      "kind": "settlement",
+      "rest": "safe",
+      "description": "The only inn in Candlemere, a long low room that smells of tallow and boiled barley. Every table holds a lit candle and nobody has ever been seen to light one.",
+      "events": [
+        {
+          "id": "bess_unmasked",
+          "trigger": "search",
+          "narration": "Bess keeps her accounts in a book of pale paper, and its last page lists names, dusk dates and a column headed 'tithe'. When you lay it on the bar she smiles at you with all her teeth. 'She does not forget a kindness,' she says, and the cellar door opens behind you.",
+          "requires": [
+            "thrall=bess"
+          ],
+          "encounter": {
+            "monsters": [
+              "cultist",
+              "cultist",
+              "cult_adept"
+            ]
+          },
+          "setsFlags": [
+            "thrall_exposed"
+          ],
+          "xp": 150
+        },
+        {
+          "id": "bess_clean",
+          "trigger": "search",
+          "narration": "You turn the cellar and the attic over and find nothing worse than sour ale and a keg of good brandy. Among the keepsakes left by guests who did not come back is a sealed healing draught, and Bess lets you keep it.",
+          "requires": [
+            "!thrall=bess"
+          ],
+          "potions": 1
+        }
+      ],
+      "npcs": [
+        {
+          "id": "bess",
+          "name": "Bess Harrow",
+          "type": "innkeeper",
+          "description": "A big, comfortable woman with a rag on her shoulder and a habit of counting the room's candles when she thinks nobody is looking.",
+          "topics": [
+            {
+              "id": "rooms",
+              "text": "\"Beds are two silver a night, the back room is warm, and the candles stay lit till morning whether you want them or not. Sleep well. Do not go up to the Abbey in the dark.\""
+            },
+            {
+              "id": "track",
+              "text": "\"Drovers say there is a goblin track in the hillside above the pilgrim road, where the old lamp-mine opens. They have been using it to get at the Abbey's stores. Lamps in the Abbey and goblins in the hill. It is a year for it.\"",
+              "setsFlags": [
+                "heard_goblin_rumour"
+              ]
+            }
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "candlemere",
+          "label": "Out to the green"
+        }
+      ]
+    },
+    {
+      "id": "chandlery",
+      "name": "Tolliver's Chandlery",
+      "kind": "settlement",
+      "rest": "safe",
+      "description": "A cramped shop of beeswax and tallow, every shelf given over to candles of every size. The chandler has sold nothing but candles for ten years, and has only ever had the one customer.",
+      "events": [
+        {
+          "id": "tolliver_unmasked",
+          "trigger": "search",
+          "narration": "Behind the great wax vats is a second room, and in it a shrine to a pale hand, and a ledger of names. Tolliver does not run. 'I only sold the oil,' he says reasonably, as three robed figures step out of the shadows behind the vats.",
+          "requires": [
+            "thrall=tolliver"
+          ],
+          "encounter": {
+            "monsters": [
+              "cultist",
+              "cultist",
+              "cult_adept"
+            ]
+          },
+          "setsFlags": [
+            "thrall_exposed"
+          ],
+          "xp": 150
+        },
+        {
+          "id": "tolliver_clean",
+          "trigger": "search",
+          "narration": "Behind the vats you find a box of Abbey candles, still faintly warm, and a flask of Saint Veyra's oil that the chandler gives you with a shrug. 'Lamp oil. For lamps that mean it.'",
+          "requires": [
+            "!thrall=tolliver"
+          ],
+          "potions": 1
+        }
+      ],
+      "npcs": [
+        {
+          "id": "tolliver",
+          "name": "Tolliver Dunn",
+          "type": "merchant",
+          "description": "A small, neat man in a wax-spotted apron who handles every candle as if it might wake.",
+          "topics": [
+            {
+              "id": "lamps",
+              "text": "\"There are three lamps of Veyra, hung in the chapel, the mine and the ossuary when the Abbey was founded. The old rite says light all three and the Black Door will know its own keepers. I have been selling the oil for ten years to someone who never pays in coin. I never asked why. I should have.\"",
+              "setsFlags": [
+                "knows_three_lamps"
+              ]
+            },
+            {
+              "id": "oil",
+              "text": "\"Oil from a faithful hand, a flame from a faithful heart, and a word at the lighting. That is all the rite asks. The faith is the hard part. Take a flask. Whoever you meet up there, I hope they ask you for light and not for something else.\""
+            }
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "candlemere",
+          "label": "Out to the green"
+        }
+      ]
+    },
+    {
+      "id": "pilgrim_road",
+      "name": "The Pilgrim Road",
+      "kind": "wilderness",
+      "rest": "risky",
+      "description": "A switchbacking road of worn stones up the hill to the Abbey, lined with cairns left by pilgrims who prayed for a lamp to be lit. Every cairn has been knocked over, and the stones lie scattered like teeth.",
+      "randomTable": "lane",
+      "events": [
+        {
+          "id": "ruts",
+          "trigger": "enter",
+          "narration": "Something has been dragging heavy things up the road. The ruts are fresh, and so are the stains. Not far above, one of the fallen cairns holds a pilgrim's satchel, still buckled."
+        },
+        {
+          "id": "satchel",
+          "trigger": "search",
+          "narration": "The satchel holds a flask of Saint Veyra's oil, a sealed draught and a note in a shaking hand: 'If you are reading this, the orchard is not as dead as it looks.'",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "candlemere",
+          "label": "Down to Candlemere",
+          "miles": 2
+        },
+        {
+          "to": "abbey_gate",
+          "label": "On to the Abbey Gate",
+          "miles": 1
+        },
+        {
+          "to": "drowned_orchard",
+          "label": "Off the road into the orchard",
+          "miles": 1
+        },
+        {
+          "to": "mine_adit",
+          "label": "Up the goblin track to the old mine",
+          "miles": 1,
+          "requires": [
+            "heard_goblin_rumour"
+          ],
+          "blockedText": "You see no track, only scree and thorn. Somebody in the village might know where the miners went."
+        }
+      ]
+    },
+    {
+      "id": "drowned_orchard",
+      "name": "The Drowned Orchard",
+      "kind": "wilderness",
+      "rest": "risky",
+      "description": "Apple trees stand knee-deep in black water that no rain has fed in years. The fruit is ripe and white, and it hangs from the boughs in March like lanterns. Beyond the trees the Abbey's north wall is cracked from coping to footing.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "still_water",
+          "trigger": "enter",
+          "narration": "The water is perfectly still, and every white apple has a reflection that is looking slightly the wrong way."
+        },
+        {
+          "id": "breach",
+          "trigger": "search",
+          "narration": "When you pull at the loose stones, something under the roots rises: a farm-hand, bound in wet sacking, turned to something the water made. 'Lamp,' it says. 'Lamp.' Other shapes drag themselves from among the trees. When they lie still, the crack in the wall turns out to be a breach wide enough for a man, opening on a kitchen garden.",
+          "encounter": {
+            "monsters": [
+              "zombie",
+              "zombie",
+              "zombie"
+            ]
+          },
+          "setsFlags": [
+            "found_breach"
+          ],
+          "xp": 100
+        }
+      ],
+      "exits": [
+        {
+          "to": "pilgrim_road",
+          "label": "Back to the road",
+          "miles": 1
+        },
+        {
+          "to": "kitchens",
+          "label": "Through the breach into the Abbey kitchens",
+          "requires": [
+            "found_breach"
+          ],
+          "blockedText": "The wall is whole as far as you can see, and ugly with thorn."
+        }
+      ]
+    },
+    {
+      "id": "abbey_gate",
+      "name": "The Abbey Gate",
+      "kind": "boundary",
+      "rest": "safe",
+      "description": "A great arch of grey stone crowned with a stone lamp that was lit once a night for four hundred years. The gates are chained and the chains are new. Above the arch a single window holds a flame that does not move.",
+      "randomTable": "lane",
+      "events": [
+        {
+          "id": "gate_wolves",
+          "trigger": "enter",
+          "narration": "Three grey shapes rise from the ditch before the gate. They were wolves once. Their eyes burn with a small, steady flame, like lamps behind horn, and they are not afraid of yours.",
+          "encounter": {
+            "monsters": [
+              "wolf",
+              "wolf",
+              "wolf"
+            ]
+          },
+          "setsFlags": [
+            "reached_gate"
+          ],
+          "xp": 50,
+          "map": [
+            "######################",
+            "#PP..c.....c......MM.#",
+            "#P.......~~........M.#",
+            "#PP..c.....c......M.M#",
+            "######################"
+          ]
+        },
+        {
+          "id": "gate_chains",
+          "trigger": "search",
+          "narration": "The chains are as thick as your wrist and the lock is the size of a loaf. The lock-plate bears a carved lamp and a name: 'Ostler'. Somebody in Candlemere must have the key."
+        }
+      ],
+      "exits": [
+        {
+          "to": "pilgrim_road",
+          "label": "Back down the road",
+          "miles": 1
+        },
+        {
+          "to": "gatehouse",
+          "label": "Unlock the chains and enter the gatehouse",
+          "hours": 4,
+          "requires": [
+            "has_gate_key"
+          ],
+          "blockedText": "The chains are as thick as your wrist and the lock the size of a loaf. Somebody in Candlemere must have the key."
+        }
+      ]
+    },
+    {
+      "id": "gatehouse",
+      "name": "The Gatehouse",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A vaulted passage under the gate tower, with murder-holes overhead and a winch-room to one side. Rusted bars hang in the arch. The floor is swept clean, which is the worst thing about it.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "porters",
+          "trigger": "enter",
+          "narration": "The swept floor is the porters' work. They stand along the wall, six of them in cassocks gone to rags, and when the first turns its hollow face to you the rest turn with it. They have been waiting for someone to use the key.",
+          "encounter": {
+            "monsters": [
+              "skeleton",
+              "skeleton",
+              "skeleton",
+              "skeleton"
+            ]
+          },
+          "xp": 100,
+          "map": [
+            "######################",
+            "#PP..c.....c......MM.#",
+            "#P.......~~........M.#",
+            "#PP..c.....c......M.M#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "abbey_gate",
+          "label": "Out through the gate",
+          "hours": 4
+        },
+        {
+          "to": "porters_lodge",
+          "label": "Into the porters' lodge"
+        },
+        {
+          "to": "outer_court",
+          "label": "Through the arch into the Outer Court"
+        }
+      ]
+    },
+    {
+      "id": "porters_lodge",
+      "name": "The Porters' Lodge",
+      "kind": "site",
+      "rest": "risky",
+      "description": "A snug stone room with a hearth, a rack of keys and a long table scattered with cards. The cards are face up, a hand of five dealt ten years ago and never played.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "porters_chest",
+          "trigger": "search",
+          "narration": "The porter's chest holds a coil of rope, a tinderbox and a flask of Saint Veyra's oil marked 'for the dark, not the damp'.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "gatehouse",
+          "label": "Back to the gate passage"
+        }
+      ]
+    },
+    {
+      "id": "outer_court",
+      "name": "The Outer Court",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A wide cobbled yard in the lee of the Abbey's walls where pilgrims once queued for the lamplighting. A dry fountain stands in the middle with a broken saint, and the cobbles are black in a long fan from the Abbey door, as though something had been burnt there.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "court_ambush",
+          "trigger": "enter",
+          "narration": "Robed figures rise from behind the fountain, each with a little lamp on a chain. 'The Abbess is at her prayers,' says their leader, a woman with ash on her brow. 'You must not disturb her.' They have barricaded the Abbey door with pews.",
+          "encounter": {
+            "monsters": [
+              "cultist",
+              "cultist",
+              "cult_adept"
+            ]
+          },
+          "setsFlags": [
+            "court_cleared"
+          ],
+          "xp": 150,
+          "map": [
+            "##########################",
+            "#PP...c........O.......MM#",
+            "#P.....~~.........c...M.M#",
+            "#PP..O.........~~.......M#",
+            "#P.....c.......O.....MM..#",
+            "#PP........~~.........M.M#",
+            "##########################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "gatehouse",
+          "label": "Back through the arch"
+        },
+        {
+          "to": "well_house",
+          "label": "To the well house"
+        },
+        {
+          "to": "cloister_garth",
+          "label": "Through the Abbey door into the cloister",
+          "hours": 4,
+          "requires": [
+            "court_cleared"
+          ],
+          "blockedText": "The Abbey door is barricaded with pews, and the cultists behind it are in no mood to take them down."
+        }
+      ]
+    },
+    {
+      "id": "well_house",
+      "name": "The Well House",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A small stone hut over a deep well, its roof held up by the wind and the carpenter's memory. The water below is perfectly clear and very cold, and a carved saint on the rim holds a lamp that is, impossibly, still lit.",
+      "events": [
+        {
+          "id": "well_peace",
+          "trigger": "enter",
+          "narration": "Here the dread of the Abbey stops at the threshold like a tide at a seawall. The little saint's lamp gives off no heat, but you feel the warmth of it all the same."
+        },
+        {
+          "id": "well_basket",
+          "trigger": "search",
+          "narration": "Someone has hung a basket in the shaft on a long cord. In it is a glass bottle, still sealed, with a pilgrim's token tied to the neck.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "outer_court",
+          "label": "Back to the court"
+        }
+      ]
+    },
+    {
+      "id": "cloister_garth",
+      "name": "The Cloister Garth",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A square of dead lawn walled by four covered walks, the columns carved with lamps. In the centre stands a stone well-head crowned with a black lamp that has never been lit. The air is perfectly still, and your footsteps arrive twice.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "garth_walkers",
+          "trigger": "enter",
+          "narration": "Pale figures walk the cloister in pairs, hands folded, reciting. They stop when you do, and one of them says, quite kindly, 'You are late for compline.'",
+          "encounter": {
+            "monsters": [
+              "specter",
+              "specter"
+            ]
+          },
+          "xp": 150,
+          "map": [
+            "##########################",
+            "#PP...c........O.......MM#",
+            "#P.....~~.........c...M.M#",
+            "#PP..O.........~~.......M#",
+            "#P.....c.......O.....MM..#",
+            "#PP........~~.........M.M#",
+            "##########################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "outer_court",
+          "label": "Out to the Outer Court",
+          "hours": 4
+        },
+        {
+          "to": "chapter_house",
+          "label": "To the chapter house"
+        },
+        {
+          "to": "refectory",
+          "label": "To the refectory"
+        },
+        {
+          "to": "chapel_of_veyra",
+          "label": "Into the chapel"
+        },
+        {
+          "to": "dormitory",
+          "label": "To the dormitory"
+        }
+      ]
+    },
+    {
+      "id": "chapter_house",
+      "name": "The Chapter House",
+      "kind": "site",
+      "rest": "safe",
+      "description": "An eight-sided room where the monks met beneath a lamp-shaped dome to confess their faults to one another. The stalls are still full, and every stall holds a robed shape that did not move when you opened the door. They are very still, and very dead, and nothing on them is decayed.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "stalls",
+          "trigger": "enter",
+          "narration": "The shapes in the stalls turn their heads as one. 'Confess,' says the nearest, with a voice like sandpaper on a bone, and they come out of the stalls with their fingers already hooked.",
+          "encounter": {
+            "monsters": [
+              "ghoul",
+              "ghoul"
+            ]
+          },
+          "xp": 150
+        },
+        {
+          "id": "abbots_diary",
+          "trigger": "search",
+          "narration": "In the abbot's stall a book lies open at the day the Abbey fell. The last entry is a list of lamps and the places they were hung, and a line in a firm hand: 'If the Black Door must open, it opens to three lamps and no other key.'",
+          "setsFlags": [
+            "knows_three_lamps"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "cloister_garth",
+          "label": "Back out to the garth"
+        },
+        {
+          "to": "scriptorium",
+          "label": "Up to the scriptorium"
+        },
+        {
+          "to": "abbots_lodging",
+          "label": "To the abbot's lodging"
+        }
+      ]
+    },
+    {
+      "id": "scriptorium",
+      "name": "The Scriptorium",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Rows of slanted desks beneath tall windows, a hundred half-finished pages pinned in place. The ink in the wells is black and wet and smells of iron. Nothing has been written here in ten years, but the pages are warm to the touch.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "scribes",
+          "trigger": "enter",
+          "narration": "Hooded figures at the desks are copying a single page, over and over, and the page is a list of names. When you stop reading over their shoulders, the nearest scribe puts down the pen and picks up a knife.",
+          "encounter": {
+            "monsters": [
+              "cultist",
+              "cultist",
+              "cult_adept"
+            ]
+          },
+          "xp": 150
+        },
+        {
+          "id": "key_scriptorium",
+          "trigger": "search",
+          "narration": "Under the illuminator's desk a loose board covers a hollow, and in it lies an iron key as long as your hand, wrapped in a page of Saint Veyra's psalter. The key is warm and slightly sticky, like a bone.",
+          "requires": [
+            "key=scriptorium"
+          ],
+          "setsFlags": [
+            "has_cellar_key"
+          ],
+          "xp": 100
+        },
+        {
+          "id": "scriptorium_clean",
+          "trigger": "search",
+          "narration": "Between the pages of a half-copied psalter you find a pressed lamp-flower and a sealed draught the scribes kept against ink-poisoning.",
+          "requires": [
+            "!key=scriptorium"
+          ],
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "chapter_house",
+          "label": "Back down to the chapter house"
+        },
+        {
+          "to": "library_stacks",
+          "label": "Into the library stacks"
+        }
+      ]
+    },
+    {
+      "id": "library_stacks",
+      "name": "The Library Stacks",
+      "kind": "site",
+      "rest": "risky",
+      "description": "Narrow aisles of black oak shelves rise into darkness, the books chained to their ledges and quite silent. Somewhere deep in the stacks a page turns, and turns again, as if someone were reading very fast to get to the end.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "binders",
+          "trigger": "enter",
+          "narration": "The stacks are patrolled by what is left of the Abbey's bookbinders, pale long-fingered things that sew the unwary into covers. They shuffle away from your light and fold themselves into the shelves, and nothing follows you in.",
+          "xp": 150
+        },
+        {
+          "id": "stack_shelf",
+          "trigger": "search",
+          "narration": "On a lectern at the heart of the stacks lies a ledger of the Abbey's lamp-oil, with a scribbled note in the margin: 'Chapel, mine, bones. In that order. Do not trust the order.'",
+          "setsFlags": [
+            "knows_three_lamps"
+          ]
+        }
+      ],
+      "npcs": [
+        {
+          "id": "neve",
+          "name": "Archivist Neve",
+          "type": "scholar",
+          "description": "A small, grey, ink-stained woman wearing three pairs of spectacles on a cord, who flinches at your lamp and then forgets you are there.",
+          "topics": [
+            {
+              "id": "word",
+              "text": "\"The undercroft gallery opens to the ossuary by a word spoken at the bone door. Veyra's own word. It is 'illumina', and you must say it to the dark behind the door and not to the door. I have been saying it for ten years and it has not let me out of the stacks, but then I am not trying to leave.\"",
+              "setsFlags": [
+                "knows_crypt_word"
+              ]
+            },
+            {
+              "id": "door",
+              "text": "\"The Black Door only opens to three lamps. Chapel, mine, bones. Light them in any order and the door will take them. That is what Veyra feared and what she ordered. I think she wanted a door that would open for anyone who really tried.\"",
+              "setsFlags": [
+                "knows_three_lamps"
+              ]
+            }
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "scriptorium",
+          "label": "Back to the scriptorium"
+        }
+      ]
+    },
+    {
+      "id": "refectory",
+      "name": "The Refectory",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A long hall under a vaulted roof, with three hundred feet of table laid for a feast. The plates are set and the cups are full, and everything on them is grey with mould except one place at the head, where a single white candle burns beside an untouched loaf.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "diners",
+          "trigger": "enter",
+          "narration": "The diners rise from the benches in a long, patient scrape of wood. They have not eaten in ten years and they have decided you will do.",
+          "encounter": {
+            "monsters": [
+              "ghoul",
+              "ghoul",
+              "zombie",
+              "zombie"
+            ]
+          },
+          "xp": 200,
+          "map": [
+            "############################",
+            "#PP....O.....O.....O....MM#",
+            "#P.....................M.M#",
+            "#PP...O......c......O..M..#",
+            "#P.....................M.M#",
+            "#PP....O.....O.....O....MM#",
+            "############################"
+          ]
+        },
+        {
+          "id": "head_table",
+          "trigger": "search",
+          "narration": "The Abbess's cup at the head of the table holds a draught that is not wine and has not spoiled.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "kitchens",
+          "label": "Back to the kitchens"
+        },
+        {
+          "to": "cloister_garth",
+          "label": "Back out to the garth"
+        },
+        {
+          "to": "undercroft_stair",
+          "label": "Down the cellar door to the undercroft stair",
+          "hours": 4,
+          "requires": [
+            "has_cellar_key"
+          ],
+          "blockedText": "A heavy iron-bound door in the pantry wall, with a lamp carved on the lock-plate. It will not give. It wants a key, and a big one."
+        }
+      ]
+    },
+    {
+      "id": "kitchens",
+      "name": "The Abbey Kitchens",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Great hearths blackened by four centuries of porridge, a rank of copper pots and a butcher's block stained to the grain. The back door has been smashed in and the kitchen garden beyond is full of white fruit and standing water.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "raiders",
+          "trigger": "enter",
+          "narration": "A goblin is sitting on the block with a ham, and seven more are in the pantry with the stores. 'Cook says no meat for you,' it announces, and throws the ham at your head.",
+          "encounter": {
+            "monsters": [
+              "goblin",
+              "goblin",
+              "goblin",
+              "goblin",
+              "goblin"
+            ]
+          },
+          "xp": 100
+        },
+        {
+          "id": "pantry",
+          "trigger": "search",
+          "narration": "Behind the flour bins the Abbey's pantry still holds a stoneware jar of honey and a sealed healing draught, left for whoever needed it.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "drowned_orchard",
+          "label": "Out of the kitchen door to the orchard"
+        },
+        {
+          "to": "refectory",
+          "label": "Through to the refectory"
+        }
+      ]
+    },
+    {
+      "id": "dormitory",
+      "name": "The Dormitory",
+      "kind": "site",
+      "rest": "risky",
+      "description": "Forty narrow beds in two rows beneath a long window of stained glass that shows Saint Veyra lighting a lamp. Every bed is made and every blanket folded, and the pillows are dented as though the sleepers had only just got up.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "sleepers",
+          "trigger": "enter",
+          "narration": "The dented pillows are not empty. Pale shapes sit up in the beds, slow and polite, and one holds out a blanket to you with a hand like a bundle of cold sticks. They do not come any closer. They only watch you go.",
+          "xp": 150
+        }
+      ],
+      "exits": [
+        {
+          "to": "cloister_garth",
+          "label": "Back out to the garth"
+        },
+        {
+          "to": "infirmary",
+          "label": "Through to the infirmary"
+        }
+      ]
+    },
+    {
+      "id": "infirmary",
+      "name": "The Infirmary",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A long clean room of cots and herb-racks, the only room in the Abbey that smells of anything living: lavender, camphor and old blood. The dispensary shelves are lined with little stoppered bottles in neat, hand-labelled rows.",
+      "events": [
+        {
+          "id": "quiet_beds",
+          "trigger": "enter",
+          "narration": "Nothing in here has stirred in a decade, and the silence has the particular kindness of a sickroom at the end of a long night."
+        },
+        {
+          "id": "key_infirmary",
+          "trigger": "search",
+          "narration": "Behind the dispensary shelf, wedged in a hollow behind the poppy-syrup, hangs a heavy iron key wrapped in a lint bandage. The bottle in front of it is labelled: 'Not for the faithful.'",
+          "requires": [
+            "key=infirmary"
+          ],
+          "setsFlags": [
+            "has_cellar_key"
+          ],
+          "xp": 100
+        },
+        {
+          "id": "infirmary_clean",
+          "trigger": "search",
+          "narration": "The dispensary is stocked with tinctures that have outlived their makers. Two of them are still good, and one is a sealed healing draught.",
+          "requires": [
+            "!key=infirmary"
+          ],
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "dormitory",
+          "label": "Back to the dormitory"
+        }
+      ]
+    },
+    {
+      "id": "chapel_of_veyra",
+      "name": "The Chapel of Saint Veyra",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A soaring nave of white stone, its windows filled with the lamp-bearer's story in blue and gold glass. The altar lamp is a tall bronze stand with a bowl as wide as a shield, and the bowl is empty. A lone figure in a priest's cassock kneels at the rail.",
+      "events": [
+        {
+          "id": "chapel_calm",
+          "trigger": "enter",
+          "narration": "The air here is clean and cold and quite unhaunted. For the first time since the gate, nothing is watching you."
+        },
+        {
+          "id": "lamp_chapel",
+          "trigger": "search",
+          "narration": "You pour the oil, speak the old rite and touch a taper to the wick. The flame that rises is white and unwavering, and every window in the nave lights from within. Somewhere above you, far away, a bell stops tolling for the length of a held breath.",
+          "requires": [
+            "knows_three_lamps"
+          ],
+          "setsFlags": [
+            "lamp_chapel"
+          ],
+          "xp": 150
+        }
+      ],
+      "npcs": [
+        {
+          "id": "calder",
+          "name": "Brother Calder",
+          "type": "priest",
+          "description": "A thin young priest with scorched hands, who has been hiding in the vestry for nine days and has begun to talk to the saints in the windows.",
+          "topics": [
+            {
+              "id": "lamp",
+              "text": "\"The altar lamp is the first of three. The rite asks for oil from a faithful hand, a flame from a faithful heart, and a word at the lighting. I have the oil. I do not have the faith left to spare. Light it for me, and the Abbess will hear it, and she will not like it.\"",
+              "setsFlags": [
+                "knows_three_lamps"
+              ]
+            },
+            {
+              "id": "abbess",
+              "text": "\"She was kind once. Then the sealing took her, and she came up the stair one night with a smile I could not look at. The Black Door is a prison, not a door. Open it, and she will be there, and she will be glad to see you. That is what I fear.\""
+            },
+            {
+              "id": "bell",
+              "text": "\"The bell in the tower rings every dusk. Every time it rings, the candles in Candlemere burn brighter and the ones who watch them forget to blink. Silence the bell, and the Abbess's sanctum will open to you. I have tried, and I have been a coward.\""
+            }
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "cloister_garth",
+          "label": "Out to the garth"
+        },
+        {
+          "to": "abbots_lodging",
+          "label": "Through the vestry to the abbot's lodging"
+        }
+      ]
+    },
+    {
+      "id": "abbots_lodging",
+      "name": "The Abbot's Lodging",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A panelled study with a cold hearth and a window onto the cloister garth, the best room in the Abbey and the most cheerless. A heavy desk faces the door, and behind it a chair has been turned to face the wall, as if its occupant were ashamed.",
+      "randomTable": "abbey",
+      "events": [
+        {
+          "id": "novices",
+          "trigger": "enter",
+          "narration": "Two novices bar the study door with their bodies, hoods up, hands in their sleeves. 'The abbot is not receiving,' says one, and the sleeve opens on a knife that was never a prayer-book.",
+          "encounter": {
+            "monsters": [
+              "cult_adept",
+              "cultist",
+              "cultist",
+              "cultist"
+            ]
+          },
+          "xp": 200
+        },
+        {
+          "id": "abbots_chest",
+          "trigger": "search",
+          "narration": "Behind the panelling the abbot's emergency chest holds two sealed draughts and a note: 'I could not save them. I hope you can.'",
+          "potions": 2
+        }
+      ],
+      "exits": [
+        {
+          "to": "chapter_house",
+          "label": "Back to the chapter house"
+        },
+        {
+          "to": "chapel_of_veyra",
+          "label": "Through the vestry to the chapel"
+        }
+      ]
+    },
+    {
+      "id": "undercroft_stair",
+      "name": "The Undercroft Stair",
+      "kind": "site",
+      "rest": "risky",
+      "description": "A cramped spiral stair of black stone cut into the foundations, so narrow that two people cannot pass. The walls sweat, and the carved lamps on each step have been chiselled out one by one by someone with great patience.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "stair_drop",
+          "trigger": "enter",
+          "narration": "Something has been dragging itself up and down this stair, wearing a groove in every step. It is not here now, and you are in no hurry to meet it.",
+          "xp": 150
+        }
+      ],
+      "exits": [
+        {
+          "to": "refectory",
+          "label": "Up to the refectory",
+          "hours": 4
+        },
+        {
+          "to": "wine_cellars",
+          "label": "Down to the wine cellars"
+        }
+      ]
+    },
+    {
+      "id": "wine_cellars",
+      "name": "The Wine Cellars",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Three barrel-vaulted bays lined with racks and tuns, some staved in, some still sealed with the Abbey's lamp stamp. A cold draught flows across the floor from a crack in the south wall, carrying the smell of goblin and tallow. The door to the stair has a bolt on this side, and it is sound.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "cellar_raid",
+          "trigger": "enter",
+          "narration": "A goblin raiding party has been at the barrels. They have left in a hurry, trailing spilled wine and a smell of tallow, and the bolt on the stair door is still sound.",
+          "xp": 200
+        },
+        {
+          "id": "vintage",
+          "trigger": "search",
+          "narration": "One cask is still sealed with Saint Veyra's stamp. The wine inside is thick and red and faintly warm, and it knits a split lip as soon as you taste it. It is, unmistakably, a healing draught.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "undercroft_stair",
+          "label": "Up the spiral stair"
+        },
+        {
+          "to": "flooded_cistern",
+          "label": "Through the low arch to the flooded cistern"
+        },
+        {
+          "to": "undercroft_gallery",
+          "label": "Along to the undercroft gallery"
+        }
+      ]
+    },
+    {
+      "id": "flooded_cistern",
+      "name": "The Flooded Cistern",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A vast cistern under the cloister, its vaulted ceiling held on forests of columns standing knee-deep in black water. A wooden walkway runs between them. Something long and pale moves beneath the boards, keeping pace with you.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "surfacing",
+          "trigger": "enter",
+          "narration": "They surface all around the walkway, slow, patient, grey as old candle-ends. The Abbey's drowned dead have been waiting for the boards to creak.",
+          "encounter": {
+            "monsters": [
+              "zombie",
+              "zombie",
+              "zombie",
+              "zombie"
+            ]
+          },
+          "xp": 150,
+          "map": [
+            "########################",
+            "#PP..~~....c.....~~..MM#",
+            "#P...~~.........~~...M.#",
+            "#PP......O...c.......M.#",
+            "#P..c.....~~.....O..MM.#",
+            "#PP......~~..........M.#",
+            "########################"
+          ]
+        },
+        {
+          "id": "drowned_satchel",
+          "trigger": "search",
+          "narration": "A pilgrim's satchel hangs from a hook at the end of the walkway, dry as if it had been put there yesterday. It holds a flask of oil and a sealed healing draught.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "wine_cellars",
+          "label": "Back to the wine cellars"
+        }
+      ]
+    },
+    {
+      "id": "undercroft_gallery",
+      "name": "The Undercroft Gallery",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A long arcaded gallery, the Abbey's dry store in better years, now strung with goblin lanterns on greasy twine. At the far end a tall door of black wood is carved with a rising sun, and a hole in the south wall breathes cold air from the old mine.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "gallery_patrol",
+          "trigger": "enter",
+          "narration": "A bugbear patrol is coming down the gallery with a goblin on a string, as a sort of lantern. The goblin screams in a very small voice and then, seeing you, begins to scream in a much more encouraging one.",
+          "encounter": {
+            "monsters": [
+              "bugbear",
+              "bugbear",
+              "goblin",
+              "goblin"
+            ]
+          },
+          "xp": 250,
+          "map": [
+            "############################",
+            "#PP....O.....O.....O....MM#",
+            "#P.....................M.M#",
+            "#PP...O......c......O..M..#",
+            "#P.....................M.M#",
+            "#PP....O.....O.....O....MM#",
+            "############################"
+          ]
+        },
+        {
+          "id": "bone_door",
+          "trigger": "search",
+          "narration": "The black door is carved with a rising sun with its hands over its eyes. A single word is scratched into the stone in a scholar's hand: 'say it to the dark'. It is the only mark on the door that is not carved."
+        }
+      ],
+      "exits": [
+        {
+          "to": "wine_cellars",
+          "label": "Back to the wine cellars"
+        },
+        {
+          "to": "goblin_warren",
+          "label": "Through the goblins' hole into the warren"
+        },
+        {
+          "to": "ossuary_stair",
+          "label": "Speak the word at the black door and descend",
+          "hours": 4,
+          "requires": [
+            "knows_crypt_word"
+          ],
+          "blockedText": "The black door is shut, and on it a rising sun is carved with its hands over its eyes. You do not know the word that opens it."
+        }
+      ]
+    },
+    {
+      "id": "mine_adit",
+      "name": "The Mine Adit",
+      "kind": "site",
+      "rest": "risky",
+      "description": "A timbered tunnel in the hillside, black as the inside of a boot, strung with goblin charms of knucklebone and hair. The rails are red with rust, and the cart at the first bend is full of bones.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "outriders",
+          "trigger": "enter",
+          "narration": "Goblin tracks run in and out of every side-tunnel, and the rust on the rails has been scraped clean by bare feet. Somewhere deeper in, a bell is being rung in a very bad rhythm.",
+          "xp": 150
+        }
+      ],
+      "exits": [
+        {
+          "to": "pilgrim_road",
+          "label": "Down the track to the road",
+          "miles": 1
+        },
+        {
+          "to": "goblin_warren",
+          "label": "Down the tunnel into the warren"
+        }
+      ]
+    },
+    {
+      "id": "goblin_warren",
+      "name": "The Goblin Warren",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A honeycomb of low tunnels where the mine's old stopes have been dug out into bedrooms, kitchens and a great stinking commons hung with stolen church bells. The goblins have named every room. The biggest is called Sunday.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "warren_welcome",
+          "trigger": "enter",
+          "narration": "The commons erupts in goblins the moment you step through, a great flood of knives and bell-clappers. The one on the stove clangs a bell and screams a single word, which is 'Tax'.",
+          "encounter": {
+            "monsters": [
+              "goblin",
+              "goblin",
+              "goblin",
+              "goblin",
+              "goblin",
+              "bugbear"
+            ]
+          },
+          "xp": 200,
+          "map": [
+            "########################",
+            "#PP..~~....c.....~~..MM#",
+            "#P...~~.........~~...M.#",
+            "#PP......O...c.......M.#",
+            "#P..c.....~~.....O..MM.#",
+            "#PP......~~..........M.#",
+            "########################"
+          ]
+        },
+        {
+          "id": "warren_hoard",
+          "trigger": "search",
+          "narration": "Under the goblin chief's bed is a hoard of stolen church goods, none of it any use, and a goblin-sized barrel of surprisingly decent healing salve.",
+          "potions": 2
+        }
+      ],
+      "npcs": [
+        {
+          "id": "wick",
+          "name": "Wick",
+          "type": "goblin",
+          "description": "A very small goblin with one ear, who has been tied to a post with a monk's belt and has the air of someone who has had a very bad week.",
+          "topics": [
+            {
+              "id": "lamp",
+              "text": "\"The tall lamp is in the smelter, in the flue, where the big ugly ones keep the fire. Do not go that way if you can go through the barracks. The barracks has three bugbears and one very stupid ogre. The smelter has two hooded things and one very clever one.\""
+            },
+            {
+              "id": "lift",
+              "text": "\"The lift in the smelter goes down. A long way. To the bones. The ugly ones keep the brake on, so nobody goes down. I go down once. I do not go down again.\""
+            }
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "undercroft_gallery",
+          "label": "Back through the hole to the gallery"
+        },
+        {
+          "to": "mine_adit",
+          "label": "Back up the tunnel to the adit"
+        },
+        {
+          "to": "bugbear_barracks",
+          "label": "On to the bugbear barracks"
+        }
+      ]
+    },
+    {
+      "id": "bugbear_barracks",
+      "name": "The Bugbear Barracks",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A long timbered hall where the warren's war-band sleeps in heaps, with a rack of stolen halberds and a banner cut from a monk's habit. It stinks of sweat, bad meat and the particular smug dread of something that has found a very good place to hide.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "war_band",
+          "trigger": "enter",
+          "narration": "The war-band is awake and armed. At their head a bugbear in a stolen abbot's chasuble raises a ladle like a sceptre. 'Tax,' he says. 'Pay the tax.' The rest of the war-band takes this as the signal it was waiting for.",
+          "encounter": {
+            "monsters": [
+              "bugbear",
+              "bugbear",
+              "goblin",
+              "goblin",
+              "goblin"
+            ]
+          },
+          "setsFlags": [
+            "warren_cleared"
+          ],
+          "xp": 300,
+          "map": [
+            "############################",
+            "#PP....O.....O.....O....MM#",
+            "#P.....................M.M#",
+            "#PP...O......c......O..M..#",
+            "#P.....................M.M#",
+            "#PP....O.....O.....O....MM#",
+            "############################"
+          ]
+        },
+        {
+          "id": "barracks_chest",
+          "trigger": "search",
+          "narration": "The chief's chest holds a bishop's ring, a dozen church spoons and a cunning little flask of Saint Veyra's oil that the goblins did not know how to open.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "goblin_warren",
+          "label": "Back to the warren commons"
+        },
+        {
+          "to": "ogre_pit",
+          "label": "Down to the ogre pit"
+        }
+      ]
+    },
+    {
+      "id": "ogre_pit",
+      "name": "The Ogre Pit",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A round, steep-sided pit dug out of the mine floor, with a stair of knocked-in pegs round the wall. The goblins feed what they are afraid of down here, and it is clear what they are afraid of: it is large, bored and standing at the bottom looking up.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "ogres",
+          "trigger": "enter",
+          "narration": "The ogre at the bottom looks up. Then a second ogre, smaller, looks up. They exchange a look that is somehow worse than anything the goblins did, and begin, without any hurry, to climb.",
+          "encounter": {
+            "monsters": [
+              "ogre",
+              "ogre"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "######################",
+            "###PP....c....MM######",
+            "##P....~~~.....M.#####",
+            "#PP..O.~~~..O..MM.####",
+            "##P....~~~.....M.#####",
+            "###PP....c....MM######",
+            "######################"
+          ]
+        },
+        {
+          "id": "larder",
+          "trigger": "search",
+          "narration": "The ogres' larder is a nasty heap of bones, boots and everything else they could not eat. Under it, wrapped in a monk's habit, is a sealed healing draught.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "bugbear_barracks",
+          "label": "Back up to the barracks"
+        },
+        {
+          "to": "smelter",
+          "label": "Along to the old smelter"
+        }
+      ]
+    },
+    {
+      "id": "smelter",
+      "name": "The Old Smelter",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A cavernous furnace-hall where the Abbey's lamp-silver was once refined. The great hearths are cold, and the flues rise into a vault so high that the roof is lost in darkness. A tall bronze lamp hangs in the nearest flue, unlit, its chain wrapped in black iron.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "smiths",
+          "trigger": "enter",
+          "narration": "Hooded smiths tend a furnace that should be cold, feeding it with bones. 'The Abbess wants the lamp melted,' says one, without turning. 'We have been trying since spring. It does not melt. It will not even warm.'",
+          "encounter": {
+            "monsters": [
+              "cult_adept",
+              "cultist",
+              "cultist",
+              "cultist"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "############################",
+            "#PP....O.....O.....O....MM#",
+            "#P.....................M.M#",
+            "#PP...O......c......O..M..#",
+            "#P.....................M.M#",
+            "#PP....O.....O.....O....MM#",
+            "############################"
+          ]
+        },
+        {
+          "id": "lamp_mine",
+          "trigger": "search",
+          "narration": "You hoist the chain, pour the oil and say the rite as Brother Calder gave it, and the lamp wakes with a rush. The flue roars with white light and a wind blows up it into the dark, carrying a hundred small voices that say, all at once, 'thank you'.",
+          "requires": [
+            "knows_three_lamps"
+          ],
+          "setsFlags": [
+            "lamp_mine"
+          ],
+          "xp": 150
+        }
+      ],
+      "exits": [
+        {
+          "to": "ogre_pit",
+          "label": "Back to the ogre pit"
+        },
+        {
+          "to": "ore_lift",
+          "label": "To the ore lift"
+        }
+      ]
+    },
+    {
+      "id": "ore_lift",
+      "name": "The Ore Lift",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A great timber cage on a chain, swinging in a shaft that drops a hundred feet below and rises a hundred above. The winch is rusted, but the cage has been oiled, lately, by someone who wanted it to work.",
+      "randomTable": "under",
+      "events": [
+        {
+          "id": "cage_climbers",
+          "trigger": "enter",
+          "narration": "Pale hands cling to the cage and the chains. Whatever is coming up the shaft does not use the lift. It climbs, quick as spiders, and it is smiling.",
+          "encounter": {
+            "monsters": [
+              "ghoul",
+              "ghoul"
+            ]
+          },
+          "xp": 250,
+          "map": [
+            "######################",
+            "#PP..c.....c......MM.#",
+            "#P.......~~........M.#",
+            "#PP..c.....c......M.M#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "smelter",
+          "label": "Back to the smelter"
+        },
+        {
+          "to": "ossuary_stair",
+          "label": "Ride the cage down to the ossuary",
+          "hours": 4,
+          "requires": [
+            "warren_cleared"
+          ],
+          "blockedText": "The lift's brake has been jammed with a bugbear's club, and its keeper is in the barracks."
+        }
+      ]
+    },
+    {
+      "id": "ossuary_stair",
+      "name": "The Ossuary Stair",
+      "kind": "site",
+      "rest": "risky",
+      "description": "A long flight of broad steps down into the bone-vaults, each step carved with the name of a monk and the year of his death. Halfway down the names are fresh.",
+      "randomTable": "ossuary",
+      "events": [
+        {
+          "id": "stair_wraiths",
+          "trigger": "enter",
+          "narration": "The names on the steps are cold under your boots, and as you pass each one a faint, polite voice repeats it. The newest are warm, and you step over those.",
+          "xp": 250
+        }
+      ],
+      "exits": [
+        {
+          "to": "undercroft_gallery",
+          "label": "Back up to the gallery",
+          "hours": 4
+        },
+        {
+          "to": "ore_lift",
+          "label": "Climb the cage back up",
+          "hours": 4
+        },
+        {
+          "to": "bone_gallery",
+          "label": "Down to the Bone Gallery"
+        }
+      ]
+    },
+    {
+      "id": "bone_gallery",
+      "name": "The Bone Gallery",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A hall of arches built entirely of the Abbey's dead: skulls laid in patterns of lamps, ribs for balusters, finger-bones for fretwork. A cold light comes from nowhere and shows every fine detail of the work.",
+      "randomTable": "ossuary",
+      "events": [
+        {
+          "id": "arches",
+          "trigger": "enter",
+          "narration": "The arches shiver and shed their parts. Skeletons step down from the fretwork, one bone at a time, and fall into rank as if on parade.",
+          "encounter": {
+            "monsters": [
+              "skeleton",
+              "skeleton",
+              "skeleton",
+              "skeleton",
+              "skeleton"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "##########################",
+            "#PP..O..c..O..c..O...MMM#",
+            "#P...........~~.......M.#",
+            "#PP..O.....c.....O...MM.#",
+            "#P...........~~.......M.#",
+            "#PP..O..c..O..c..O...MMM#",
+            "##########################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "ossuary_stair",
+          "label": "Up the Ossuary Stair"
+        },
+        {
+          "to": "charnel_pit",
+          "label": "To the charnel pit"
+        },
+        {
+          "to": "ghoul_den",
+          "label": "To the ghoul den"
+        },
+        {
+          "to": "saints_alcove",
+          "label": "To the saints' alcove"
+        },
+        {
+          "to": "crypt_of_abbots",
+          "label": "To the crypt of the abbots"
+        },
+        {
+          "to": "whispering_stair",
+          "label": "Down the whispering stair"
+        }
+      ]
+    },
+    {
+      "id": "charnel_pit",
+      "name": "The Charnel Pit",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A round shaft where the unclaimed dead were once dropped to the lime. The lime is gone and the pit is brim-full of something that is not bone, quite, and not quite water, and moves in slow patient swells.",
+      "randomTable": "ossuary",
+      "events": [
+        {
+          "id": "pit_rising",
+          "trigger": "enter",
+          "narration": "The swell rises into hands and then into shoulders. They have been waiting in the lime so long that they have forgotten what they were waiting for, and are delighted to find it is you.",
+          "encounter": {
+            "monsters": [
+              "zombie",
+              "zombie",
+              "zombie",
+              "ghoul"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "######################",
+            "###PP....c....MM######",
+            "##P....~~~.....M.#####",
+            "#PP..O.~~~..O..MM.####",
+            "##P....~~~.....M.#####",
+            "###PP....c....MM######",
+            "######################"
+          ]
+        },
+        {
+          "id": "pit_ring",
+          "trigger": "search",
+          "narration": "A hand sticks up out of the lime at the pit's edge, holding a sealed draught like a candle. Whoever it was, they died trying to hand it to someone.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "bone_gallery",
+          "label": "Back to the Bone Gallery"
+        }
+      ]
+    },
+    {
+      "id": "ghoul_den",
+      "name": "The Ghoul Den",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A low vault where the Abbey's cooks, in the worst of the winters, found a use for the dead. The walls are scored by claws and the floor is littered with bowls. A stone slab at the middle holds a lamp-shaped chopping block.",
+      "randomTable": "ossuary",
+      "events": [
+        {
+          "id": "den",
+          "trigger": "enter",
+          "narration": "The den's masters are home. There are four of them, and they have been waiting for company with a sort of terrible courtesy. 'Sit,' says the biggest, in a voice like a closing coffin. 'Eat.'",
+          "encounter": {
+            "monsters": [
+              "ghoul",
+              "ghoul",
+              "ghoul"
+            ]
+          },
+          "xp": 400,
+          "map": [
+            "########################",
+            "#PP..~~....c.....~~..MM#",
+            "#P...~~.........~~...M.#",
+            "#PP......O...c.......M.#",
+            "#P..c.....~~.....O..MM.#",
+            "#PP......~~..........M.#",
+            "########################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "bone_gallery",
+          "label": "Back to the Bone Gallery"
+        }
+      ]
+    },
+    {
+      "id": "saints_alcove",
+      "name": "The Saints' Alcove",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A small whitewashed chapel in the bone-vaults, carved out by a monk who could not bear to leave his friends in the dark. Twelve stone saints stand round the walls, each with a small hand lifted, and a single white lamp burns before them.",
+      "events": [
+        {
+          "id": "alcove_hush",
+          "trigger": "enter",
+          "narration": "The cold lifts. Whatever walks the vaults will not cross this threshold, and the lamp's small white light lies on the stone like a hand on a sleeping head."
+        }
+      ],
+      "npcs": [
+        {
+          "id": "marguerite",
+          "name": "Sister Marguerite",
+          "type": "ghost",
+          "description": "A pale nun who is half in the wall, and who looks at you as if you were something she had once expected and then stopped expecting.",
+          "topics": [
+            {
+              "id": "reliquary",
+              "text": "\"The lamp of the bones is in the reliquary, behind the weeping vault. The weeping vault is guarded by the Abbess's handmaidens. Do not listen to what they say. They are very persuasive and quite sincere, and they are quite wrong.\""
+            },
+            {
+              "id": "door",
+              "text": "\"The Black Door is at the bottom of the whispering stair. It is a prison, and the Abbess is not the only prisoner. Veyra is in there too. Open it carefully.\""
+            },
+            {
+              "id": "bell",
+              "text": "\"When the bell rings, the Abbess wakes. When it stops, she is only a woman again, for a little. Silence it, and her door will open. She will know it, and so will you.\""
+            }
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "bone_gallery",
+          "label": "Back to the Bone Gallery"
+        }
+      ]
+    },
+    {
+      "id": "crypt_of_abbots",
+      "name": "The Crypt of Abbots",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Twenty-one stone sarcophagi lie in two lines, each carved with the sleeping effigy of an abbot holding a lamp. The twenty-first is empty, its lid pushed back, and the lid has been carved fresh with a woman's name.",
+      "randomTable": "ossuary",
+      "events": [
+        {
+          "id": "effigies",
+          "trigger": "enter",
+          "narration": "The effigies sit up in a long, grinding chorus. Behind them a thin grey shape rises from the empty coffin, pointing at you with a hand like a dead twig. 'She is expecting you,' it hisses.",
+          "encounter": {
+            "monsters": [
+              "skeleton",
+              "skeleton",
+              "skeleton",
+              "skeleton",
+              "specter"
+            ]
+          },
+          "xp": 350,
+          "map": [
+            "##########################",
+            "#PP..O..c..O..c..O...MMM#",
+            "#P...........~~.......M.#",
+            "#PP..O.....c.....O...MM.#",
+            "#P...........~~.......M.#",
+            "#PP..O..c..O..c..O...MMM#",
+            "##########################"
+          ]
+        },
+        {
+          "id": "twenty_first",
+          "trigger": "search",
+          "narration": "The twenty-first lid reads VESPER CAUL, ABBESS, WHO LIT THE LAST LAMP. Under it, in smaller letters cut with a knife, someone has added: 'and was not forgiven'."
+        }
+      ],
+      "exits": [
+        {
+          "to": "bone_gallery",
+          "label": "Back to the Bone Gallery"
+        },
+        {
+          "to": "weeping_vault",
+          "label": "Through to the weeping vault"
+        }
+      ]
+    },
+    {
+      "id": "weeping_vault",
+      "name": "The Weeping Vault",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A tall, narrow chamber where water runs down every wall in slow, silent tears and pools on a floor of white marble. In the water, faint and many, stand the reflections of nuns, all looking at you with grief so complete it is nearly kindness.",
+      "randomTable": "ossuary",
+      "events": [
+        {
+          "id": "handmaidens",
+          "trigger": "enter",
+          "narration": "The reflections step out of the water, one by one, and they are all crying. 'It would be so much easier,' says the first, 'to lie down.' Their hands, when they reach for you, are warm and very cold at once.",
+          "encounter": {
+            "monsters": [
+              "specter",
+              "specter"
+            ]
+          },
+          "xp": 400,
+          "map": [
+            "######################",
+            "###PP....c....MM######",
+            "##P....~~~.....M.#####",
+            "#PP..O.~~~..O..MM.####",
+            "##P....~~~.....M.#####",
+            "###PP....c....MM######",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "crypt_of_abbots",
+          "label": "Back to the crypt"
+        },
+        {
+          "to": "reliquary",
+          "label": "On to the reliquary"
+        }
+      ]
+    },
+    {
+      "id": "reliquary",
+      "name": "The Reliquary",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A small lead-lined room of glass-fronted shelves in which the Abbey's relics are laid on black velvet: a saint's finger, a bit of stained linen, a shard of rainbow glass. In the middle, on a stand of ivory, a short bronze lamp waits.",
+      "randomTable": "ossuary",
+      "events": [
+        {
+          "id": "cellarer",
+          "trigger": "enter",
+          "narration": "A tall, courteous man in an old cellarer's apron steps from behind the case. Under the apron he is quite dead, and quite pleased with it. 'The Abbess's first,' he says, and smiles with too many teeth. 'And I am delighted to meet you. Do sit down.' Two pale shapes unfold from the shelves behind him, and a third drops from the ceiling.",
+          "encounter": {
+            "monsters": [
+              "ghoul",
+              "ghoul",
+              "ghoul"
+            ]
+          },
+          "xp": 450,
+          "map": [
+            "######################",
+            "###PP....c....MM######",
+            "##P....~~~.....M.#####",
+            "#PP..O.~~~..O..MM.####",
+            "##P....~~~.....M.#####",
+            "###PP....c....MM######",
+            "######################"
+          ]
+        },
+        {
+          "id": "lamp_ossuary",
+          "trigger": "search",
+          "narration": "You pour the oil and speak the rite over the little bronze lamp, and its flame rises pale and gold and entirely unafraid. Every relic in the room begins, very faintly, to hum a single note.",
+          "requires": [
+            "knows_three_lamps"
+          ],
+          "setsFlags": [
+            "lamp_ossuary"
+          ],
+          "xp": 150
+        }
+      ],
+      "exits": [
+        {
+          "to": "weeping_vault",
+          "label": "Back to the weeping vault"
+        }
+      ]
+    },
+    {
+      "id": "whispering_stair",
+      "name": "The Whispering Stair",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A narrow stair, so quiet you can hear your own pulse, and then so quiet you can hear other people's. Voices speak at the edge of hearing: the names of the dead, the sins of the living, a recipe for plum jam.",
+      "randomTable": "ossuary",
+      "events": [
+        {
+          "id": "whisperers",
+          "trigger": "enter",
+          "narration": "The voices on the stair have bodies, after all. They are thin and grey and they know your name, your mother's name and the name of the dog you had as a child. 'Stay,' they say gently. 'You have always wanted to stay.'",
+          "encounter": {
+            "monsters": [
+              "specter",
+              "skeleton",
+              "skeleton",
+              "skeleton"
+            ]
+          },
+          "xp": 350,
+          "map": [
+            "######################",
+            "#PP..c.....c......MM.#",
+            "#P.......~~........M.#",
+            "#PP..c.....c......M.M#",
+            "######################"
+          ]
+        },
+        {
+          "id": "stair_niche",
+          "trigger": "search",
+          "narration": "A niche in the wall, a handspan deep, holds a single sealed draught and a note: 'For the one who stays awake.'",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "bone_gallery",
+          "label": "Back up the stair"
+        },
+        {
+          "to": "black_door_hall",
+          "label": "To the Hall of the Black Door"
+        }
+      ]
+    },
+    {
+      "id": "black_door_hall",
+      "name": "The Hall of the Black Door",
+      "kind": "boundary",
+      "rest": "safe",
+      "description": "A hall of black basalt at the lowest point of the Abbey, tall as a cathedral and as bare as a cell. At the far end stands a door of black wood twenty feet high, bound with silver, with three lamp-shaped hollows at its centre. It is not locked. It is waiting.",
+      "randomTable": "ossuary",
+      "events": [
+        {
+          "id": "wardens",
+          "trigger": "enter",
+          "narration": "The Black Door's wardens have stood here ten years, in rags and rust, and they are plainly bored. They come for you with a kind of weary relief.",
+          "encounter": {
+            "monsters": [
+              "skeleton",
+              "skeleton",
+              "skeleton",
+              "ghoul"
+            ]
+          },
+          "xp": 350,
+          "map": [
+            "############################",
+            "#PP....O.....O.....O....MM#",
+            "#P.....................M.M#",
+            "#PP...O......c......O..M..#",
+            "#P.....................M.M#",
+            "#PP....O.....O.....O....MM#",
+            "############################"
+          ]
+        },
+        {
+          "id": "lamps_lit",
+          "trigger": "search",
+          "narration": "You carry the three flames to the door, one in each hand and one in your breath, and set them in the hollows. The silver unbinds like ice in sunlight, and the Black Door swings inward with a sound like a long exhale.",
+          "requires": [
+            "lamp_chapel",
+            "lamp_mine",
+            "lamp_ossuary"
+          ],
+          "setsFlags": [
+            "lamps_lit"
+          ],
+          "xp": 250
+        }
+      ],
+      "exits": [
+        {
+          "to": "whispering_stair",
+          "label": "Up the whispering stair"
+        },
+        {
+          "to": "the_black_door",
+          "label": "Through the Black Door",
+          "hours": 4,
+          "requires": [
+            "lamps_lit"
+          ],
+          "blockedText": "The door is bound in silver and has three lamp-shaped hollows at its heart. They are empty. It will not open until all three are filled."
+        }
+      ]
+    },
+    {
+      "id": "the_black_door",
+      "name": "Beyond the Black Door",
+      "kind": "boundary",
+      "rest": "risky",
+      "description": "The door stands open on the Abbess's own country: a stair of black glass that goes up into a light like a cold moon. The air is warmer here and the smell is sweet and thick, like incense burning in a butcher's shop.",
+      "randomTable": "sanctum",
+      "events": [
+        {
+          "id": "door_wardens",
+          "trigger": "enter",
+          "narration": "Two of the Abbess's best have left their posts at the head of the stair. Their robes lie folded on the steps, and a note in a lovely hand says only: 'Come up. I would not want you to hurry.'",
+          "xp": 400
+        }
+      ],
+      "exits": [
+        {
+          "to": "black_door_hall",
+          "label": "Back through the door",
+          "hours": 4
+        },
+        {
+          "to": "vigil_hall",
+          "label": "Up the glass stair to the Vigil Hall"
+        }
+      ]
+    },
+    {
+      "id": "vigil_hall",
+      "name": "The Vigil Hall",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A long hall where the Abbey's sisters once kept the night watch, a hundred candles to a side. Every candle burns blood-red, and between the rows hang the cages in which the Abbess keeps her tithe.",
+      "randomTable": "sanctum",
+      "events": [
+        {
+          "id": "vigil",
+          "trigger": "enter",
+          "narration": "The watchers have been kneeling at their candles so long that their knees have fused to the stone. They rise with a sound like breaking kindling.",
+          "encounter": {
+            "monsters": [
+              "cult_adept",
+              "ghoul",
+              "ghoul"
+            ]
+          },
+          "xp": 450,
+          "map": [
+            "############################",
+            "#PP....O.....O.....O....MM#",
+            "#P.....................M.M#",
+            "#PP...O......c......O..M..#",
+            "#P.....................M.M#",
+            "#PP....O.....O.....O....MM#",
+            "############################"
+          ]
+        },
+        {
+          "id": "cages",
+          "trigger": "search",
+          "narration": "Eleven of the Abbess's tithe are still alive. They give what thanks they can: a sealed draught the Abbess's keeper missed, and the quiet, shaky assurance that the sanctum is behind the white door and the bell must stop first.",
+          "potions": 2
+        }
+      ],
+      "exits": [
+        {
+          "to": "the_black_door",
+          "label": "Down the glass stair"
+        },
+        {
+          "to": "blood_cistern",
+          "label": "To the blood cistern"
+        },
+        {
+          "to": "abbess_cells",
+          "label": "To the Abbess's cells"
+        },
+        {
+          "to": "choir_loft",
+          "label": "Up to the choir loft"
+        },
+        {
+          "to": "sanctum_antechamber",
+          "label": "To the white door and the antechamber",
+          "requires": [
+            "bell_silenced"
+          ],
+          "blockedText": "The Abbess's bell is tolling, and the white door will not open while it does. Something up in the tower is still ringing it."
+        }
+      ]
+    },
+    {
+      "id": "blood_cistern",
+      "name": "The Blood Cistern",
+      "kind": "site",
+      "rest": "risky",
+      "description": "A circular well of red-stained brick where the Abbess keeps her cold stores. The surface of the pool is a dark mirror that does not show your face. Wooden walkways run across it to a small altar and a ladder.",
+      "randomTable": "sanctum",
+      "events": [
+        {
+          "id": "red_pool",
+          "trigger": "enter",
+          "narration": "The pool rises up its walls in a long soft slither, and the things drowned in it stand up, dripping and strangely courteous. They are only hungry, and for now they only watch. The walkway across the pool bears your weight.",
+          "xp": 450
+        },
+        {
+          "id": "pool_altar",
+          "trigger": "search",
+          "narration": "On the small altar sits a goblet and a sealed healing draught. The goblet is full. The draught is not, and has a note: 'Not that one.'",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "vigil_hall",
+          "label": "Back to the Vigil Hall"
+        }
+      ]
+    },
+    {
+      "id": "abbess_cells",
+      "name": "The Abbess's Cells",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A corridor of sixteen small cells, each with a pallet, a lamp and a whitewashed wall. The cells hold the Abbey's youngest sisters, laid out like saints with a candle at every head. They are not dead. They are waiting to be. Their prayers, still going on beneath the sleep, weave a faint and steady ward.",
+      "events": [
+        {
+          "id": "cells_hush",
+          "trigger": "enter",
+          "narration": "The sleepers breathe slowly, in time. Whatever hunts the Abbess's halls will not come into a room where sixteen sisters are still, in their sleep, praying for you."
+        },
+        {
+          "id": "cell_cache",
+          "trigger": "search",
+          "narration": "In the youngest sister's cell lies a small leather satchel with an Abbey seal, left by someone who hoped to leave and did not. It holds two sealed draughts.",
+          "potions": 2
+        }
+      ],
+      "exits": [
+        {
+          "to": "vigil_hall",
+          "label": "Back to the Vigil Hall"
+        }
+      ]
+    },
+    {
+      "id": "choir_loft",
+      "name": "The Choir Loft",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A high gallery over the Vigil Hall, its stalls scored by claws and its rail hung with black ribbons. The organ pipes have been replaced with long iron tubes that hum, very faintly, a single sustained note.",
+      "randomTable": "sanctum",
+      "events": [
+        {
+          "id": "choir",
+          "trigger": "enter",
+          "narration": "The choir stalls are full, and everyone in them is singing. They break off together, politely, to look at you, and then the music resumes in a slightly different key, with knives.",
+          "encounter": {
+            "monsters": [
+              "specter",
+              "specter",
+              "specter"
+            ]
+          },
+          "xp": 450,
+          "map": [
+            "############################",
+            "#PP....O.....O.....O....MM#",
+            "#P.....................M.M#",
+            "#PP...O......c......O..M..#",
+            "#P.....................M.M#",
+            "#PP....O.....O.....O....MM#",
+            "############################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "vigil_hall",
+          "label": "Down to the Vigil Hall"
+        },
+        {
+          "to": "bell_tower",
+          "label": "Up the spiral to the bell tower"
+        }
+      ]
+    },
+    {
+      "id": "bell_tower",
+      "name": "The Bell Tower",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A stone shaft with a spiral stair, and at the top a bell the size of a haycart hung on oak beams. It has not been rung in ten years, and it rings every night anyway, a bell-note the Abbess hears in her coffin and the village hears in its candles.",
+      "randomTable": "sanctum",
+      "events": [
+        {
+          "id": "ringer",
+          "trigger": "enter",
+          "narration": "The ringer is a huge, grey, patient thing in an abbot's old surplice, hauling on the rope with one hand and on its own chain with the other. 'Ring,' it says, without lips. 'Ring.' Two hooded acolytes cross their knives and step between you and the rope.",
+          "encounter": {
+            "monsters": [
+              "ogre",
+              "cult_adept"
+            ]
+          },
+          "setsFlags": [
+            "bell_silenced"
+          ],
+          "xp": 500,
+          "map": [
+            "######################",
+            "###PP....c....MM######",
+            "##P....~~~.....M.#####",
+            "#PP..O.~~~..O..MM.####",
+            "##P....~~~.....M.#####",
+            "###PP....c....MM######",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "choir_loft",
+          "label": "Down to the choir loft"
+        },
+        {
+          "to": "rookery",
+          "label": "Up to the rookery"
+        }
+      ]
+    },
+    {
+      "id": "rookery",
+      "name": "The Rookery",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A roofless gallery above the bell, open to a cold sky and fifty ravens, black and watchful, perched along the parapet. Each wears a little lamp on a thread round its neck. The lamps are not lit. They are waiting.",
+      "randomTable": "sanctum",
+      "events": [
+        {
+          "id": "watchers",
+          "trigger": "enter",
+          "narration": "The watchers on the parapet are not ravens. They are people, very still, in feathered cloaks, each with a sling. They have been waiting for the bell to stop and for someone to come up the stair, and now that someone has, they let fly.",
+          "encounter": {
+            "monsters": [
+              "cultist",
+              "cultist",
+              "cultist",
+              "cultist",
+              "cult_adept"
+            ]
+          },
+          "xp": 400,
+          "map": [
+            "##########################",
+            "#PP...c........O.......MM#",
+            "#P.....~~.........c...M.M#",
+            "#PP..O.........~~.......M#",
+            "#P.....c.......O.....MM..#",
+            "#PP........~~.........M.M#",
+            "##########################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "bell_tower",
+          "label": "Down to the bell tower"
+        },
+        {
+          "to": "moonless_garden",
+          "label": "Down the roof stair to the moonless garden"
+        }
+      ]
+    },
+    {
+      "id": "moonless_garden",
+      "name": "The Moonless Garden",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A walled garden on the Abbey's roof-terrace where flowers grow without light: pale, six-petalled, lamp-shaped and humming. The paths are raked, and between the beds lie the shapes of shallow graves, each with a name and a small stone lamp.",
+      "randomTable": "sanctum",
+      "events": [
+        {
+          "id": "garden",
+          "trigger": "enter",
+          "narration": "The flowers turn to follow you. The paths rise into hands, and a figure in a gardener's smock stands up out of the nearest bed with a trowel and a very sad expression. 'It is the Abbess's favourite hour,' it says. 'Please do not step on the lilies.'",
+          "encounter": {
+            "monsters": [
+              "ghoul",
+              "ghoul",
+              "specter"
+            ]
+          },
+          "xp": 450,
+          "map": [
+            "##########################",
+            "#PP...c........O.......MM#",
+            "#P.....~~.........c...M.M#",
+            "#PP..O.........~~.......M#",
+            "#P.....c.......O.....MM..#",
+            "#PP........~~.........M.M#",
+            "##########################"
+          ]
+        },
+        {
+          "id": "night_blooms",
+          "trigger": "search",
+          "narration": "One bed holds a tight cluster of white flowers that smell of cold iron. Their pollen heals, if you can stand the taste.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "rookery",
+          "label": "Up to the rookery"
+        },
+        {
+          "to": "sanctum_antechamber",
+          "label": "Through the garden door to the antechamber",
+          "requires": [
+            "bell_silenced"
+          ],
+          "blockedText": "The garden door is shut, and the bell above it is still tolling. Somebody must stop the ringing first."
+        }
+      ]
+    },
+    {
+      "id": "sanctum_antechamber",
+      "name": "The Sanctum Antechamber",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A short, round chamber hung with grey velvet, with a stained-glass lamp in the ceiling that shows the Abbey as it was. The only furnishing is a prie-dieu before a door of white bone. The air smells of lilies and cold, and behind the door someone is humming.",
+      "events": [
+        {
+          "id": "antechamber_quiet",
+          "trigger": "enter",
+          "narration": "Nobody has fought here in ten years, and the room has kept the habit of peace. Behind the bone door, the humming stops, and then, very softly, starts again."
+        },
+        {
+          "id": "offering_table",
+          "trigger": "search",
+          "narration": "A little table by the prie-dieu holds a sealed draught and a flask of oil, laid out like an offering. It is for you, and the card beside it is in a beautiful hand: 'You will want these. Come when you are ready. I am not going anywhere.'",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "vigil_hall",
+          "label": "Back to the Vigil Hall"
+        },
+        {
+          "to": "moonless_garden",
+          "label": "Back to the garden"
+        },
+        {
+          "to": "abbess_sanctum",
+          "label": "Through the bone door"
+        }
+      ]
+    },
+    {
+      "id": "abbess_sanctum",
+      "name": "The Abbess's Sanctum",
+      "kind": "site",
+      "rest": "none",
+      "description": "A round white room with a coffin of black glass at its centre and a great lamp hung above it, lit with a flame that gives no light. Abbess Vesper Caul sits on the coffin lid in her old habit, quite relaxed, with a small book in her lap. She marks her page before she looks up.",
+      "events": [
+        {
+          "id": "abbess",
+          "trigger": "enter",
+          "narration": "'You lit all three,' says Vesper Caul, and she sounds almost proud. 'It took me ten years to learn to hate that lamp. Come in. Come in. I have been rehearsing this, and I should like to get it right.' Her hands part, and two of the sisters from the cells uncurl from the shadow of the coffin, smiling.",
+          "encounter": {
+            "monsters": [
+              "pale_abbess",
+              "ghoul",
+              "ghoul"
+            ]
+          },
+          "setsFlags": [
+            "abbess_destroyed"
+          ],
+          "xp": 800,
+          "map": [
+            "############################",
+            "#P....c...........c.....MMM#",
+            "#PP.....O.......O.......M.M#",
+            "#P....~~...c.c...~~....MMM.#",
+            "#PP.....O.......O.......M.M#",
+            "#P....c...........c.....MMM#",
+            "############################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "sanctum_antechamber",
+          "label": "Back to the antechamber"
+        }
+      ]
+    }
+  ]
+}
