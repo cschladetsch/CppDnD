@@ -32,6 +32,7 @@ struct ImageStyle {
         {"characters", "upper body portrait, looking at the viewer, eye level, shallow depth of field"},
         {"npcs", "upper body portrait, looking at the viewer, eye level, shallow depth of field"},
         {"monsters", "full body, three-quarter view, centered, plain dark background"},
+        {"items", "a single object, centered, game inventory icon, plain dark background, studio lighting"},
         {"locations", "wide establishing shot, eye level, no people"},
         {"modules", "sweeping panoramic establishing shot, low angle, no people"}};
 };

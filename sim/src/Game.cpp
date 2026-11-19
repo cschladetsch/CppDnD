@@ -151,53 +151,71 @@ bool Game::SetHero(const std::string& who, std::string& err) {
 
 bool Game::MoveItem(const std::string& from, const std::string& to, const std::string& give, const std::string& take, std::string& err) {
     if (mode_ != Mode::Exploring) { err = "equipment can only be changed while exploring"; return false; }
+    const auto isStash = [](const std::string& s) { const std::string l = Lower(s); return l == "stash" || l == "common"; };
     auto find = [&](const std::string& who) -> PartyMember* {
         const std::string want = Lower(who);
         for (auto& pm : party_)
             if (Lower(pm.charId) == want || Lower(pm.sheet.name) == want) return &pm;
         return nullptr;
     };
-    PartyMember* a = find(from);
-    PartyMember* b = find(to);
-    if (!a) { err = "nobody in the party is called '" + from + "'"; return false; }
-    if (!b) { err = "nobody in the party is called '" + to + "'"; return false; }
-    if (a == b) { err = "pick a different character"; return false; }
-    if (a->dead || b->dead) { err = "the dead cannot trade"; return false; }
+    const bool fromStash = isStash(from), toStash = isStash(to);
+    if (fromStash && toStash) { err = "pick a different place"; return false; }
+    PartyMember* a = fromStash ? nullptr : find(from);  // gives `give`
+    PartyMember* b = toStash ? nullptr : find(to);      // receives it, and hands back `take`
+    if (!fromStash && !a) { err = "nobody in the party is called '" + from + "'"; return false; }
+    if (!toStash && !b) { err = "nobody in the party is called '" + to + "'"; return false; }
+    if (a && a == b) { err = "pick a different character"; return false; }
+    if ((a && a->dead) || (b && b->dead)) { err = "the dead cannot trade"; return false; }
     if (give.empty()) { err = "nothing to give"; return false; }
+    const std::string aName = a ? a->sheet.name : "the common space", bName = b ? b->sheet.name : "the common space";
     auto weaponAt = [](const CharacterSheet& s, const std::string& id) -> int {
         for (std::size_t i = 0; i < s.attacks.size(); ++i)
             if (s.attacks[i].name == id) return static_cast<int>(i);
         return -1;
     };
+    auto stashAt = [&](const std::string& id) -> int {
+        for (std::size_t i = 0; i < stash_.size(); ++i)
+            if (stash_[i] == id) return static_cast<int>(i);
+        return -1;
+    };
+    auto holds = [&](PartyMember* who, const std::string& id) { return who ? weaponAt(who->sheet, id) >= 0 : stashAt(id) >= 0; };
+    const std::string verb = [&] {
+        if (!take.empty()) return Cat(aName, " and ", bName, " swap the ", give, " for the ", take, ".");
+        if (toStash) return Cat(aName, " puts the ", give, " in the common space.");
+        if (fromStash) return Cat(bName, " takes the ", give, " from the common space.");
+        return Cat(aName, " gives the ", give, " to ", bName, ".");
+    }();
+
     if (give == "potion") {
         if (!take.empty()) { err = "a potion cannot be swapped for a weapon"; return false; }
-        if (a->sheet.potions <= 0) { err = a->sheet.name + " has no potions"; return false; }
-        --a->sheet.potions;
-        ++b->sheet.potions;
-        Emit(EventType::Info, Cat(a->sheet.name, " hands a potion to ", b->sheet.name, "."));
+        int& have = a ? a->sheet.potions : stashPotions_;
+        if (have <= 0) { err = aName + " has no potions"; return false; }
+        --have;
+        ++(b ? b->sheet.potions : stashPotions_);
+        Emit(EventType::Info, Cat(aName, fromStash ? " hands out a potion to " : " hands a potion to ", bName, "."));
         return true;
     }
-    const int gi = weaponAt(a->sheet, give);
-    if (gi < 0) { err = a->sheet.name + " does not carry a " + give; return false; }
-    if (weaponAt(b->sheet, give) >= 0) { err = b->sheet.name + " already has a " + give; return false; }
-    int ti = -1;
+    if (!holds(a, give)) { err = aName + " does not carry a " + give; return false; }
+    if (b && holds(b, give)) { err = bName + " already has a " + give; return false; }
     if (!take.empty()) {
-        ti = weaponAt(b->sheet, take);
-        if (ti < 0) { err = b->sheet.name + " does not carry a " + take; return false; }
-        if (weaponAt(a->sheet, take) >= 0) { err = a->sheet.name + " already has a " + take; return false; }
-    } else if (a->sheet.attacks.size() <= 1) {
-        err = a->sheet.name + " would be left unarmed";
+        if (!holds(b, take)) { err = bName + " does not carry a " + take; return false; }
+        if (a && holds(a, take)) { err = aName + " already has a " + take; return false; }
+    } else if (a && a->sheet.attacks.size() <= 1) {
+        err = aName + " would be left unarmed";
         return false;
     }
-    auto forB = Content::MakeWeaponAttack(b->sheet, give);
-    auto forA = take.empty() ? std::nullopt : Content::MakeWeaponAttack(a->sheet, take);
-    if (!forB || (!take.empty() && !forA)) { err = "unknown weapon"; return false; }
-    a->sheet.attacks.erase(a->sheet.attacks.begin() + gi);
-    if (ti >= 0) b->sheet.attacks.erase(b->sheet.attacks.begin() + ti);
-    b->sheet.attacks.push_back(std::move(*forB));
-    if (forA) a->sheet.attacks.push_back(std::move(*forA));
-    if (take.empty()) Emit(EventType::Info, Cat(a->sheet.name, " gives the ", give, " to ", b->sheet.name, "."));
-    else Emit(EventType::Info, Cat(a->sheet.name, " and ", b->sheet.name, " swap the ", give, " for the ", take, "."));
+    std::optional<WeaponAttack> forB = b ? Content::MakeWeaponAttack(b->sheet, give) : std::nullopt;
+    std::optional<WeaponAttack> forA = (a && !take.empty()) ? Content::MakeWeaponAttack(a->sheet, take) : std::nullopt;
+    if ((b && !forB) || (a && !take.empty() && !forA)) { err = "unknown weapon"; return false; }
+    auto remove = [&](PartyMember* who, const std::string& id) {
+        if (who) who->sheet.attacks.erase(who->sheet.attacks.begin() + weaponAt(who->sheet, id));
+        else stash_.erase(stash_.begin() + stashAt(id));
+    };
+    remove(a, give);
+    if (!take.empty()) remove(b, take);
+    if (b) b->sheet.attacks.push_back(std::move(*forB)); else stash_.push_back(give);
+    if (!take.empty()) { if (a) a->sheet.attacks.push_back(std::move(*forA)); else stash_.push_back(take); }
+    Emit(EventType::Info, verb);
     return true;
 }
 

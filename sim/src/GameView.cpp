@@ -101,6 +101,16 @@ Json Game::View(int sinceSeq) const {
     Json party = Json::array();
     for (const auto& pm : party_) party.push_back(PartyJson(pm));
     v["party"] = party;
+    {   // the common space: unowned weapons (their base stats; an owner's bonus applies once somebody holds them) and potions
+        Json weapons = Json::array();
+        for (const auto& id : stash_) {
+            const WeaponDef* w = Content::FindWeapon(id);
+            if (!w) continue;
+            weapons.push_back(Json{{"id", id}, {"name", id}, {"damage", w->attack.damage.ToString()}, {"type", std::string(ToString(w->attack.type))},
+                                   {"range", w->attack.IsRanged() ? w->attack.longRangeFt : w->attack.rangeFt}, {"normalRange", w->attack.rangeFt}, {"ranged", w->attack.IsRanged()}, {"finesse", w->attack.finesse}});
+        }
+        v["stash"] = Json{{"weapons", weapons}, {"potions", stashPotions_}};
+    }
 
     Json quests = Json::array();
     for (const auto& q : module_.quests) {
@@ -135,6 +145,7 @@ Json Game::Save() const {
     j["travelHoursToday"] = travelHoursToday_;
     j["flags"] = flags_;
     j["roomText"] = roomText_;
+    j["stash"] = Json{{"weapons", stash_}, {"potions", stashPotions_}};
     Json extra = Json::array();
     for (const auto& r : extra_) extra.push_back(Json{{"id", r.id}, {"parent", r.parent}, {"name", r.name}, {"kind", r.kind}, {"description", r.description}, {"exitLabel", r.exitLabel}, {"fight", r.fight}, {"cache", r.cache}});
     j["extraRooms"] = extra;
@@ -184,6 +195,10 @@ std::unique_ptr<Game> Game::Load(const Json& j) {
     g->travelHoursToday_ = j.value("travelHoursToday", 0);
     g->flags_ = j.value("flags", std::map<std::string, std::string>{});
     g->roomText_ = j.value("roomText", std::map<std::string, std::string>{});
+    if (j.contains("stash")) {
+        g->stash_ = j.at("stash").value("weapons", std::vector<std::string>{});
+        g->stashPotions_ = j.at("stash").value("potions", 0);
+    }
     if (j.contains("extraRooms"))
         for (const auto& e : j.at("extraRooms")) {
             ExtraRoom r;

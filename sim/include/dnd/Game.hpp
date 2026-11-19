@@ -99,6 +99,7 @@ public:
     bool SetHero(const std::string& who, std::string& err);
     // Hands `give` (a weapon id, or "potion") from one party member to another while exploring. A non-empty `take` makes it a
     // swap: the receiver hands that weapon back. Weapons are rebuilt from the new owner's scores. Nobody is left without a weapon.
+    // Either end may be "stash", the common space the whole party shares: put things in it, then take them out for anyone.
     bool MoveItem(const std::string& from, const std::string& to, const std::string& give, const std::string& take, std::string& err);
     const std::string& Hero() const { return hero_; }
     // Table talk. Empty `to`: said to the whole table (shown in the log, kept in group history). Otherwise a
@@ -121,6 +122,8 @@ public:
     using RoomWriter = std::function<std::optional<ExtraRoom>(const LocationDef& parent, const std::vector<std::string>& takenNames)>;
     void SetRoomWriter(RoomWriter w) { roomWriter_ = std::move(w); }
     const std::vector<ExtraRoom>& ExtraRooms() const { return extra_; }
+    const std::vector<std::string>& StashWeapons() const { return stash_; }
+    int StashPotions() const { return stashPotions_; }
     CmdResult Talk(const std::string& npc, const std::string& topic);
     CmdResult Rest(const std::string& kind, int maxHitDice = 99);  // "short" | "long"
     CmdResult Wait(int hours);
@@ -214,6 +217,8 @@ private:
     EventBus bus_;
     Narrator narrator_;
     Describer describer_;
+    std::vector<std::string> stash_;  // weapon ids in the common space
+    int stashPotions_ = 0;
     RoomWriter roomWriter_;
     std::vector<ExtraRoom> extra_;
     void AddExtraRoom(const ExtraRoom& r);

@@ -454,6 +454,12 @@ const Spell* FindSpell(std::string_view id) {
 }
 const std::vector<MonsterDef>& Monsters() { return Lib().monsters; }
 
+const WeaponDef* FindWeapon(std::string_view id) {
+    for (const auto& w : Lib().weapons)
+        if (w.id == id) return &w;
+    return nullptr;
+}
+
 std::vector<std::string> WeaponIds() {
     std::vector<std::string> out;
     for (const auto& w : Lib().weapons) out.push_back(w.id);

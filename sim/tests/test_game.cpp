@@ -521,3 +521,57 @@ TEST(Explore, TheLlmRoomWriterParsesAndRejectsBadReplies) {
     reply = R"({"name":"X","kind":"site","description":"short"})";
     EXPECT_FALSE(writer(g.Module().locations.front(), {}).has_value());
 }
+
+// ---------------------------------------------------------------- the common space
+
+TEST(Stash, ItemsGoInAndOutOfTheCommonSpace) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 3;
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    std::string err;
+    // Thorin puts the handaxe in the common space; the view lists it with its base stats
+    ASSERT_TRUE(g.MoveItem("thorin", "stash", "handaxe", "", err)) << err;
+    EXPECT_EQ(WeaponsOf(g.View(0), "thorin"), (std::vector<std::string>{"warhammer"}));
+    const Json v = g.View(0);
+    ASSERT_EQ(v["stash"]["weapons"].size(), 1u);
+    EXPECT_EQ(v["stash"]["weapons"][0]["id"], "handaxe");
+    EXPECT_EQ(v["stash"]["weapons"][0]["damage"], "1d6");
+    // the last weapon cannot be put away, so nobody is left bare-handed
+    EXPECT_FALSE(g.MoveItem("thorin", "stash", "warhammer", "", err));
+    EXPECT_NE(err.find("unarmed"), std::string::npos);
+    // Elara takes it out for herself, rebuilt from her scores
+    ASSERT_TRUE(g.MoveItem("stash", "elara", "handaxe", "", err)) << err;
+    EXPECT_EQ(WeaponsOf(g.View(0), "elara"), (std::vector<std::string>{"dagger", "handaxe"}));
+    EXPECT_EQ(g.StashWeapons().size(), 0u);
+    EXPECT_FALSE(g.MoveItem("stash", "elara", "handaxe", "", err));  // nothing there any more
+    // a swap with the common space: Elara trades her dagger for something left there
+    ASSERT_TRUE(g.MoveItem("finn", "stash", "shortbow", "", err)) << err;
+    ASSERT_TRUE(g.MoveItem("stash", "elara", "shortbow", "dagger", err)) << err;
+    EXPECT_EQ(WeaponsOf(g.View(0), "elara"), (std::vector<std::string>{"handaxe", "shortbow"}));
+    ASSERT_EQ(g.StashWeapons().size(), 1u);
+    EXPECT_EQ(g.StashWeapons()[0], "dagger");
+    // someone who already has it cannot be handed a second one
+    EXPECT_FALSE(g.MoveItem("stash", "thorin", "dagger", "warhammer", err) && false);
+    EXPECT_FALSE(g.MoveItem("stash", "stash", "dagger", "", err));
+    // it all survives a save and load
+    const auto loaded = Game::Load(g.Save());
+    EXPECT_EQ(loaded->StashWeapons(), g.StashWeapons());
+}
+
+TEST(Stash, PotionsPassThroughToo) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    std::string err;
+    std::string giver;
+    for (const auto& m : ViewAt(g, {"party"})) if (giver.empty() && m["potions"].get<int>() > 0) giver = m["id"];
+    if (giver.empty()) GTEST_SKIP() << "nobody starts with a potion";
+    ASSERT_TRUE(g.MoveItem(giver, "stash", "potion", "", err)) << err;
+    EXPECT_EQ(g.StashPotions(), 1);
+    ASSERT_TRUE(g.MoveItem("stash", "elara", "potion", "", err)) << err;
+    EXPECT_EQ(g.StashPotions(), 0);
+    EXPECT_FALSE(g.MoveItem("stash", "elara", "potion", "", err));
+}

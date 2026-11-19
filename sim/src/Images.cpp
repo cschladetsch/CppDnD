@@ -292,6 +292,8 @@ std::vector<ArtSubject> ArtSubjects(const std::map<std::string, std::string>& ov
         if (race.empty()) race = {"human"};
         add("characters", c.id, Cat(c.name.empty() ? c.id : c.name, ", ", Article(Join(race)), " ", Join(race), " ", c.classId.empty() ? "adventurer" : c.classId, ", adventurer"), false);
     }
+    for (const auto& id : Content::WeaponIds()) add("items", id, Cat("a fantasy ", id, ", a medieval weapon"), false);
+    add("items", "potion", "a glass flask of glowing red healing potion with a cork stopper", false);
     for (const auto& m : Content::Monsters())
         add("monsters", m.id, Cat(LowerCase(m.name.empty() ? m.id : m.name), ", ", Join(m.sheet.tags), " monster, dungeons and dragons creature, menacing"), false);
     for (const auto& mod : Content::Modules()) {

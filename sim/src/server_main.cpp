@@ -520,7 +520,7 @@ int main(int argc, char** argv) {
     svr.Get("/api/art", [&](const httplib::Request&, httplib::Response& res) {
         namespace fs = std::filesystem;
         Json out{{"base", "/art/"}, {"enabled", !artDir.empty()}};
-        for (const char* kind : {"characters", "monsters", "npcs", "locations", "modules"}) {
+        for (const char* kind : {"characters", "monsters", "npcs", "locations", "modules", "items"}) {
             Json m = Json::object();
             std::error_code ec;
             const fs::path d = fs::path(artDir) / kind;
@@ -540,7 +540,7 @@ int main(int argc, char** argv) {
         struct Row { std::string kind, id, file; std::uintmax_t bytes; long long mtime; };
         std::vector<Row> rows;
         std::error_code ec;
-        for (const char* kind : {"characters", "monsters", "npcs", "locations", "modules", "views"}) {
+        for (const char* kind : {"characters", "monsters", "npcs", "locations", "modules", "items", "views"}) {
             const fs::path d = fs::path(artDir) / kind;
             if (artDir.empty() || !fs::is_directory(d, ec)) continue;
             for (const auto& e : fs::directory_iterator(d, ec)) {

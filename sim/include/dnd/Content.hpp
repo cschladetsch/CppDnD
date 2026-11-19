@@ -166,6 +166,8 @@ CharacterSheet BuildCharacter(const CharacterDef& def, int level = 0);
 std::optional<WeaponAttack> MakeWeaponAttack(const CharacterSheet& sheet, std::string_view weaponId);
 // Every weapon id in weapons.json.
 std::vector<std::string> WeaponIds();
+// A weapon's base stats from weapons.json (no owner's bonus applied); nullptr for an unknown id.
+const WeaponDef* FindWeapon(std::string_view id);
 
 int XpForLevel(int level);  // SRD cumulative XP to reach `level`
 int LevelForXp(int xp);

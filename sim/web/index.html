@@ -43,6 +43,16 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .hist div { padding:2px 0; } .hist .meta { color:var(--dim); font-size:11px; } .hist .from { color:var(--accent); }
 .mapwrap { overflow:auto; max-height:440px; border:1px solid var(--edge); border-radius:6px; background:#1b2416; } canvas.worldmap { display:block; max-width:none; }
 .quest { cursor:pointer; padding:2px 0; } .quest:hover, .quest:focus-visible { color:var(--accent); outline:0; } .questinfo { margin:0 0 6px 18px; padding-left:8px; border-left:2px solid var(--edge); }
+.itemart { display:inline-block; flex:none; vertical-align:middle; line-height:0; } img.itemart { object-fit:cover; border-radius:6px; }
+.strip { display:flex; gap:4px; align-items:center; margin:4px 0 2px; flex-wrap:wrap; } .strip .itemart { background:#14111c; border:1px solid var(--edge); border-radius:6px; padding:1px; } .stripp { display:inline-flex; align-items:center; gap:2px; }
+.wepl { display:flex; gap:8px; align-items:center; }
+.eqbox { border:1px solid var(--edge); border-radius:8px; padding:6px 8px 8px; margin:8px 0; background:#17141f; } .eqbox.stash { border-style:dashed; border-color:#8a6d2f; background:#1d1912; } .eqbox.dead { opacity:.45; }
+.eqbox.target { border-color:var(--accent); cursor:pointer; } .eqbox.over { background:#2a2438; border-color:var(--accent); }
+.eqhead { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
+.tiles { display:flex; flex-wrap:wrap; gap:6px; min-height:40px; } .tiles .empty { padding:8px 4px; }
+.itm { width:84px; padding:4px; border:1px solid var(--edge); border-radius:8px; background:#201c2b; text-align:center; cursor:grab; user-select:none; } .itm:hover { border-color:var(--accent); } .itm.held { border-color:var(--accent); box-shadow:0 0 0 2px rgba(201,162,77,.45); background:#2c2536; }
+.itmicon { position:relative; display:flex; justify-content:center; } .itm .badge { position:absolute; right:6px; bottom:0; background:var(--accent); color:#1a1405; font-size:11px; font-weight:700; border-radius:9px; padding:0 5px; }
+.itmname { font-size:12px; font-weight:600; margin-top:2px; } .itmsub { font-size:10.5px; line-height:1.2; }
 #grid { display:grid; gap:1px; background:#0c0a12; width:max-content; max-width:100%; overflow:auto; border:1px solid var(--edge); }
 .cell { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font:700 13px ui-monospace, monospace; background:#262235 var(--tile-floor) center/100% 100%; user-select:none; position:relative; }
 .cell.wall { background:#08070c var(--tile-wall) center/100% 100%; } .cell.rough { background:#322c3f var(--tile-rough) center/100% 100%; } .cell.half, .cell.three { background:#3a3326 var(--tile-cover) center/100% 100%; }
@@ -138,7 +148,7 @@ function startGame(id, v) {
   lsSet(SESS_KEY, id); refreshSessions();
   $("#app").replaceChildren(el("main", {},
     el("div", {}, el("div", { className: "panel", id: "viewbar", style: "margin-bottom:12px" }), el("div", { className: "panel", id: "viewport", hidden: true, style: "margin-bottom:12px" }), el("div", { className: "panel", id: "scene" }), el("div", { className: "panel", id: "combat", hidden: true }), el("div", { className: "panel", id: "log" }), sayBox()),
-    el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }), picturesPanel(), galleryPanel(), historyPanel())));
+    el("div", {}, el("div", { className: "panel", id: "map" }), el("div", { className: "panel", id: "party", style: "margin-top:12px" }), el("div", { className: "panel", id: "equip", style: "margin-top:12px" }), el("div", { className: "panel", id: "quests", style: "margin-top:12px" }), el("div", { className: "panel", id: "table", hidden: true, style: "margin-top:12px" }), picturesPanel(), galleryPanel(), historyPanel())));
   $("#saveBtn").hidden = $("#newBtn").hidden = false;
   loadArt().then(() => { if (view) { renderScene(); renderParty(); renderCombat(); } });
   apply(v);
@@ -526,6 +536,103 @@ function renderScene() {
   rows.push(el("h2", { textContent: "Actions", style: "margin-top:12px" }), act);
   box.replaceChildren(...rows);
 }
+// ---------------------------------------------------------------- items: artwork, and the equipment panel
+// Every item has a drawn icon (so there is always artwork). If a picture was generated for it (items/<id>), that is shown instead.
+const ITEM_DEFS = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<linearGradient id="gSteel" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#f6f8fc"/><stop offset=".45" stop-color="#b3bccd"/><stop offset="1" stop-color="#6b7488"/></linearGradient>
+<linearGradient id="gWood" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#b9824a"/><stop offset=".5" stop-color="#8a5a2c"/><stop offset="1" stop-color="#58361a"/></linearGradient>
+<linearGradient id="gGold" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#fbe08c"/><stop offset="1" stop-color="#a8761f"/></linearGradient>
+<linearGradient id="gLeather" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#6b4a33"/><stop offset="1" stop-color="#3a281b"/></linearGradient>
+<linearGradient id="gDark" x1="0" y1="0" x2="1" y2="0"><stop offset="0" stop-color="#8c94a6"/><stop offset="1" stop-color="#4a5163"/></linearGradient>
+<radialGradient id="gGlass" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff" stop-opacity=".75"/><stop offset="1" stop-color="#9fc4d8" stop-opacity=".35"/></radialGradient>
+<radialGradient id="gRed" cx=".4" cy=".3" r=".9"><stop offset="0" stop-color="#ff8a8a"/><stop offset=".6" stop-color="#d1262f"/><stop offset="1" stop-color="#7a0f18"/></radialGradient>
+</defs></svg>`;
+const wmSpikes = (cx, cy, r) => [0, 45, 90, 135, 180, 225, 270, 315].map(a => `<path d="M${cx} ${cy - r - 5}l2.6 5.2h-5.2z" transform="rotate(${a} ${cx} ${cy})" fill="url(#gSteel)" stroke="#39404f" stroke-width=".7"/>`).join("");
+const EDGE = 'stroke="#39404f" stroke-width="1" stroke-linejoin="round"';
+const HILITE = (d) => `<path d="${d}" stroke="#fff" stroke-opacity=".55" stroke-width="1.2" fill="none"/>`;
+const GRIP = (y, h) => `<rect x="29.5" y="${y}" width="5" height="${h}" rx="1.6" fill="url(#gLeather)" stroke="#20150d" stroke-width=".7"/><path d="M29.5 ${y + 3}h5M29.5 ${y + 6.5}h5M29.5 ${y + 10}h5" stroke="#000" stroke-opacity=".35" stroke-width=".8"/>`;
+const POMMEL = (y) => `<circle cx="32" cy="${y}" r="3.4" fill="url(#gGold)" stroke="#6b4a12" stroke-width=".8"/>`;
+const GUARD = (y, w) => `<rect x="${32 - w / 2}" y="${y}" width="${w}" height="3.6" rx="1.6" fill="url(#gGold)" stroke="#6b4a12" stroke-width=".8"/>`;
+const ITEM_SVG = {
+  dagger: `<g transform="rotate(42 32 32)"><path d="M32 7l4.6 24h-9.2z" fill="url(#gSteel)" ${EDGE}/>${HILITE("M32 9v20")}${GUARD(30.5, 17)}${GRIP(34, 11)}${POMMEL(48.5)}</g>`,
+  shortsword: `<g transform="rotate(42 32 32)"><path d="M32 2l5.6 33h-11.2z" fill="url(#gSteel)" ${EDGE}/>${HILITE("M32 5v28")}${GUARD(35, 22)}${GRIP(38.6, 13)}${POMMEL(54.5)}</g>`,
+  mace: `<g transform="rotate(42 32 32)"><rect x="30" y="21" width="4" height="33" rx="1.6" fill="url(#gWood)" stroke="#2c1a0b" stroke-width=".8"/>${wmSpikes(32, 14, 8)}<circle cx="32" cy="14" r="8.6" fill="url(#gSteel)" ${EDGE}/><circle cx="29.5" cy="11.5" r="2.4" fill="#fff" fill-opacity=".5"/>${POMMEL(56)}</g>`,
+  warhammer: `<g transform="rotate(42 32 32)"><rect x="30.4" y="10" width="3.2" height="46" rx="1.4" fill="url(#gWood)" stroke="#2c1a0b" stroke-width=".8"/><path d="M17 9h22v14H17z" fill="url(#gSteel)" ${EDGE}/><path d="M39 9h7v14h-7z" fill="url(#gDark)" ${EDGE}/><path d="M17 12l-8 4 8 4z" fill="url(#gSteel)" ${EDGE}/>${HILITE("M18.5 11h19")}${POMMEL(57)}</g>`,
+  handaxe: `<g transform="rotate(38 32 32)"><rect x="30" y="14" width="4" height="40" rx="1.6" fill="url(#gWood)" stroke="#2c1a0b" stroke-width=".8"/><path d="M34 12c15-3 21 10 17 21-3 5-10 5-17 3z" fill="url(#gSteel)" ${EDGE}/>${HILITE("M37 15c9-1 12 6 11 13")}<path d="M30 12h4v5h-4z" fill="url(#gDark)" ${EDGE}/>${POMMEL(56)}</g>`,
+  greataxe: `<g transform="rotate(38 32 32)"><rect x="30.4" y="3" width="3.2" height="56" rx="1.4" fill="url(#gWood)" stroke="#2c1a0b" stroke-width=".8"/><path d="M33.6 9c15-5 24 9 19 24-4 4-11 6-19 3z" fill="url(#gSteel)" ${EDGE}/><path d="M30.4 9c-15-5-24 9-19 24 4 4 11 6 19 3z" fill="url(#gSteel)" ${EDGE}/>${HILITE("M37 12c10-1 13 8 11 17")}${HILITE("M27 12c-10-1-13 8-11 17")}${POMMEL(60)}</g>`,
+  javelin: `<g transform="rotate(42 32 32)"><rect x="31" y="9" width="2" height="46" rx="1" fill="url(#gWood)" stroke="#2c1a0b" stroke-width=".6"/><path d="M32 0l4.8 12h-9.6z" fill="url(#gSteel)" ${EDGE}/><path d="M31 49l-7 10 7-3.5zM33 49l7 10-7-3.5z" fill="#c8323a" stroke="#6a1219" stroke-width=".7"/><path d="M31 8h2v3h-2z" fill="url(#gLeather)"/></g>`,
+  shortbow: `<path d="M22 5C2 22 2 42 22 59" fill="none" stroke="#2c1a0b" stroke-width="5.4" stroke-linecap="round"/><path d="M22 5C2 22 2 42 22 59" fill="none" stroke="url(#gWood)" stroke-width="3.6" stroke-linecap="round"/><path d="M22 5v54" stroke="#e8e0cc" stroke-width="1"/><path d="M22 32h34" stroke="#8a5a2c" stroke-width="2"/><path d="M57 32l-8-4v8z" fill="url(#gSteel)" ${EDGE}/><path d="M25 32l-3-3.5M25 32l-3 3.5" stroke="#c8323a" stroke-width="1.6"/>`,
+  longbow: `<path d="M24 1C-4 18-4 46 24 63" fill="none" stroke="#2c1a0b" stroke-width="5.4" stroke-linecap="round"/><path d="M24 1C-4 18-4 46 24 63" fill="none" stroke="url(#gWood)" stroke-width="3.6" stroke-linecap="round"/><path d="M24 1v62" stroke="#e8e0cc" stroke-width="1"/><path d="M24 32h36" stroke="#8a5a2c" stroke-width="2"/><path d="M61 32l-8-4v8z" fill="url(#gSteel)" ${EDGE}/><path d="M27 32l-3-3.5M27 32l-3 3.5" stroke="#c8323a" stroke-width="1.6"/><path d="M24 22v20" stroke="#3a281b" stroke-width="4"/>`,
+  potion: `<path d="M26 8h12v10c8 4 12 11 12 19a18 18 0 0 1-36 0c0-8 4-15 12-19z" fill="#0d1520" fill-opacity=".35" stroke="#8fb3c9" stroke-width="1.6"/><path d="M15 36a17 17 0 0 0 34 0c0-3-.8-5.6-2.4-8H17.4C15.8 30.400 15 33 15 36z" fill="url(#gRed)"/><path d="M26 8h12v10c8 4 12 11 12 19a18 18 0 0 1-36 0c0-8 4-15 12-19z" fill="url(#gGlass)"/><rect x="26.500" y="2.500" width="11" height="7.500" rx="2.200" fill="url(#gWood)" stroke="#2c1a0b" stroke-width=".8"/><ellipse cx="23" cy="34" rx="2.800" ry="6.500" fill="#fff" fill-opacity=".5" transform="rotate(14 23 34)"/><circle cx="38" cy="44" r="1.800" fill="#fff" fill-opacity=".45"/>`,
+  stash: `<rect x="6" y="26" width="52" height="30" rx="3" fill="url(#gWood)" stroke="#2c1a0b" stroke-width="1.4"/><path d="M6 30c0-14 10-20 26-20s26 6 26 20z" fill="url(#gWood)" stroke="#2c1a0b" stroke-width="1.4"/><path d="M6 30h52" stroke="#2c1a0b" stroke-width="1.6"/><path d="M20 12v44M44 12v44" stroke="url(#gDark)" stroke-width="4"/><rect x="27" y="26" width="10" height="12" rx="2" fill="url(#gGold)" stroke="#6b4a12" stroke-width="1"/><circle cx="32" cy="31.500" r="1.800" fill="#3a281b"/>`,
+};
+const itemTitle = id => id === "potion" ? "Healing potion" : id === "stash" ? "Common space" : id.charAt(0).toUpperCase() + id.slice(1);
+function itemIcon(id, px, title) {
+  if (!document.getElementById("itemDefs")) { const h = document.createElement("div"); h.id = "itemDefs"; h.innerHTML = ITEM_DEFS; document.body.append(h); }
+  const u = artUrl("items", id);
+  if (u) return el("img", { src: u, className: "itemart", alt: itemTitle(id), title: title || itemTitle(id), style: `width:${px}px;height:${px}px` });
+  const holder = document.createElement("span"); holder.className = "itemart"; holder.title = title || itemTitle(id); holder.style.cssText = `width:${px}px;height:${px}px`;
+  holder.innerHTML = `<svg viewBox="0 0 64 64" width="${px}" height="${px}" role="img" aria-label="${itemTitle(id)}">${ITEM_SVG[id] || ITEM_SVG.dagger}</svg>`;
+  return holder;
+}
+const allItemIds = () => { const ids = new Set(["potion"]); for (const m of view.party || []) for (const w of m.attacks || []) ids.add(w.id); for (const w of (view.stash && view.stash.weapons) || []) ids.add(w.id); return [...ids].map(i => "items/" + i); };
+
+// ---- the equipment panel: the common space and each character's gear. Drag an item onto a character or the common space to
+// move it, onto one of their items to swap, or click an item and then click where it should go.
+let held = null;   // {from, id}: an item picked up by a click
+function eqItems(holder) {
+  if (holder === "stash") return [...view.stash.weapons.map(w => ({ id: w.id, sub: `${w.damage} ${w.type}` })), ...(view.stash.potions ? [{ id: "potion", count: view.stash.potions, sub: "heals" }] : [])];
+  const m = view.party.find(p => p.id === holder);
+  return [...m.attacks.map(w => ({ id: w.id, sub: `${SIGNED(w.toHit)}, ${w.damage} ${w.type}` })), ...(m.potions ? [{ id: "potion", count: m.potions, sub: "heals" }] : [])];
+}
+function eqMove(from, to, id, take) {
+  held = null;
+  if (from === to) return renderEquipment();
+  moveItem(from, to, id, take || "");
+}
+function eqBox(holder, title, sub, open, dead) {
+  const exploring = view.mode === "exploring", tiles = el("div", { className: "tiles" });
+  const box = el("div", { className: "eqbox" + (holder === "stash" ? " stash" : "") + (dead ? " dead" : "") + (held && held.from !== holder && !dead ? " target" : ""), "data-holder": holder },
+    el("div", { className: "eqhead" }, holder === "stash" ? itemIcon("stash", 28) : el("span"),
+      el("b", { textContent: title }), el("span", { className: "dim small", textContent: sub })), tiles);
+  const items = eqItems(holder);
+  for (const it of items) {
+    const isHeld = held && held.from === holder && held.id === it.id;
+    const t = el("div", { className: "itm" + (isHeld ? " held" : ""), draggable: exploring && !dead, title: `${itemTitle(it.id)}${it.count ? " x" + it.count : ""}  (${it.sub})` },
+      el("div", { className: "itmicon" }, itemIcon(it.id, 44), ...(it.count > 1 ? [el("span", { className: "badge", textContent: it.count })] : [])),
+      el("div", { className: "itmname", textContent: itemTitle(it.id) }), el("div", { className: "itmsub dim", textContent: it.sub }));
+    if (exploring && !dead) {
+      t.ondragstart = e => { e.dataTransfer.setData("text/plain", JSON.stringify({ from: holder, id: it.id })); e.dataTransfer.effectAllowed = "move"; };
+      t.ondragover = e => { if (it.id !== "potion") { e.preventDefault(); e.stopPropagation(); } };
+      t.ondrop = e => { e.preventDefault(); e.stopPropagation(); let d; try { d = JSON.parse(e.dataTransfer.getData("text/plain")); } catch { return; }
+        if (!d || d.from === holder) return; if (d.id === "potion" || it.id === "potion") return eqMove(d.from, holder, d.id); eqMove(d.from, holder, d.id, it.id); };
+      t.onclick = e => { e.stopPropagation();
+        if (held && held.from !== holder && held.id !== "potion" && it.id !== "potion") return eqMove(held.from, holder, held.id, it.id);
+        if (held && held.from !== holder) return eqMove(held.from, holder, held.id);
+        held = isHeld ? null : { from: holder, id: it.id }; renderEquipment(); };
+    }
+    tiles.append(t);
+  }
+  if (!items.length) tiles.append(el("div", { className: "dim small empty", textContent: holder === "stash" ? "Empty. Drop items here to share them." : "Nothing carried." }));
+  if (exploring && !dead) {
+    box.ondragover = e => { e.preventDefault(); box.classList.add("over"); };
+    box.ondragleave = () => box.classList.remove("over");
+    box.ondrop = e => { e.preventDefault(); box.classList.remove("over"); let d; try { d = JSON.parse(e.dataTransfer.getData("text/plain")); } catch { return; } if (d && d.from !== holder) eqMove(d.from, holder, d.id); };
+    box.onclick = () => { if (held && held.from !== holder) eqMove(held.from, holder, held.id); };
+  }
+  return box;
+}
+function renderEquipment() {
+  const box = $("#equip"); if (!box || !view || !view.stash) return;
+  const exploring = view.mode === "exploring";
+  const hint = !exploring ? "Gear can be changed between fights."
+    : held ? `${itemTitle(held.id)} is picked up: click a character or the common space to put it there, or click one of their items to swap.`
+    : "Drag an item onto a character or the common space. Drop it on one of their items to swap. Or click an item, then click where it goes.";
+  box.replaceChildren(el("h2", { textContent: "Equipment" }), el("div", { className: "dim small", style: "margin-bottom:6px", textContent: hint }),
+    eqBox("stash", "Common space", "shared by the party", true, false),
+    ...view.party.map(m => eqBox(m.id, m.name, `${m.class} ${m.level}  AC ${m.ac}`, true, m.dead)));
+}
+
 function renderParty() {
   const box = $("#party"); box.replaceChildren(el("h2", { textContent: "Party" }));
   const mine = view.role === "player";
@@ -542,6 +649,7 @@ function renderParty() {
       title: `Click to see ${m.name}'s stats and equipment`, tabIndex: 0, role: "button" },
       el("div", { className: "who" }, tok.nodeType === 1 && tok.tagName.toLowerCase() === "svg" ? (tok.style.width = "34px", tok.style.height = "34px", tok) : tok, el("span", {}, el("b", { textContent: m.name }), el("span", { className: "dim small", textContent: `  ${m.class} ${m.level}  AC ${m.ac}  HP ${m.hp}/${m.maxHp}` }))),
       el("div", { className: "bar" }, el("i", { style: `width:${pct}%` })),
+      el("div", { className: "strip" }, ...m.attacks.map(w => itemIcon(w.id, 24, `${itemTitle(w.id)}  (${SIGNED(w.toHit)}, ${w.damage} ${w.type})`)), ...(m.potions ? [el("span", { className: "stripp" }, itemIcon("potion", 24), el("span", { className: "dim small", textContent: "x" + m.potions }))] : [])),
       el("div", { className: "dim small", textContent: `XP ${m.xp}${m.nextLevelXp ? "/" + m.nextLevelXp : ""}  potions ${m.potions}  dice ${m.hitDice}${m.exhaustion ? "  exhaustion " + m.exhaustion : ""}${slots ? "  " + slots : ""}` }));
     const choose = () => { selChar = selChar === m.id ? "" : m.id; renderParty(); };
     row.onclick = choose;
@@ -549,6 +657,7 @@ function renderParty() {
     box.append(row);
     if (picked) box.append(sheetPanel(m));
   }
+  renderEquipment();
 }
 let selChar = "";   // the party member whose sheet is open
 const SIGNED = n => (n >= 0 ? "+" : "") + n;
@@ -581,22 +690,12 @@ function sheetPanel(m) {
   if (m.spells && m.spells.length) box.append(el("div", { className: "small", textContent: "Spells: " + m.spells.map(sp => sp.name + (sp.level ? ` (L${sp.level})` : "")).join(", ") }));
 
   box.append(el("h3", { textContent: "Equipment" }));
-  if (!exploring) box.append(el("div", { className: "dim small", textContent: "Gear can be swapped between fights." }));
   for (const w of m.attacks) {
-    const sel = el("select", { className: "give", disabled: !exploring || !others.length, title: `Give or swap the ${w.name}`,
-      onchange: e => { const [kind, who, what] = e.target.value.split("|"); if (kind) moveItem(m.id, who, w.id, kind === "swap" ? what : ""); e.target.value = ""; } },
-      el("option", { value: "", textContent: "Give / swap..." }));
-    for (const o of others) {
-      if (o.attacks.some(x => x.id === w.id)) continue;
-      if (m.attacks.length > 1) sel.append(el("option", { value: `give|${o.id}`, textContent: `Give to ${o.name}` }));
-      for (const x of o.attacks) if (!m.attacks.some(y => y.id === x.id)) sel.append(el("option", { value: `swap|${o.id}|${x.id}`, textContent: `Swap with ${o.name}'s ${x.name}` }));
-    }
     const rng = w.ranged ? `range ${w.normalRange}/${w.range} ft` : `reach ${w.normalRange} ft`;
-    box.append(el("div", { className: "wep" }, el("span", {}, el("b", { textContent: w.name }), el("span", { className: "dim small", textContent: `  ${SIGNED(w.toHit)} to hit, ${w.damage} ${w.type}, ${rng}${w.finesse ? ", finesse" : ""}` })), sel));
+    box.append(el("div", { className: "wep" }, el("span", { className: "wepl" }, itemIcon(w.id, 30), el("span", {}, el("b", { textContent: itemTitle(w.id) }), el("span", { className: "dim small", textContent: `  ${SIGNED(w.toHit)} to hit, ${w.damage} ${w.type}, ${rng}${w.finesse ? ", finesse" : ""}` })))));
   }
-  const ps = el("select", { className: "give", disabled: !exploring || !others.length || !m.potions, title: "Hand over a healing potion",
-    onchange: e => { if (e.target.value) moveItem(m.id, e.target.value, "potion"); e.target.value = ""; } }, el("option", { value: "", textContent: "Give potion..." }), ...others.map(o => el("option", { value: o.id, textContent: `Give to ${o.name}` })));
-  box.append(el("div", { className: "wep" }, el("span", {}, el("b", { textContent: "Healing potions" }), el("span", { className: "dim small", textContent: "  " + m.potions })), ps));
+  box.append(el("div", { className: "wep" }, el("span", { className: "wepl" }, itemIcon("potion", 30), el("span", {}, el("b", { textContent: "Healing potions" }), el("span", { className: "dim small", textContent: "  " + m.potions })))));
+  box.append(el("div", { className: "dim small", textContent: "Move items between characters in the Equipment panel below." }));
   box.append(el("div", { className: "wep" }, el("span", { className: "dim small", textContent: you ? "You control this character." : "" }),
     m.dead || you ? el("span") : el("button", { textContent: `Control ${m.name}`, onclick: () => setHero(m.id) })));
   return box;
@@ -728,6 +827,7 @@ async function refreshPictures() {
     el("div", { className: "row" },
       el("button", { textContent: "Draw this scene", title: "the place, the people here and the creatures in the fight", onclick: () => drawIds(subjectIds(), false) }),
       el("button", { textContent: "Party portraits", onclick: () => drawIds(view.party.map(m => "characters/" + m.id), false) }),
+      el("button", { textContent: "Item pictures", title: "A picture for each weapon and potion; until then drawn icons are shown", onclick: () => drawIds(allItemIds(), false) }),
       el("button", { textContent: "All missing", onclick: async () => { const r = await api("POST", "/api/images/generate", { missing: true }); if (r.status >= 300) toast(r.data.error || "cannot draw"); refreshPictures(); } }),
       el("button", { textContent: "Redo this scene", onclick: () => drawIds(subjectIds(), true) })),
   ];
