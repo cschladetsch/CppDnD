@@ -31,6 +31,7 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .member { padding:6px 0; border-top:1px solid var(--edge); } .member:first-of-type { border-top:0; }
 .member.dead { opacity:.45; text-decoration:line-through; }
 .member.you { border-left:3px solid var(--accent); padding-left:8px; }
+.member.pick { cursor:pointer; } .member.pick:hover, .member.pick:focus-visible { background:var(--edge); outline:0; }
 #sessSel { max-width:min(420px, 40vw); }
 .focus { display:flex; gap:8px; align-items:center; margin:2px 0 8px; } .focus select { flex:1; }
 .pics .row { margin:6px 0; } .pics progress { width:100%; height:8px; } .pics .err { color:var(--bad); font-size:12px; }
@@ -366,10 +367,18 @@ function renderParty() {
     const pct = Math.max(0, Math.round(100 * m.hp / m.maxHp));
     const slots = m.slots.map((n, i) => (m.slotsMax[i] ? `L${i}:${n}/${m.slotsMax[i]}` : "")).filter(Boolean).join(" ");
     const tok = picOrToken("characters", m.id, { team: "party", classId: m.class, hp: m.hp, maxHp: m.maxHp, effects: [] }, "portrait");
-    box.append(el("div", { className: "member" + (m.dead ? " dead" : "") + (mine && m.name === view.hero ? " you" : ""), title: mine && m.name === view.hero ? "you control this character" : "" },
+    const isYou = mine && m.name === view.hero, pick = !m.dead && !isYou;
+    const row = el("div", { className: "member" + (m.dead ? " dead" : "") + (isYou ? " you" : "") + (pick ? " pick" : ""),
+      title: isYou ? "you control this character" : m.dead ? "" : `Click to control ${m.name}` },
       el("div", { className: "who" }, tok.nodeType === 1 && tok.tagName.toLowerCase() === "svg" ? (tok.style.width = "34px", tok.style.height = "34px", tok) : tok, el("span", {}, el("b", { textContent: m.name }), el("span", { className: "dim small", textContent: `  ${m.class} ${m.level}  AC ${m.ac}  HP ${m.hp}/${m.maxHp}` }))),
       el("div", { className: "bar" }, el("i", { style: `width:${pct}%` })),
-      el("div", { className: "dim small", textContent: `XP ${m.xp}${m.nextLevelXp ? "/" + m.nextLevelXp : ""}  potions ${m.potions}  dice ${m.hitDice}${m.exhaustion ? "  exhaustion " + m.exhaustion : ""}${slots ? "  " + slots : ""}` })));
+      el("div", { className: "dim small", textContent: `XP ${m.xp}${m.nextLevelXp ? "/" + m.nextLevelXp : ""}  potions ${m.potions}  dice ${m.hitDice}${m.exhaustion ? "  exhaustion " + m.exhaustion : ""}${slots ? "  " + slots : ""}` }));
+    if (pick) {
+      row.tabIndex = 0; row.setAttribute("role", "button");
+      row.onclick = () => setHero(m.id);
+      row.onkeydown = e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); setHero(m.id); } };
+    }
+    box.append(row);
   }
 }
 function renderQuests() {
