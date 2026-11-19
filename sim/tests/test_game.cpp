@@ -355,3 +355,17 @@ TEST(Equipment, TheViewCarriesFullStats) {
         EXPECT_GE(m["proficiency"].get<int>(), 2);
     }
 }
+
+TEST(Quests, TheViewListsWhatEachQuestNeedsAndWhetherItIsMet) {
+    GameConfig cfg;
+    cfg.moduleId = "sunless_abbey";
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    const Json v = g.View(0);
+    ASSERT_GE(v["quests"].size(), 1u);
+    for (const auto& q : v["quests"]) {
+        EXPECT_GE(q["requirements"].size(), 1u) << q["id"];
+        EXPECT_GT(q["xp"].get<int>(), 0);
+        for (const auto& r : q["requirements"]) EXPECT_FALSE(r["met"].get<bool>()) << "nothing is done at the start: " << r["condition"];
+    }
+}

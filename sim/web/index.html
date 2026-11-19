@@ -42,6 +42,7 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .hist { max-height:260px; overflow:auto; font-size:13px; margin-top:6px; }
 .hist div { padding:2px 0; } .hist .meta { color:var(--dim); font-size:11px; } .hist .from { color:var(--accent); }
 .mapwrap { overflow:auto; max-height:440px; border:1px solid var(--edge); border-radius:6px; background:#1b2416; } canvas.worldmap { display:block; max-width:none; }
+.quest { cursor:pointer; padding:2px 0; } .quest:hover, .quest:focus-visible { color:var(--accent); outline:0; } .questinfo { margin:0 0 6px 18px; padding-left:8px; border-left:2px solid var(--edge); }
 #grid { display:grid; gap:1px; background:#0c0a12; width:max-content; max-width:100%; overflow:auto; border:1px solid var(--edge); }
 .cell { width:32px; height:32px; display:flex; align-items:center; justify-content:center; font:700 13px ui-monospace, monospace; background:#262235 var(--tile-floor) center/100% 100%; user-select:none; position:relative; }
 .cell.wall { background:#08070c var(--tile-wall) center/100% 100%; } .cell.rough { background:#322c3f var(--tile-rough) center/100% 100%; } .cell.half, .cell.three { background:#3a3326 var(--tile-cover) center/100% 100%; }
@@ -600,9 +601,26 @@ function sheetPanel(m) {
     m.dead || you ? el("span") : el("button", { textContent: `Control ${m.name}`, onclick: () => setHero(m.id) })));
   return box;
 }
+let openQuest = "";   // the quest whose details are showing
+const humanCond = c => { const neg = c.startsWith("!"), [k, v] = c.replace(/^!/, "").split("="); const t = k.replace(/_/g, " "); return (neg ? "not: " : "") + (v !== undefined ? `${t} is ${v}` : t); };
 function renderQuests() {
   const box = $("#quests"); box.replaceChildren(el("h2", { textContent: "Quests" }));
-  for (const q of view.quests) box.append(el("div", { className: "small", title: q.description, textContent: `${q.done ? "\u2611" : "\u2610"} ${q.name}`, style: q.done ? "color:var(--ok)" : "" }));
+  for (const q of view.quests) {
+    const open = openQuest === q.id, toggle = () => { openQuest = open ? "" : q.id; renderQuests(); };
+    const head = el("div", { className: "quest small", role: "button", tabIndex: 0, title: "Click for the details", style: q.done ? "color:var(--ok)" : "",
+      textContent: `${open ? "\u25BE" : "\u25B8"} ${q.done ? "\u2611" : "\u2610"} ${q.name}`, onclick: toggle,
+      onkeydown: e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); toggle(); } } });
+    box.append(head);
+    if (open) {
+      const d = el("div", { className: "questinfo small" }, el("div", { textContent: q.description }));
+      if (q.requirements && q.requirements.length) {
+        d.append(el("div", { className: "dim", textContent: "Needed:", style: "margin-top:4px" }));
+        for (const r of q.requirements) d.append(el("div", { className: r.met ? "" : "dim", style: r.met ? "color:var(--ok)" : "", textContent: `${r.met ? "\u2611" : "\u2610"} ${humanCond(r.condition)}` }));
+      }
+      if (q.xp) d.append(el("div", { className: "dim", textContent: `Reward: ${q.xp} XP`, style: "margin-top:4px" }));
+      box.append(d);
+    }
+  }
 }
 
 // ---------------------------------------------------------------- combat

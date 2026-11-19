@@ -103,7 +103,11 @@ Json Game::View(int sinceSeq) const {
     v["party"] = party;
 
     Json quests = Json::array();
-    for (const auto& q : module_.quests) quests.push_back(Json{{"id", q.id}, {"name", q.name}, {"description", q.description}, {"done", questsDone_.count(q.id) > 0}});
+    for (const auto& q : module_.quests) {
+        Json reqs = Json::array();
+        for (const auto& c : q.completeWhen) reqs.push_back(Json{{"condition", c}, {"met", Satisfied({c})}});
+        quests.push_back(Json{{"id", q.id}, {"name", q.name}, {"description", q.description}, {"done", questsDone_.count(q.id) > 0}, {"xp", q.xp}, {"requirements", reqs}});
+    }
     v["quests"] = quests;
 
     v["combat"] = combat_ ? CombatView(*combat_) : Json(nullptr);
