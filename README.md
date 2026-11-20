@@ -8,9 +8,32 @@ A Dungeons & Dragons 5e simulator in C++20, built as a backend for a web game. O
 
 Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_simulator_architecture.md)
 
-## Quick start
+## Install
 
-On a fresh Windows machine, start with `.\install.ps1` (git, cmake, ninja, the C++ build tools and clang++ via winget, then clone if needed, build, test, and optionally Ollama with its models and Stable Diffusion; `-Yes`, `-Minimal`, `-NoLlm`, `-NoArt`, `-NoTests`, `-Dir`, `-Update`, `-Rebuild`). If scripts are blocked: `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
+On a fresh Windows 10 or 11 machine, `install.ps1` sets up everything. It works from inside a clone or as a single downloaded file (on its own it clones the repository first). Each step is skipped when it is already done, so it is safe to run again.
+
+```powershell
+.\install.ps1                      # everything, asking before each install or download
+.\install.ps1 -Yes                 # do not ask (also installs Ollama, its models and Stable Diffusion: about 25 GB)
+.\install.ps1 -Minimal             # the game only: no Ollama, no Stable Diffusion
+powershell -ExecutionPolicy Bypass -File .\install.ps1    # if scripts are blocked on this machine
+```
+
+What it does, in order:
+
+1. **winget** is checked. It ships with current Windows as "App Installer" and is the one thing the script cannot install; if it is missing the script says where to get it.
+2. **git, cmake and ninja** are installed with winget when missing.
+3. **The C++ toolchain**: the Visual Studio Build Tools C++ workload (clang++ on Windows uses the Visual Studio standard library and the Windows SDK; about 3-6 GB, needs a UAC approval) and LLVM clang++. It then compiles a small C++20 file to prove the toolchain works.
+4. **The source** is cloned from GitHub unless the script already sits in a checkout (`-Dir` picks the folder, `-Update` pulls an existing one, `-Repo` and `-Branch` choose what to clone).
+5. **The build**: cmake, Ninja and clang++ in Release, the same configuration `run.ps1` uses. The first configure fetches the model store and GoogleTest from GitHub (`-Rebuild` starts from a clean `sim/build`).
+6. **The tests** run with ctest (`-NoTests` skips them).
+7. **Ollama** (optional, `-NoLlm` skips it) is installed, and the models named in `sim/data/agents.json` are pulled after asking (several GB). This turns on the plain-English prompt and the AI table.
+8. **Stable Diffusion** (optional, `-NoArt` skips it) needs an NVIDIA GPU; the script hands over to `sd.ps1 -Install` (Python 3.10, AUTOMATIC1111, the SD 1.5 model, about 15 GB).
+9. A summary lists what is ready, any warnings, and the commands to start the game.
+
+It needs network access to github.com for the source and CMake's fetches, plus huggingface.co, pypi.org and download.pytorch.org for pictures, and ollama.com for models. Options: `-Yes`, `-Minimal`, `-NoLlm`, `-NoArt`, `-NoTests`, `-Dir`, `-Update`, `-Rebuild`, `-Repo`, `-Branch`. Without the optional parts the game runs as before, with no AI prompt and no generated pictures. On Linux or macOS, install git, cmake, ninja and a C++20 compiler yourself and use the commands under Build.
+
+## Quick start
 
 ```powershell
 .\run.ps1                              # build if needed, then watch the AI play a 3 room delve
@@ -29,6 +52,8 @@ On a fresh Windows machine, start with `.\install.ps1` (git, cmake, ninja, the C
 - **Classes.** Fighter, barbarian, rogue, ranger, wizard, cleric, built from class tables at any level 1 to 20: hit points, proficiency, spell slots, Extra Attack, sneak attack, Rage, Second Wind.
 - **Rules.** Advantage and disadvantage, crits, cover, opportunity attacks, death saves, conditions (blinded, frightened, incapacitated, paralyzed, poisoned, prone, restrained, stunned), concentration with damage saves, resistance and vulnerability, exhaustion, short and long rests with Hit Dice, travel pace and forced marches.
 - **Modules.** A module is the space for a long-running session: a graph of locations on a clock, with scripted and random encounters, NPC dialogue, flags, quests, seeded secrets and an end condition. Five ship: `ravenmoor`, an original gothic-horror module in the spirit of Ravenloft (8 locations); `cyberhood`, an 11-scene cyberpunk module set in 2040 (a vertical neon district ruled by a rogue maintenance AI, with its own sci-fi creatures; try `.\run.ps1 --module cyberhood`); and `hollow_crown`, a 20-scene dark-fantasy campaign from a border town over a mountain pass to a necropolis and a dead king's throne (two seeded secrets, two ways over the pass and two ways into the lakeside town; try `.\run.ps1 --module hollow_crown`); and `sunless_abbey`, a 50-room dungeon crawl through a haunted abbey and the mine, ossuary and sanctum beneath it (two seeded secrets, three pairs of alternate routes, seven quests and an original vampire-abbess boss; try `.\run.ps1 --module sunless_abbey`); and `meridian`, a 50-room science-fiction horror module aboard a four kilometre colony ship overrun by an alien swarm (the Brood): five decks from the docking ring to the bridge, thirteen NPCs who each remember everyone they have dealt with, two seeded secrets (where the engineer's keycard is, which survivor carries an embryo), two alternate routes into engineering and two into the command deck, seven quests and an original Hive Queen boss; try `.\run.ps1 --module meridian`. Rooms can be added while playing (Explore), and with `--llm-narration` a model writes each room description and the NPCs' lines.
+- **Module casts.** Each module brings its own heroes in `sim/data/modules/<id>/characters.json` (six per module, themed to the setting: a village hedge-wizard for Ravenmoor, a netrunner and a ripperdoc for CyberHood, a marine commander and a ship's medic for The Meridian). A new game of a module starts with its cast (the module's `party` list, else the first four), the web hero picker offers that module's heroes, and the procedural delve keeps the classic four (Thorin, Elara, Aldric, Finn).
+- **Picture styles per module.** A module's JSON may carry an `art` block (`prefix`, `suffix`, `negative`, `creature`, `framing`) that replaces the global gothic words in `sim/art/style.json` for its locations, NPCs, cast, monsters and camera views, so The Meridian is drawn as a starship interior and CyberHood as neon cyberpunk. See [sim/art/README.md](sim/art/README.md).
 - **Step-driven combat.** `Advance` runs until a remote human must act; `Submit` answers. Nothing blocks, so a web server can drive many games.
 - **Save and load.** The complete state, including the RNG stream, round-trips through JSON. A reloaded game plays out identically.
 - **Web client.** A single-page client in [sim/web/](sim/web/README.md), served by the server at `/`.
