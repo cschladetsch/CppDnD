@@ -46,6 +46,9 @@ public:
 
     // x-y.json as JSON: {"owner","with","entries":[...]}, entries after sinceSeq, at most `limit` (the newest).
     Json Pair(const std::string& owner, const std::string& with, int sinceSeq = 0, int limit = 200) const;
+    // Everything `owner` remembers: {"owner", "partners": [{"with", "count", "entries": last `perPartner`}]}, most recent partner first.
+    Json OwnerJson(const std::string& owner, int perPartner = 40) const;
+    std::size_t Count(const std::string& owner, const std::string& with) const;
     Json GroupJson(int sinceSeq = 0, int limit = 200) const;
     // {"group": n, "pairs": [{"owner","with","count","file"}]}
     Json Index() const;

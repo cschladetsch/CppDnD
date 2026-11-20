@@ -79,6 +79,7 @@ struct NpcDef {
     std::string id, name, description;
     std::string type = "commoner";  // classifies the NPC; agents.json can pick a model per type
     std::vector<TopicDef> topics;
+    std::vector<std::string> chatter;  // lines it can say to another NPC when no model writes them
 };
 
 struct ExitDef {
@@ -123,6 +124,10 @@ struct DrawDef {
     std::vector<std::string> choices;  // one is drawn at game start and stored as flag "<id>=<choice>"
 };
 
+struct RoomSeedDef {
+    std::string name, text;
+};
+
 struct ModuleDef {
     std::string id, name, setting, intro, endText;
     int recommendedLevel = 3;
@@ -135,6 +140,7 @@ struct ModuleDef {
     std::vector<QuestDef> quests;
     std::vector<LocationDef> locations;
     std::vector<std::string> endWhen;
+    std::vector<RoomSeedDef> roomSeeds;  // rooms for Explore to find when no model writes them; empty means the general ones
 
     const LocationDef* FindLocation(std::string_view id) const;
     const RandomTableDef* FindTable(std::string_view id) const;

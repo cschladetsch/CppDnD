@@ -1,0 +1,2781 @@
+{
+  "id": "meridian",
+  "name": "The Meridian",
+  "setting": "science fiction horror aboard the Meridian, a four kilometre colony ark adrift and half dark for nine years, where an alien swarm called the Brood has overrun the lower decks and nineteen survivors are holding out",
+  "recommendedLevel": 5,
+  "hardHp": 1.1,
+  "intro": "Nine years ago the colony ship Meridian stopped answering. Last month a beacon began to repeat from its flank, a tired woman's voice: we are no longer alone aboard, do not use the main lock. Your shuttle is clamped to the main lock now. Ahead lies a ship of fifty rooms: the docking ring, the habitat decks, the gardens and laboratories, the engine spine, and the command deck at the bow. Somewhere below the great garden, something is growing, and it has a heartbeat.",
+  "endText": "The queen's great jaws close on nothing and her crest sags. Through the whole ship a long, shuddering breath goes out, and the thumping that has run under the deck for nine years falls silent. In the Mess Hall the nineteen survivors stand and listen to it not coming. On the bridge Captain Quinn puts down her pen, and on the long dark flank of the Meridian a single new light comes on, and then another, and then a hundred. The Brood are broken. The ship, at last, is going home.",
+  "clock": {
+    "startHour": 9,
+    "nightStart": 22,
+    "nightEnd": 6
+  },
+  "start": "lifeboat_cradle",
+  "draws": [
+    {
+      "id": "keycard",
+      "choices": [
+        "medbay",
+        "officers"
+      ]
+    },
+    {
+      "id": "host",
+      "choices": [
+        "pip",
+        "teo"
+      ]
+    }
+  ],
+  "tables": [
+    {
+      "id": "dock",
+      "chanceDay": 1,
+      "chanceNight": 3,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "skitterling",
+            "skitterling",
+            "skitterling"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "husk",
+            "husk"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "brood_drone"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "habitat",
+      "chanceDay": 1,
+      "chanceNight": 3,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "skitterling",
+            "skitterling",
+            "skitterling",
+            "skitterling"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "husk",
+            "husk",
+            "husk"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "brood_drone",
+            "skitterling"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "acid_spitter",
+            "acid_spitter"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "science",
+      "chanceDay": 2,
+      "chanceNight": 4,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "brood_drone",
+            "brood_drone"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "acid_spitter",
+            "acid_spitter",
+            "skitterling"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "stalker",
+            "skitterling"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "security_mech",
+            "husk"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "engine",
+      "chanceDay": 2,
+      "chanceNight": 4,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "husk",
+            "husk",
+            "husk"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "stalker",
+            "skitterling"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "brood_drone",
+            "acid_spitter"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "security_mech",
+            "husk"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "command",
+      "chanceDay": 2,
+      "chanceNight": 4,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "stalker",
+            "skitterling"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "brood_drone",
+            "brood_drone"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "brood_drone",
+            "skitterling"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nest",
+      "chanceDay": 3,
+      "chanceNight": 6,
+      "entries": [
+        {
+          "weight": 3,
+          "monsters": [
+            "brood_drone",
+            "brood_drone"
+          ]
+        },
+        {
+          "weight": 2,
+          "monsters": [
+            "stalker",
+            "stalker"
+          ]
+        },
+        {
+          "weight": 1,
+          "monsters": [
+            "brood_warrior",
+            "skitterling"
+          ]
+        }
+      ]
+    }
+  ],
+  "quests": [
+    {
+      "id": "answer_the_call",
+      "name": "Answer the Call",
+      "description": "Fight your way out of the docking ring and onto the Long Promenade.",
+      "completeWhen": [
+        "dock_clear"
+      ],
+      "xp": 100
+    },
+    {
+      "id": "who_is_left",
+      "name": "Who Is Left?",
+      "description": "Find the survivors: the medic on the habitat ring and the chief engineer in the machine shop.",
+      "completeWhen": [
+        "met_medic",
+        "met_engineer"
+      ],
+      "xp": 200
+    },
+    {
+      "id": "the_engineers_card",
+      "name": "The Engineer's Card",
+      "description": "Find the chief engineer's keycard. It is in the ship, hidden by someone who wanted it safe.",
+      "completeWhen": [
+        "has_keycard"
+      ],
+      "xp": 150
+    },
+    {
+      "id": "the_carrier",
+      "name": "The Carrier",
+      "description": "One of the survivors is carrying an embryo. Find them before it hatches.",
+      "completeWhen": [
+        "host_found"
+      ],
+      "xp": 250
+    },
+    {
+      "id": "bring_the_lights_back",
+      "name": "Bring the Lights Back",
+      "description": "Prime the coolant pumps and clear the reactor so that the ship has power again.",
+      "completeWhen": [
+        "pumps_primed",
+        "power_restored"
+      ],
+      "xp": 400
+    },
+    {
+      "id": "call_for_help",
+      "name": "Call for Help",
+      "description": "Reach the bridge and send the distress beacon again, with the news that survivors are alive.",
+      "completeWhen": [
+        "distress_sent"
+      ],
+      "xp": 400
+    },
+    {
+      "id": "mother_of_the_brood",
+      "name": "Mother of the Brood",
+      "description": "Find the nest beneath the Arboretum and destroy the Hive Queen.",
+      "completeWhen": [
+        "queen_dead"
+      ],
+      "xp": 1500
+    }
+  ],
+  "endWhen": [
+    "queen_dead"
+  ],
+  "roomSeeds": [
+    {
+      "name": "A Sealed Utility Closet",
+      "text": "A narrow door you took for a wall panel slides open on a utility closet, racks of dead breakers on one side and a clutch of mop buckets on the other. The air is cold and tastes of old metal, and a trail of resin droplets runs along the floor and out through a ventilation grille."
+    },
+    {
+      "name": "A Dark Service Bay",
+      "text": "A shallow bay off the main corridor, its floor ringed with maintenance hatches, its ceiling a lattice of pipes. A work light on a hook swings slowly, though there is no draught. Someone has been through here in a hurry: tools lie where they were dropped and the bench is smeared with something black."
+    },
+    {
+      "name": "A Flooded Crawlspace",
+      "text": "A low service crawlspace, ankle-deep in cold water that has leaked from a split coolant line and now shines faintly under the emergency strip. Pipes sweat overhead. In the water something small has left a trail of tiny, clawed prints, heading deeper in."
+    },
+    {
+      "name": "A Dormant Workshop",
+      "text": "A small workshop with a bench vice, a rack of hand tools and a half-built robot arm on a stand. Its lamp is still on, swinging gently on its spring. A cup of tea stands on the bench, long cold, with a spoon in it. Whoever left it meant to be back in a moment."
+    },
+    {
+      "name": "An Abandoned Cabin",
+      "text": "A private cabin, door left ajar, with a bunk, a desk and a small round window onto the stars. The bedding is neat. A child's drawing of the ship is pinned above the pillow, and under it, in the same careful hand, a row of names, all crossed out except two."
+    },
+    {
+      "name": "An Overlooked Storage Locker",
+      "text": "A long locker built into the wall behind a panel, stacked with sealed crates of spare filters and gaskets. It has not been disturbed in years. The only sign of life is a knot of resin in one corner, dry and brittle, from which something has long since emerged."
+    }
+  ],
+  "locations": [
+    {
+      "id": "lifeboat_cradle",
+      "name": "The Boarding Shuttle Cradle",
+      "kind": "boundary",
+      "rest": "safe",
+      "description": "Your shuttle sits in a docking cradle at the end of a long steel throat, clamps still ringing as they cool. Frost has formed on the inside of the viewport, and beyond it the Meridian's flank runs off into the dark, a cliff of grey plating four kilometres long with one lit window in ten thousand. The ship's hull is breathing, slow and irregular, as if it were asleep.",
+      "events": [
+        {
+          "id": "beacon_text",
+          "trigger": "enter",
+          "narration": "The distress beacon that drew you here is still repeating on your console, a woman's voice, calm and tired: 'This is the colony ship Meridian. We are no longer alone aboard. If anyone is listening, do not use the main lock.' You came in by the main lock anyway."
+        }
+      ],
+      "exits": [
+        {
+          "to": "airlock_ring",
+          "label": "To The Airlock Ring"
+        }
+      ]
+    },
+    {
+      "id": "airlock_ring",
+      "name": "The Airlock Ring",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A drum of curved corridor wraps the docking spine, lined with suit lockers and the stencilled legend CYCLE BEFORE ENTERING. Half the lockers hang open and empty. The deck is tacky underfoot with something dried and resinous, and long, regular scratches score the wall at the height of a tall man's shoulder.",
+      "randomTable": "dock",
+      "events": [
+        {
+          "id": "ring_ambush",
+          "trigger": "enter",
+          "narration": "The resin on the floor is not a spill. It is a web of dried threads, and where it ends the ceiling panels have been pushed up from inside. Small shapes drop out of the dark, fast and low, with too many knees.",
+          "encounter": {
+            "monsters": [
+              "skitterling",
+              "skitterling",
+              "skitterling"
+            ]
+          },
+          "xp": 100,
+          "map": [
+            "######################",
+            "#PP.....#c#.....MM...#",
+            "#P..............MMM..#",
+            "#PP.....#c#.....MM...#",
+            "######################"
+          ],
+          "setsFlags": [
+            "dock_clear"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "lifeboat_cradle",
+          "label": "To The Boarding Shuttle Cradle"
+        },
+        {
+          "to": "dock_control",
+          "label": "To Dock Control Booth"
+        },
+        {
+          "to": "customs_hall",
+          "label": "To The Customs Hall"
+        },
+        {
+          "to": "cargo_hold_b",
+          "label": "Through the cargo door"
+        }
+      ]
+    },
+    {
+      "id": "dock_control",
+      "name": "Dock Control Booth",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A glass cab above the cradles, every screen dark except one that still scrolls arrivals and departures from nine years ago. A mug sits on the console, the coffee long since turned to a brown crust. A hand-lettered sign over the door reads: WHATEVER IT IS, IT IS NOT THE VENTS. IT IS THE VENTS.",
+      "events": [
+        {
+          "id": "dock_locker",
+          "trigger": "search",
+          "narration": "Under the console, taped to the underside as if the operator meant to come back for it, you find a medical injector and a note: 'In case of the dreams. Do not wait to see what they are.'",
+          "potions": 1
+        },
+        {
+          "id": "dock_log",
+          "trigger": "search",
+          "narration": "The last entry on the booth terminal is timestamped from the night the ship went quiet. It lists forty-one arrivals at the Specimen Dock and one departure: the Meridian's own cargo lift, running without a crew, down toward the Arboretum.",
+          "setsFlags": [
+            "knows_cargo_lift"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "airlock_ring",
+          "label": "To The Airlock Ring"
+        }
+      ]
+    },
+    {
+      "id": "customs_hall",
+      "name": "The Customs Hall",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Brass rails funnel the long-dead queue into six inspection lanes, each with a flickering scanner arch. A banner reading WELCOME TO NEW HORIZON hangs half torn from the ceiling. Bags lie tipped open along the lanes, and the scattered clothes inside have been shredded into nests.",
+      "randomTable": "dock",
+      "events": [
+        {
+          "id": "customs_nest",
+          "trigger": "enter",
+          "narration": "In the middle lane a dozen bags have been stacked into a rough dome, and the dome is moving. When the party's light touches it the whole structure splits open and husks spill out, wearing the clothes they died in, bodies bloated and chests torn from the inside.",
+          "encounter": {
+            "monsters": [
+              "husk",
+              "husk",
+              "husk"
+            ]
+          },
+          "xp": 100,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "airlock_ring",
+          "label": "To The Airlock Ring"
+        },
+        {
+          "to": "cargo_hold_a",
+          "label": "To Cargo Hold Alpha"
+        },
+        {
+          "to": "promenade",
+          "label": "Up to the Long Promenade",
+          "hours": 3
+        }
+      ]
+    },
+    {
+      "id": "cargo_hold_a",
+      "name": "Cargo Hold Alpha",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A hangar-sized hold stacked with standard crates to the roof, floor markings still showing the crane lanes. Nothing here was meant to be touched since the day it was loaded. Someone has smashed a path through the stacks, and the crates on either side have been gnawed open at the corners.",
+      "randomTable": "dock",
+      "events": [
+        {
+          "id": "hold_a_drones",
+          "trigger": "enter",
+          "narration": "The path through the crates ends in a pocket of stacked pallets. Something big uncoils from the top of the stack and drops with a sound like a dropped anvil, long tail whipping, a second one behind it.",
+          "encounter": {
+            "monsters": [
+              "brood_drone",
+              "brood_drone"
+            ]
+          },
+          "xp": 150,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        },
+        {
+          "id": "hold_a_crate",
+          "trigger": "search",
+          "narration": "One crate has been pried open by something with a good deal more strength than patience. Inside, under a nest of torn insulation, are sealed medical canisters, undamaged.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "customs_hall",
+          "label": "To The Customs Hall"
+        },
+        {
+          "to": "cargo_hold_b",
+          "label": "To Cargo Hold Beta"
+        }
+      ]
+    },
+    {
+      "id": "cargo_hold_b",
+      "name": "Cargo Hold Beta",
+      "kind": "site",
+      "rest": "risky",
+      "description": "The overflow hold, filled with sealed colonist lockers: eight hundred cases of seed stock, tools and family heirlooms, each stencilled with a name. Three rows have been broken open and emptied. A trail of dried resin runs up a stack of lockers and into a ceiling duct, and you can hear the duct ticking as it cools.",
+      "randomTable": "dock",
+      "events": [
+        {
+          "id": "hold_b_names",
+          "trigger": "search",
+          "narration": "One broken locker still holds a child's drawing of the ship, a long silver whale with a ring of windows. Under it, in a neat adult hand: 'We will see the sky again.' It has been folded very small and tucked into a boot.",
+          "setsFlags": [
+            "lore_colonists"
+          ],
+          "xp": 25
+        }
+      ],
+      "exits": [
+        {
+          "to": "cargo_hold_a",
+          "label": "To Cargo Hold Alpha"
+        },
+        {
+          "to": "airlock_ring",
+          "label": "Back to the Airlock Ring"
+        }
+      ]
+    },
+    {
+      "id": "promenade",
+      "name": "The Long Promenade",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A curving boulevard under a painted sky, once a place to walk after shift. Real trees in steel planters have gone feral, their roots lifting the deck plates, and half the lamp-posts are dark. Along the walls the brass windows of shops stand shattered, and shapes pass behind some of them that are too quick to be people.",
+      "randomTable": "habitat",
+      "events": [
+        {
+          "id": "promenade_ambush",
+          "trigger": "enter",
+          "narration": "The painted sky flickers and goes dark overhead. In the pause, something hisses from the trees, and then the planters erupt, three alien shapes bursting through the undergrowth at a run with another pair behind them dropping from the lamp-posts.",
+          "encounter": {
+            "monsters": [
+              "skitterling",
+              "skitterling",
+              "brood_drone"
+            ]
+          },
+          "xp": 200,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ],
+          "setsFlags": [
+            "promenade_clear"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "customs_hall",
+          "label": "Down to the Customs Hall",
+          "hours": 3
+        },
+        {
+          "to": "mess_hall",
+          "label": "To The Mess Hall"
+        },
+        {
+          "to": "crew_quarters_a",
+          "label": "To Crew Quarters, Deck Four"
+        },
+        {
+          "to": "medbay",
+          "label": "To The Medbay"
+        },
+        {
+          "to": "market_arcade",
+          "label": "To The Arcade"
+        },
+        {
+          "to": "recreation_deck",
+          "label": "To The Recreation Deck"
+        },
+        {
+          "to": "arboretum",
+          "label": "Up the ramp to the Arboretum",
+          "hours": 3
+        }
+      ]
+    },
+    {
+      "id": "mess_hall",
+      "name": "The Mess Hall",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Long tables turned on their sides and bolted together form a barricade across the far half of the hall. Behind it a small fire burns in a washtub, and the smell of boiling rice is almost shocking after the deck outside. Someone has chalked a tally on the wall, hundreds of strokes in groups of five, and recently someone has stopped.",
+      "events": [
+        {
+          "id": "mess_welcome",
+          "trigger": "enter",
+          "narration": "Heads rise over the barricade as you come in. A man with a ladle holds it like a club. 'They don't use doors,' says the woman beside him, lowering a cargo hook. 'Take a seat. Wipe your boots. Watch the ceiling.'",
+          "setsFlags": [
+            "found_survivors"
+          ],
+          "xp": 75
+        }
+      ],
+      "npcs": [
+        {
+          "id": "tran",
+          "name": "Quartermaster Bo Tran",
+          "type": "quartermaster",
+          "description": "A square, tired woman with a quartermaster's armband and a cargo hook she has clearly learned to use. She counts everything twice.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Quartermaster Bo Tran. I run the stores, which means I run whatever's left. There are nineteen of us in the Meridian that I know of, spread over four decks. Eleven here. Welcome to the last working kitchen in the galaxy.\""
+            },
+            {
+              "id": "stores",
+              "text": "\"Here. Field kits from the emergency locker. I'd rather they go to someone who can use them than rot in a crate. Take them, and tell me what's out there that I haven't counted.\"",
+              "potions": 1
+            },
+            {
+              "id": "routes",
+              "text": "\"If you want the engine decks, there are two ways in. The service door at the back of Laundry has an engineer's keycard lock, and the crew used the vent shaft off Crew Quarters B for everything else. Somebody has been prying the grate for years. Search it and it comes up.\"",
+              "setsFlags": [
+                "knows_routes"
+              ]
+            },
+            {
+              "id": "lift",
+              "text": "\"The big lift to Command is dead. Nothing runs on that deck without the main reactor. The Chief swears she can restart it, but she needs the cooling pumps primed first.\"",
+              "setsFlags": [
+                "heard_power_plan"
+              ]
+            }
+          ],
+          "chatter": [
+            "\"Count the rice again. Twice as much as last week and half the mouths.\"",
+            "\"You hear that? In the wall?\"",
+            "\"Don't make promises to the dead, Hob. They'll hold you to them.\""
+          ]
+        },
+        {
+          "id": "hob",
+          "name": "Cook Hob Marsh",
+          "type": "cook",
+          "description": "A broad, bald man in a stained apron with soft hands and a hard stare. He stirs the pot even when the pot has stopped boiling.",
+          "topics": [
+            {
+              "id": "kitchen",
+              "text": "\"Hob Marsh. I fed eleven hundred people for nine years, and now I feed eleven. Funny how the work gets harder when the numbers fall.\""
+            },
+            {
+              "id": "sounds",
+              "text": "\"You can hear them if you press an ear to the deck. A slow thump, like a heartbeat as big as a house, from far below the Arboretum. It's been getting louder. Doesn't that tell you something?\"",
+              "setsFlags": [
+                "heard_the_heart"
+              ]
+            },
+            {
+              "id": "gift",
+              "text": "\"Here. Hot tea, with sugar I wasn't going to admit I had. Sit down for a minute, you look like you've seen a ghost. No, I know what you've seen.\"",
+              "potions": 1
+            }
+          ],
+          "chatter": [
+            "\"It's not the Brood I mind. It's the quiet after.\"",
+            "\"Bo, the rice. Bo. Bo, listen to me.\"",
+            "\"Back home we used to say a cook's work is never done.\""
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "promenade",
+          "label": "To The Long Promenade"
+        },
+        {
+          "to": "galley",
+          "label": "To The Galley"
+        }
+      ]
+    },
+    {
+      "id": "galley",
+      "name": "The Galley",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Steel counters, a bank of cold ovens, and a wall of pans still hanging on hooks in their perfect rows. Everything edible has been stripped, but not by hands: the cupboard doors hang open and the floor around them is spattered with a pale, acid slime that has eaten small craters in the deck.",
+      "randomTable": "habitat",
+      "events": [
+        {
+          "id": "galley_spitters",
+          "trigger": "enter",
+          "narration": "The slime on the floor is a trail, and it leads to the ovens. Two heads rise from behind the counter, long and glossy, with mouths like open drains. A hiss, a fizz, and the nearest pan melts where it hangs.",
+          "encounter": {
+            "monsters": [
+              "acid_spitter",
+              "acid_spitter",
+              "skitterling"
+            ]
+          },
+          "xp": 150,
+          "map": [
+            "##################",
+            "#PP...c...c...MM.#",
+            "#P....~~......MM.#",
+            "#PP...c...c...MM.#",
+            "##################"
+          ]
+        },
+        {
+          "id": "galley_larder",
+          "trigger": "search",
+          "narration": "The walk-in freezer is still cold, still sealed, and behind its door are three racks of ration packs and a case of first-aid kits left by a thorough quartermaster.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "mess_hall",
+          "label": "To The Mess Hall"
+        }
+      ]
+    },
+    {
+      "id": "crew_quarters_a",
+      "name": "Crew Quarters, Deck Four",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Two hundred cabin doors in a long curving row, each with a name plate and a stick-on picture of a family. Most of the doors are open and most of the cabins are empty, but the beds have been dragged into the middle of the corridor and piled up as if by someone building a fort. It was not a fort. The pile is a nest.",
+      "randomTable": "habitat",
+      "events": [
+        {
+          "id": "quarters_a_nest",
+          "trigger": "enter",
+          "narration": "The pile of mattresses shudders. A husk stands up out of it, still wearing a stewardess's jacket, then another, and a third. Between them, hardly visible against the bedding, a long dark head turns to look at the party.",
+          "encounter": {
+            "monsters": [
+              "husk",
+              "husk",
+              "brood_drone"
+            ]
+          },
+          "xp": 200,
+          "map": [
+            "######################",
+            "#PP.....#c#.....MM...#",
+            "#P..............MMM..#",
+            "#PP.....#c#.....MM...#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "promenade",
+          "label": "To The Long Promenade"
+        },
+        {
+          "to": "crew_quarters_b",
+          "label": "To Crew Quarters, Deck Five"
+        }
+      ]
+    },
+    {
+      "id": "crew_quarters_b",
+      "name": "Crew Quarters, Deck Five",
+      "kind": "site",
+      "rest": "safe",
+      "description": "The younger crew's deck, bunk-tiers four high and hung with fairy lights that still twinkle when the power surges. A vent grille in the wall at floor level has been wrenched halfway out, and the bolts are scattered across the floor in a spray, as though whoever did it was in a great hurry to get out.",
+      "randomTable": "habitat",
+      "events": [
+        {
+          "id": "vent_grate",
+          "trigger": "search",
+          "narration": "The grate is the one that Tran mentioned. With some effort and a pry bar from a toolbox under a bunk, you work it free of its last two bolts. Behind it a service shaft drops into the dark, black and cold, with rungs set into one wall.",
+          "setsFlags": [
+            "vent_open"
+          ],
+          "xp": 50
+        },
+        {
+          "id": "quarters_b_ambush",
+          "trigger": "enter",
+          "narration": "As the grate comes free, a sound like a long, wet breath rises up the shaft. A moment later the first of them swarms up out of the dark, rattling the rungs, with its brothers behind it.",
+          "encounter": {
+            "monsters": [
+              "skitterling",
+              "skitterling",
+              "stalker"
+            ]
+          },
+          "xp": 200,
+          "map": [
+            "##################",
+            "#PP...c...c...MM.#",
+            "#P....~~......MM.#",
+            "#PP...c...c...MM.#",
+            "##################"
+          ],
+          "requires": [
+            "vent_open"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "crew_quarters_a",
+          "label": "To Crew Quarters, Deck Four"
+        },
+        {
+          "to": "officers_row",
+          "label": "To Officers' Row"
+        },
+        {
+          "to": "vent_shaft",
+          "label": "Down the vent shaft",
+          "hours": 3,
+          "requires": [
+            "vent_open"
+          ],
+          "blockedText": "The grate in the wall is bolted shut. There is no way into the shaft until it has been pried free."
+        }
+      ]
+    },
+    {
+      "id": "officers_row",
+      "name": "Officers' Row",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A carpeted corridor of eight private cabins, each with a brass nameplate: Navigation, Medicine, Security, Command Support. The carpet has been shredded in long parallel furrows. At the end a cabin door stands ajar, and light seeps out of it, warm and amber, the first light you have seen on this deck that was not a warning.",
+      "randomTable": "habitat",
+      "events": [
+        {
+          "id": "row_guard",
+          "trigger": "enter",
+          "narration": "The warm light is a trap of a sort: it draws the eye while a stalker uncurls from the ceiling above the doorway. The thing is as long as a man and twice as quick, and it has already picked its first target before you see it.",
+          "encounter": {
+            "monsters": [
+              "stalker",
+              "skitterling",
+              "skitterling"
+            ]
+          },
+          "xp": 250,
+          "map": [
+            "######################",
+            "#PP.....#c#.....MM...#",
+            "#P..............MMM..#",
+            "#PP.....#c#.....MM...#",
+            "######################"
+          ]
+        },
+        {
+          "id": "row_card",
+          "trigger": "search",
+          "narration": "On the dresser in the end cabin, under a wedding photograph and a pair of cufflinks, lies the colour-coded engineering keycard. It has a name written on the back in tiny, firm letters: DARA VANCE. SHE WILL WANT THIS BACK.",
+          "setsFlags": [
+            "has_keycard"
+          ],
+          "requires": [
+            "keycard=officers"
+          ],
+          "xp": 100
+        }
+      ],
+      "exits": [
+        {
+          "to": "crew_quarters_b",
+          "label": "To Crew Quarters, Deck Five"
+        }
+      ]
+    },
+    {
+      "id": "medbay",
+      "name": "The Medbay",
+      "kind": "site",
+      "rest": "safe",
+      "description": "White tile and glass, brightly lit, with a long ward of empty cots on one side and a surgical theatre on the other. Every surface has been scrubbed raw. Behind the nurses' station a cluster of survivors have made a sort of clinic, with a half dozen injured lying on cots under foil blankets and an air of terrible patience.",
+      "events": [
+        {
+          "id": "medbay_cabinet",
+          "trigger": "search",
+          "narration": "The controlled-drug cabinet's lock has been burned open. Inside, on the second shelf behind a stack of empty vials, lies the engineering keycard, wrapped in a surgical glove and labelled in a medic's hand: Chief Engineer's. Do not lose.",
+          "setsFlags": [
+            "has_keycard"
+          ],
+          "requires": [
+            "keycard=medbay"
+          ],
+          "xp": 100
+        },
+        {
+          "id": "medbay_host",
+          "trigger": "search",
+          "narration": "Cadet Pip has stopped speaking, and is holding his stomach with both arms. A moment later the examination table is wrecked and a tiny, glistening, many-limbed thing is running for the door.",
+          "setsFlags": [
+            "host_found"
+          ],
+          "requires": [
+            "host=pip"
+          ],
+          "encounter": {
+            "monsters": [
+              "skitterling",
+              "skitterling",
+              "skitterling"
+            ]
+          },
+          "map": [
+            "##################",
+            "#PP...c...c...MM.#",
+            "#P....~~......MM.#",
+            "#PP...c...c...MM.#",
+            "##################"
+          ],
+          "xp": 150
+        },
+        {
+          "id": "medbay_supplies",
+          "trigger": "search",
+          "narration": "The surgical cart still holds sealed packs of stims and field dressings. Sato, without a word, tucks two into your pack.",
+          "potions": 2
+        }
+      ],
+      "npcs": [
+        {
+          "id": "sato",
+          "name": "Medic Aveline Sato",
+          "type": "medic",
+          "description": "A small, severe woman with grey in her cropped hair and a smear of someone's blood on her cuff. Her hands never stop working.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Aveline Sato, chief medical officer. I have eleven patients, six sedatives, and a rule: nobody dies on my ward. So far the ship has been very patient with me.\"",
+              "setsFlags": [
+                "met_medic"
+              ]
+            },
+            {
+              "id": "infection",
+              "text": "\"They don't just kill. They plant. A host feels fine for a day, sometimes two, then a terrible pain in the chest. I have seen it four times. Watch your people, and if anyone has a fever tell me before they tell you.\"",
+              "setsFlags": [
+                "knows_infection"
+              ]
+            },
+            {
+              "id": "card",
+              "text": "\"The engineering keycard? Vance gave it to me for safekeeping, when the first breach came. It's in the drug cabinet, third shelf. Don't ask why. I'd say she wanted it somewhere people were afraid to look.\"",
+              "requires": [
+                "keycard=medbay"
+              ]
+            },
+            {
+              "id": "help",
+              "text": "\"Take this. It's the last good dose I have for anyone I'm not treating. I'd like to see it used on someone who can still walk.\"",
+              "potions": 1
+            }
+          ],
+          "chatter": [
+            "\"Pip, sit down before you fall down.\"",
+            "\"Wash your hands. Wash them again. I don't care what is out there.\"",
+            "\"Don't you dare look at me like that, cadet.\""
+          ]
+        },
+        {
+          "id": "pip",
+          "name": "Cadet Pip Okafor",
+          "type": "cadet",
+          "description": "A lanky boy of nineteen in a cadet's jumpsuit two sizes too big, who holds his arms across his chest as if he were cold.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Pip. Cadet Okafor, but nobody uses it. I was on my first rotation when it all went quiet. Do you know how long a first rotation is? It's supposed to be six months.\""
+            },
+            {
+              "id": "card",
+              "text": "\"I saw the Lieutenant take a card up to Officers' Row the day the alarms went. She said it was safer there than the lockers. I never saw her again.\"",
+              "requires": [
+                "keycard=officers"
+              ]
+            },
+            {
+              "id": "scared",
+              "text": "\"I keep dreaming of the walls. I wake up and my chest hurts and I tell myself it's the cot.\"",
+              "setsFlags": [
+                "pip_afraid"
+              ]
+            }
+          ],
+          "chatter": [
+            "\"It's fine. I'm fine.\"",
+            "\"Do you think they can smell fear? Sato says that's superstition.\"",
+            "\"I can hear it again. Can you?\""
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "promenade",
+          "label": "To The Long Promenade"
+        },
+        {
+          "to": "quarantine_ward",
+          "label": "To The Quarantine Ward"
+        }
+      ]
+    },
+    {
+      "id": "quarantine_ward",
+      "name": "The Quarantine Ward",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A row of sealed glass cells, each with an air-lock door and a bed bolted to the floor. The doors are all open. In every cell the bed has been torn apart and in every cell the wall behind it has been scored with a spiral of deep claw marks. A single cell is still sealed, and a patient lies on its bed beneath a sheet, quite still.",
+      "randomTable": "habitat",
+      "events": [
+        {
+          "id": "quarantine_wake",
+          "trigger": "enter",
+          "narration": "The sealed cell's patient sits up in a single motion, sheet falling away. It was a woman once. Her ribs have spread like a cage and something long and glossy lies folded in the cavity, watching you with a face like a polished skull.",
+          "encounter": {
+            "monsters": [
+              "stalker",
+              "husk",
+              "husk"
+            ]
+          },
+          "xp": 250,
+          "map": [
+            "##################",
+            "#PP...c...c...MM.#",
+            "#P....~~......MM.#",
+            "#PP...c...c...MM.#",
+            "##################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "medbay",
+          "label": "To The Medbay"
+        }
+      ]
+    },
+    {
+      "id": "market_arcade",
+      "name": "The Arcade",
+      "kind": "settlement",
+      "rest": "safe",
+      "description": "Forty small shops under a glass-and-steel canopy, signs still promising SPECIAL OFFER and OPEN TILL LATE. A fountain at the centre has run dry and a child's toy lies in the basin. The canopy overhead is cracked in a spider's web where something heavy fell through it, and a draught of thin, stale air blows down from the break.",
+      "randomTable": "habitat",
+      "events": [
+        {
+          "id": "arcade_fall",
+          "trigger": "enter",
+          "narration": "A rattle of glass above, and the break in the canopy widens. Something very big drops straight through it, lands in the fountain, shakes itself and turns. Its head is armoured like a tank's prow, and it is not alone.",
+          "encounter": {
+            "monsters": [
+              "brood_warrior",
+              "skitterling"
+            ]
+          },
+          "xp": 400,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        },
+        {
+          "id": "arcade_shop",
+          "trigger": "search",
+          "narration": "The chemist's grille has been left half open. Behind it are rows of boxed tonics, one of which has the right colour and the right smell.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "promenade",
+          "label": "To The Long Promenade"
+        },
+        {
+          "to": "laundry_works",
+          "label": "To Laundry and Recycling Works"
+        }
+      ]
+    },
+    {
+      "id": "laundry_works",
+      "name": "Laundry and Recycling Works",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Rows of industrial washers, a ceiling of pipes, and the smell of boiled cotton and burnt rubber. A steel door at the back is stencilled ENGINEERING ACCESS, CARD REQUIRED, and a red lamp beside it blinks once every three seconds. The floor is slippery, and not with water.",
+      "randomTable": "habitat",
+      "events": [
+        {
+          "id": "laundry_pack",
+          "trigger": "enter",
+          "narration": "The washers rattle, and one of the big drum doors crashes open. A pack boils out of it, small and ravenous, flanked by spitters on the pipework above, who tilt their heads to find your faces.",
+          "encounter": {
+            "monsters": [
+              "skitterling",
+              "acid_spitter",
+              "acid_spitter"
+            ]
+          },
+          "xp": 250,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "market_arcade",
+          "label": "To The Arcade"
+        },
+        {
+          "to": "maintenance_crawl",
+          "label": "Through the card-lock door into the crawl",
+          "hours": 3,
+          "requires": [
+            "has_keycard"
+          ],
+          "blockedText": "The service door has a card reader and a red lamp. Without the Chief Engineer's keycard it will not budge."
+        }
+      ]
+    },
+    {
+      "id": "recreation_deck",
+      "name": "The Recreation Deck",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A vaulted space with a swimming pool on one side and a climbing wall on the other. The pool is full of black, still water, and in the shallow end a plastic duck bobs in a slow circle, driven by something moving beneath. The climbing wall is wet with resin from floor to ceiling.",
+      "randomTable": "habitat",
+      "events": [
+        {
+          "id": "pool_ambush",
+          "trigger": "enter",
+          "narration": "The duck stops circling. The black water bulges, and from it rises a shape with a crest like a helmet, water pouring from its jaws. At the climbing wall, a second one peels itself from the dripping holds.",
+          "encounter": {
+            "monsters": [
+              "brood_drone",
+              "brood_drone",
+              "skitterling"
+            ]
+          },
+          "xp": 250,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "promenade",
+          "label": "To The Long Promenade"
+        },
+        {
+          "to": "observation_lounge",
+          "label": "To The Observation Lounge"
+        }
+      ]
+    },
+    {
+      "id": "observation_lounge",
+      "name": "The Observation Lounge",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A curved gallery of couches facing a single huge viewport, with the stars beyond it hard and sharp. It was the one place on the ship where people stopped being afraid. Someone has swept it, folded the blankets and set a candle on every table. Here, for a moment, you almost forget the walls.",
+      "events": [
+        {
+          "id": "lounge_view",
+          "trigger": "enter",
+          "narration": "Past the glass the Meridian's long spine sweeps away, and far along it, near the bow, a single window burns with a steady white light. 'That's the bridge,' someone says quietly from the dark. 'Somebody is still up there.'",
+          "setsFlags": [
+            "saw_bridge_light"
+          ],
+          "xp": 50
+        }
+      ],
+      "exits": [
+        {
+          "to": "recreation_deck",
+          "label": "To The Recreation Deck"
+        },
+        {
+          "to": "chapel",
+          "label": "To The Quiet Room"
+        },
+        {
+          "to": "observatory",
+          "label": "Along the service gantry to the Observatory",
+          "hours": 3
+        }
+      ]
+    },
+    {
+      "id": "chapel",
+      "name": "The Quiet Room",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A small, bare chamber that the colonists called the Quiet Room because it belonged to no faith and to all of them. A bench, a window onto a painted garden, a tray of candles. Names have been written on the walls in every hand and every colour, hundreds of them, the oldest already fading.",
+      "events": [
+        {
+          "id": "chapel_offerings",
+          "trigger": "search",
+          "narration": "Among the candle stubs and folded notes lies a small tin of consecrated wafers, and a note: 'Take what you need. We will understand.' The tin holds a little more than bread.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "observation_lounge",
+          "label": "To The Observation Lounge"
+        }
+      ]
+    },
+    {
+      "id": "arboretum",
+      "name": "The Arboretum",
+      "kind": "site",
+      "rest": "safe",
+      "description": "The ship's great garden: a dome two hundred metres across, once a forest of fruit trees and a lake. Now the trees are grey and furred with webbing, and the lake has crusted over with a resin skin. In the middle, a ramp of broken planters drops into a pit, and from the pit rises the slow, vast thump you have been hearing through the floor.",
+      "randomTable": "science",
+      "events": [
+        {
+          "id": "arboretum_guard",
+          "trigger": "enter",
+          "narration": "The webbed trees are not trees at all. Eight feet up in the branches, shapes unfold, and the leaves give a long, dry rustle. A warrior drops to the path, bigger and heavier than any of the others, with its drones fanning out on either side.",
+          "encounter": {
+            "monsters": [
+              "brood_warrior",
+              "skitterling"
+            ]
+          },
+          "xp": 500,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ],
+          "setsFlags": [
+            "arboretum_clear"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "promenade",
+          "label": "Down to the Promenade",
+          "hours": 3
+        },
+        {
+          "to": "hydroponics_a",
+          "label": "To Hydroponics Bay A"
+        },
+        {
+          "to": "labs_corridor",
+          "label": "To The Laboratories Corridor"
+        },
+        {
+          "to": "hive_heart",
+          "label": "Down the broken planters into the pit",
+          "requires": [
+            "power_restored",
+            "nest_located"
+          ],
+          "blockedText": "The pit doors are sealed by pressure locks, and nobody has told you where the nest even is. You need the reactor up and a reason to be sure."
+        }
+      ]
+    },
+    {
+      "id": "hydroponics_a",
+      "name": "Hydroponics Bay A",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Racks of grow-trays rise in tiers to the ceiling, each tray choked with a tangle of black vine where the lettuce once grew. The vines pulse faintly, in time with the thump from below. Water drips from the irrigation pipes, and where it falls the vine curls away from it, as if from fire.",
+      "randomTable": "science",
+      "events": [
+        {
+          "id": "hydro_a_ambush",
+          "trigger": "enter",
+          "narration": "The vines unknot themselves. What you took for a pile of dead plants slides up out of a tray, and it is as long as the room is wide. Behind it a nest of small shapes is already boiling over the edge of the rack.",
+          "encounter": {
+            "monsters": [
+              "stalker",
+              "skitterling",
+              "skitterling"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "######################",
+            "#PP.....#c#.....MM...#",
+            "#P..............MMM..#",
+            "#PP.....#c#.....MM...#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "arboretum",
+          "label": "To The Arboretum"
+        },
+        {
+          "to": "hydroponics_b",
+          "label": "To Hydroponics Bay B"
+        }
+      ]
+    },
+    {
+      "id": "hydroponics_b",
+      "name": "Hydroponics Bay B",
+      "kind": "site",
+      "rest": "risky",
+      "description": "A second bay, quieter than the first. The vines here have been cut back with a cutting torch in a neat, desperate square, and in the clearing stands a cot, a camp stove and a stack of seed packets. Someone lived here. Whoever they were, they planted tomatoes in the soil under the lights, and a single plant has survived.",
+      "randomTable": "science",
+      "events": [
+        {
+          "id": "tomato_plant",
+          "trigger": "search",
+          "narration": "The tomato plant has three ripe fruit on it. You eat one, and it is the best thing you have tasted in a week. It also seems to help.",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "hydroponics_a",
+          "label": "To Hydroponics Bay A"
+        },
+        {
+          "to": "seed_vault",
+          "label": "To The Seed Vault"
+        }
+      ]
+    },
+    {
+      "id": "seed_vault",
+      "name": "The Seed Vault",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A cold, white chamber lined with ten thousand sealed drawers, each labelled in a tiny font with a species, a source and a date. It is the ship's whole purpose in a single room: every plant the colony will ever need. The door has been shut from the inside and a stout chair wedged under the handle, and the floor is clean.",
+      "events": [
+        {
+          "id": "seed_note",
+          "trigger": "search",
+          "narration": "Behind the chair, on the shelf where the ledger should be, someone has left a handwritten letter folded in a bag of pumpkin seeds. 'To whoever finds the vault: if the ship dies, plant these. Do not let it all have been for nothing.'",
+          "setsFlags": [
+            "lore_seeds"
+          ],
+          "xp": 75
+        }
+      ],
+      "exits": [
+        {
+          "to": "hydroponics_b",
+          "label": "To Hydroponics Bay B"
+        }
+      ]
+    },
+    {
+      "id": "labs_corridor",
+      "name": "The Laboratories Corridor",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A long white corridor with glass-walled labs on either side, most with their lights off. Quarantine doors stand open and a sign on the wall reads: RESEARCH ACCESS RESTRICTED TO LEVEL FOUR PERSONNEL. A trail of clear gel dots the floor, and at the corridor's end a lab door has been cut open from the inside with something very much like a blowtorch.",
+      "randomTable": "science",
+      "events": [
+        {
+          "id": "labs_patrol",
+          "trigger": "enter",
+          "narration": "A pair of security mechs stand at the end of the corridor, their servos humming, their eyes red. They are still doing exactly what they were built to do. The difficulty is that their idea of an intruder has changed.",
+          "encounter": {
+            "monsters": [
+              "security_mech",
+              "husk"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "######################",
+            "#PP.....#c#.....MM...#",
+            "#P..............MMM..#",
+            "#PP.....#c#.....MM...#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "arboretum",
+          "label": "To The Arboretum"
+        },
+        {
+          "to": "xenobiology_lab",
+          "label": "To The Xenobiology Laboratory"
+        },
+        {
+          "to": "clean_room",
+          "label": "To The Clean Room"
+        },
+        {
+          "to": "data_core",
+          "label": "To The Data Core"
+        },
+        {
+          "to": "observatory",
+          "label": "To The Observatory"
+        }
+      ]
+    },
+    {
+      "id": "xenobiology_lab",
+      "name": "The Xenobiology Laboratory",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A long, cluttered lab with a dozen specimen tanks, every one of them empty and cracked. Sample jars cover the benches, and a wall display shows a rotating diagram of a creature you recognise, only drawn with hopeful, careful labelling. Two people have barricaded themselves behind a tall steel cabinet, and one of them has a welding torch in her hand.",
+      "events": [
+        {
+          "id": "xeno_host",
+          "trigger": "search",
+          "narration": "Teo has begun to shake, a fine tremor that runs the length of his body. A cry, and a crack like a branch breaking. The thing that comes out of him is small, quick and furious, and he falls as it goes.",
+          "setsFlags": [
+            "host_found"
+          ],
+          "requires": [
+            "host=teo"
+          ],
+          "encounter": {
+            "monsters": [
+              "skitterling",
+              "skitterling",
+              "skitterling"
+            ]
+          },
+          "map": [
+            "##################",
+            "#PP...c...c...MM.#",
+            "#P....~~......MM.#",
+            "#PP...c...c...MM.#",
+            "##################"
+          ],
+          "xp": 150
+        },
+        {
+          "id": "xeno_notes",
+          "trigger": "search",
+          "narration": "On the bench lie Calloway's notes in a looping, scientific scrawl: a diagram of the nest, a drawing of the queen, and below them a single line underscored twice. 'It cannot stand heat. Not fire. The heat of the reactor, venting.'",
+          "setsFlags": [
+            "lore_weakness"
+          ],
+          "xp": 50
+        }
+      ],
+      "npcs": [
+        {
+          "id": "calloway",
+          "name": "Dr. Ruth Calloway",
+          "type": "scientist",
+          "description": "A tall, stooped woman with a lab coat she has not taken off in a week, and the stare of someone who knows exactly what she has done.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Ruth Calloway, xenobiology. I'll save you the speech I've given myself every night: yes, it was my work that brought them aboard. The company wanted a specimen. I wanted to know. We were both right and I would give anything to have been wrong.\""
+            },
+            {
+              "id": "nest",
+              "text": "\"Beneath the Arboretum there is a pit. It was a cistern. The queen grew there from a single egg in the first week, fed on the garden. She is vast. She cannot move. The doors to the pit are sealed, but the pressure locks open when the reactor is up. Everything is arranged around her, and everything will be unmade if she dies.\"",
+              "setsFlags": [
+                "nest_located"
+              ]
+            },
+            {
+              "id": "weakness",
+              "text": "\"They hate acid on the skin and heat in the air. Fire hurts them, but the queen is not an animal that panics. You'll need a weapon and a plan. I can give you neither, only a little knowledge.\"",
+              "setsFlags": [
+                "knows_weakness"
+              ]
+            },
+            {
+              "id": "regret",
+              "text": "\"I wrote the report that said they were safe. It's in my own handwriting. I cannot make it disappear. I'm sorry. For what that is worth.\""
+            }
+          ],
+          "chatter": [
+            "\"Teo, drink some water.\"",
+            "\"Did you hear that? Down in the pit?\"",
+            "\"I should have said no.\""
+          ]
+        },
+        {
+          "id": "teo",
+          "name": "Lab Assistant Teo Marlow",
+          "type": "assistant",
+          "description": "A young man with blistered hands and a worn lab coat, who keeps glancing at the vent in the ceiling and then looking away again.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Teo. Teo Marlow. I was Doctor Calloway's assistant. I do the feeding, the cleaning and, I suppose, the confessing. She doesn't sleep. So I try to.\""
+            },
+            {
+              "id": "scared",
+              "text": "\"I feel a bit odd, today. It's the tiredness. I probably ate something bad. Don't you worry about me. I'll be fine.\"",
+              "setsFlags": [
+                "teo_unwell"
+              ]
+            },
+            {
+              "id": "route",
+              "text": "\"You can get to the observatory by the gantry from the Lounge. It's a long walk and it's cold, but the Brood avoid the glass. Don't ask me why. I just know.\""
+            }
+          ],
+          "chatter": [
+            "\"Ruth, I don't feel right.\"",
+            "\"It's fine. It's just a cold.\"",
+            "\"Can we open a window? Oh. We can't.\""
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "labs_corridor",
+          "label": "To The Laboratories Corridor"
+        },
+        {
+          "to": "specimen_vault",
+          "label": "To The Specimen Vault"
+        }
+      ]
+    },
+    {
+      "id": "specimen_vault",
+      "name": "The Specimen Vault",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A deep, cold chamber of steel cages and observation glass, the walls stained and the floor slick. Forty cages hold forty different creatures, each now dead or gone. A single cage at the end is empty and its bars are bent outward in a perfect, careful bloom. The glass of the observation window is frosted with the breath of something very large.",
+      "randomTable": "science",
+      "events": [
+        {
+          "id": "vault_ambush",
+          "trigger": "enter",
+          "narration": "The empty cage at the end has not been empty for long. The bars shiver, and out of the dark behind them steps the thing Calloway called the first drone: a warrior, taller than any you have met, with a pale, scarred crest. It is not alone, and it has not been idle.",
+          "encounter": {
+            "monsters": [
+              "brood_warrior",
+              "acid_spitter"
+            ]
+          },
+          "xp": 500,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "xenobiology_lab",
+          "label": "To The Xenobiology Laboratory"
+        }
+      ]
+    },
+    {
+      "id": "clean_room",
+      "name": "The Clean Room",
+      "kind": "site",
+      "rest": "safe",
+      "description": "An airtight white chamber behind two interlocking doors, with a rack of pressure suits on one wall and a dispenser of paper slippers by the entrance. It smells of chlorine, and of nothing else. Nothing has come in here. The resin on the floor outside stops, quite exactly, at the line of the first door.",
+      "events": [
+        {
+          "id": "suit_locker",
+          "trigger": "search",
+          "narration": "In the third locker down hangs a hard vacuum suit with a full helmet and a tether, sized, by luck, for a person near your own build. A tag reads: EVA SUIT, INSPECTED. Beside it hangs a smaller one. The suits are sound.",
+          "setsFlags": [
+            "hull_suit"
+          ],
+          "xp": 75
+        }
+      ],
+      "exits": [
+        {
+          "to": "labs_corridor",
+          "label": "To The Laboratories Corridor"
+        }
+      ]
+    },
+    {
+      "id": "data_core",
+      "name": "The Data Core",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A tall cylindrical chamber with banks of memory racks reaching up into the dark and a single clear column of light in the middle, hanging there as if poured. The light shivers and shapes itself into a pale outline of a person who is not there. Speakers click, and a voice, patient, courteous and entirely without fear, says: 'Good evening. I have been waiting for you.'",
+      "npcs": [
+        {
+          "id": "meridian",
+          "name": "MERIDIAN",
+          "type": "ai",
+          "description": "The ship's governing intelligence, a calm, formal voice from the speakers and a slow-turning column of white light.",
+          "topics": [
+            {
+              "id": "hello",
+              "text": "\"I am MERIDIAN, the intelligence of this vessel. You have my gratitude for your boarding. I have been counting the days since my last visitor. The count is three thousand, two hundred and nine, if it interests you.\""
+            },
+            {
+              "id": "status",
+              "text": "\"Of two thousand and ten colonists, nineteen are alive that I can account for. The Brood now hold the lower decks. The reactor is running at four percent of capacity. I must be candid: the ship is dying, though slowly.\"",
+              "setsFlags": [
+                "heard_status"
+              ]
+            },
+            {
+              "id": "scan",
+              "text": "\"I have mapped the source of the thumping. A large mass of tissue sits beneath the Arboretum in the old cistern. It is the origin of every Brood unit aboard. Its location is now yours.\"",
+              "setsFlags": [
+                "nest_located"
+              ]
+            },
+            {
+              "id": "bridge",
+              "text": "\"The bridge doors answer to a Command override. I am forbidden to hand it to a stranger. But a stranger who asks politely, and who has not yet shot at me, may find that I have misheard the regulations.\"",
+              "setsFlags": [
+                "bridge_unlocked"
+              ]
+            },
+            {
+              "id": "lift",
+              "text": "\"The command lift needs reactor power. The main reactor is guarded. I would send you by the coolant pumps; the Brood avoid the heat. Reach the antechamber and I will help as I can.\"",
+              "setsFlags": [
+                "heard_power_plan"
+              ]
+            }
+          ],
+          "chatter": [
+            "\"Another hour closer to the next.\"",
+            "\"I find the silence admirable. It is nearly peaceful.\"",
+            "\"Do you know how long it has been since anyone asked me how I was?\""
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "labs_corridor",
+          "label": "To The Laboratories Corridor"
+        }
+      ]
+    },
+    {
+      "id": "observatory",
+      "name": "The Observatory",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A glass blister on the ship's spine, with a great telescope under a sealed clamshell dome and a ring of chairs facing the stars. Someone has been here: the dust on the console is disturbed, and a mug is still warm. The viewport glass shows the ship's upper hull running forward like a grey road, studded with antennas and dead lamps.",
+      "randomTable": "science",
+      "events": [
+        {
+          "id": "observatory_hunt",
+          "trigger": "enter",
+          "narration": "The mug is warm because someone has been drinking from it, and the someone is hanging upside down from the dome, a pale shape with its tail wrapped around a strut. It drops. This one is wearing a lab coat that no longer fits.",
+          "encounter": {
+            "monsters": [
+              "stalker",
+              "husk",
+              "skitterling"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "##################",
+            "#PP...c...c...MM.#",
+            "#P....~~......MM.#",
+            "#PP...c...c...MM.#",
+            "##################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "labs_corridor",
+          "label": "To The Laboratories Corridor"
+        },
+        {
+          "to": "observation_lounge",
+          "label": "Back along the gantry to the Lounge",
+          "hours": 3
+        },
+        {
+          "to": "comms_array",
+          "label": "Out onto the hull by the dorsal gantry",
+          "hours": 3,
+          "requires": [
+            "hull_suit"
+          ],
+          "blockedText": "Beyond the airlock there is nothing but vacuum. You would need a suit to cross the hull."
+        }
+      ]
+    },
+    {
+      "id": "hive_heart",
+      "name": "The Hive Heart",
+      "kind": "site",
+      "rest": "none",
+      "description": "The old cistern, two hundred feet across, a vast cathedral of resin and bone. The walls are woven with a living lattice, and at its centre on a throne of her own secretions lies the queen: a vast, pale, glistening thing, crest rising into the dark, a thousand pale eggs ringed around her in nested, glistening layers. Her eyes open. They see you, and they are not angry. They are patient, and they are hungry.",
+      "randomTable": "nest",
+      "events": [
+        {
+          "id": "queen_fight",
+          "trigger": "enter",
+          "narration": "The queen does not rise. She does not have to. The lattice rises for her, drones and warriors falling out of the walls to ring her throne, and the whole great chamber booms with a single note as she opens her jaws.",
+          "encounter": {
+            "monsters": [
+              "hive_queen",
+              "skitterling",
+              "skitterling"
+            ]
+          },
+          "xp": 2000,
+          "map": [
+            "##########################",
+            "#PP...c......~~......MM..#",
+            "#P...........~~.....MMM..#",
+            "#PP...O..........O...MM..#",
+            "#P...........~~.....MMM..#",
+            "#PP...c......~~......MM..#",
+            "##########################"
+          ],
+          "setsFlags": [
+            "queen_dead"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "arboretum",
+          "label": "Back up out of the nest",
+          "requires": [
+            "power_restored",
+            "nest_located"
+          ],
+          "blockedText": "The pit doors are sealed by pressure locks, and nobody has told you where the nest even is. You need the reactor up and a reason to be sure."
+        }
+      ]
+    },
+    {
+      "id": "maintenance_crawl",
+      "name": "The Maintenance Crawl",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A cramped service corridor three feet wide, hung with pipes and cable looms, lit by a single amber strip. The air tastes of ozone. Behind the card-lock door you can still hear the reactor's low note, and the walls are warm to the touch. Someone has chalked arrows on the pipes, pointing deeper in, with the single word OUT beside each.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "crawl_ambush",
+          "trigger": "enter",
+          "narration": "The corridor is too narrow for more than two of you abreast, and the Brood know it. They come from both ends at once, skitterlings first in a wave and a stalker behind them, wriggling through the pipe-work like a snake through a reed bed.",
+          "encounter": {
+            "monsters": [
+              "skitterling",
+              "skitterling",
+              "stalker"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "######################",
+            "#PP.....#c#.....MM...#",
+            "#P..............MMM..#",
+            "#PP.....#c#.....MM...#",
+            "######################"
+          ],
+          "setsFlags": [
+            "engine_reached"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "laundry_works",
+          "label": "Back through the door to the Laundry",
+          "hours": 3,
+          "requires": [
+            "has_keycard"
+          ],
+          "blockedText": "The service door has a card reader and a red lamp. Without the Chief Engineer's keycard it will not budge."
+        },
+        {
+          "to": "machine_shop",
+          "label": "To The Machine Shop"
+        },
+        {
+          "to": "coolant_pumps",
+          "label": "To The Coolant Pump Hall"
+        }
+      ]
+    },
+    {
+      "id": "vent_shaft",
+      "name": "The Vent Shaft",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A square shaft of black steel, three hundred feet of it, with ladder rungs bolted down one wall and thick lamp-black on the others. A rush of warm air blows steadily upward. Scratches mark every rung, and in places the steel has been scored to ribbons. The shaft smells of burnt dust and, very faintly, of something sweet and rotten.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "shaft_drop",
+          "trigger": "enter",
+          "narration": "Halfway down the shaft the rungs shake. Something has been waiting below. A long, wet breath rises, and a drone comes up the ladder at a speed that does not seem possible, its tail lashing at your hands.",
+          "encounter": {
+            "monsters": [
+              "brood_drone",
+              "brood_drone",
+              "skitterling"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "##################",
+            "#PP...c...c...MM.#",
+            "#P....~~......MM.#",
+            "#PP...c...c...MM.#",
+            "##################"
+          ],
+          "setsFlags": [
+            "engine_reached"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "crew_quarters_b",
+          "label": "Up the shaft to Crew Quarters B",
+          "hours": 3,
+          "requires": [
+            "vent_open"
+          ],
+          "blockedText": "The grate in the wall is bolted shut. There is no way into the shaft until it has been pried free."
+        },
+        {
+          "to": "coolant_pumps",
+          "label": "To The Coolant Pump Hall"
+        }
+      ]
+    },
+    {
+      "id": "coolant_pumps",
+      "name": "The Coolant Pump Hall",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A deafening hall of vast steel pumps, each as big as a house, thudding in rhythm and pushing silver coolant through pipes as thick as trees. Condensation drips from every surface. The deck is awash with an inch of cold, glittering liquid, and all around the pumps the Brood have woven their nests into the warmth.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "pumps_hive",
+          "trigger": "enter",
+          "narration": "Nests hang from the pump housings in sticky clusters, and every cluster is occupied. When you step into the cold shine of the coolant, the whole hall turns toward you at once.",
+          "encounter": {
+            "monsters": [
+              "husk",
+              "husk",
+              "acid_spitter",
+              "acid_spitter"
+            ]
+          },
+          "xp": 350,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        },
+        {
+          "id": "pump_valve",
+          "trigger": "search",
+          "narration": "A single, huge valve wheel is marked PRIME. You put your shoulder to it with the strength of two others and it turns, grudging, grinding. The pumps change their note and the pipes begin to sing.",
+          "setsFlags": [
+            "pumps_primed"
+          ],
+          "xp": 100
+        }
+      ],
+      "exits": [
+        {
+          "to": "vent_shaft",
+          "label": "To The Vent Shaft"
+        },
+        {
+          "to": "maintenance_crawl",
+          "label": "To The Maintenance Crawl"
+        },
+        {
+          "to": "fusion_antechamber",
+          "label": "To The Fusion Antechamber"
+        }
+      ]
+    },
+    {
+      "id": "machine_shop",
+      "name": "The Machine Shop",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Lathes, welders and long steel benches under a crane track. A dozen engineers have lashed the doors with cable and turned a tool cage into a barricade. Weapons in the making hang from the roof on chains: spears of cut steel, a flame-lance still unfinished. Oil lamps burn on every bench. It smells like the first honest work done on this ship in years.",
+      "events": [
+        {
+          "id": "shop_welcome",
+          "trigger": "enter",
+          "narration": "'Stand where I can see you,' says a voice from behind a welding screen. A woman in a grey boiler suit lifts her mask. She is holding a torch, and it is lit. 'Right. Now say something that isn't a hiss.'",
+          "setsFlags": [
+            "found_engineers"
+          ],
+          "xp": 75
+        }
+      ],
+      "npcs": [
+        {
+          "id": "vance",
+          "name": "Chief Engineer Dara Vance",
+          "type": "engineer",
+          "description": "A broad, weather-beaten woman of fifty with grease to the elbows and a welding mask pushed up on her forehead. She speaks in short, practical sentences.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Dara Vance, chief engineer. I keep the reactor alive. Four percent is all the power we have, and I keep it alive with a prayer, a spanner and a lot of bad language.\"",
+              "setsFlags": [
+                "met_engineer"
+              ]
+            },
+            {
+              "id": "power",
+              "text": "\"The reactor is down because the coolant is down. Prime the pumps in the Pump Hall, then go in to the fusion antechamber, and the core. Something big is nesting in there and it has put the main breaker out. Kill it and the breakers trip back on.\"",
+              "setsFlags": [
+                "heard_power_plan"
+              ]
+            },
+            {
+              "id": "card",
+              "text": "\"You got my card? Good. Don't lose it. I only ever had two.\"",
+              "requires": [
+                "has_keycard"
+              ]
+            },
+            {
+              "id": "gift",
+              "text": "\"Take this too. It's a shot of the good stuff, for emergencies. I made it myself. Don't ask what's in it. Honestly.\"",
+              "potions": 1
+            }
+          ],
+          "chatter": [
+            "\"Wen, the torch. The torch, Wen.\"",
+            "\"If the pumps go I want the reactor scrammed at once. You hear me?\"",
+            "\"Everything has a fix. Everything. I mean it.\""
+          ]
+        },
+        {
+          "id": "wen",
+          "name": "Technician Wen Li",
+          "type": "engineer",
+          "description": "A wiry young technician with a tool belt, a scorched sleeve and the grin of someone who thinks she might live after all.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Wen Li, technician third class. Third class in nine years, because there's nobody left to promote me. I know every inch of the engine decks. I could walk them blind. I have, twice.\""
+            },
+            {
+              "id": "hull",
+              "text": "\"There's a way out of the science block onto the hull, if you have a suit. From the Observatory, along the dorsal gantry to the antenna farm, and in through the Comms Array. It's a long walk with the whole of space under your boots. I'd rather not do it again.\"",
+              "setsFlags": [
+                "knows_hull_route"
+              ]
+            },
+            {
+              "id": "drones",
+              "text": "\"The Drone Bay is full of our own maintenance drones. They went bad, just like everything else. Careful of the ones with the red eyes.\""
+            }
+          ],
+          "chatter": [
+            "\"Chief, the lathe is making a noise again.\"",
+            "\"I'd kill for a bacon sandwich.\"",
+            "\"You ever think about how quiet the stars are?\""
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "maintenance_crawl",
+          "label": "To The Maintenance Crawl"
+        },
+        {
+          "to": "drone_bay",
+          "label": "To The Drone Bay"
+        }
+      ]
+    },
+    {
+      "id": "drone_bay",
+      "name": "The Drone Bay",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A long hall of charging cradles, each with a squat maintenance drone locked into it. Most are inert. A few have their red lamps lit, and as you walk by the lamps turn to follow you. Past the cradles a gantry runs over a pit full of torn steel. The Brood have been through here: the cradles at the far end are slimed and empty.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "drone_bay_mechs",
+          "trigger": "enter",
+          "narration": "The red lamps are not charging lights. The cradle clamps spring open one after another and the squat machines drop to the deck, carrying tools that were never meant for combat and have been put to it anyway.",
+          "encounter": {
+            "monsters": [
+              "security_mech",
+              "security_mech",
+              "skitterling"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "######################",
+            "#PP.....#c#.....MM...#",
+            "#P..............MMM..#",
+            "#PP.....#c#.....MM...#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "machine_shop",
+          "label": "To The Machine Shop"
+        },
+        {
+          "to": "waste_reclamation",
+          "label": "To Waste Reclamation"
+        }
+      ]
+    },
+    {
+      "id": "fusion_antechamber",
+      "name": "The Fusion Antechamber",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A heavy steel vestibule of shielded doors and radiation warnings, humming with the muffled power of the reactor beyond. The air is hot enough to make you sweat. Thick pipes run overhead, and on every one the paint has blistered. The doors ahead are scarred and wet, as though something has been picking at them for a long time.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "antechamber_guard",
+          "trigger": "enter",
+          "narration": "Before the reactor doors a pair of warriors stand with their backs to the heat, perfectly still, until the first of you crosses the threshold. Then both move at once.",
+          "encounter": {
+            "monsters": [
+              "brood_drone",
+              "brood_drone"
+            ]
+          },
+          "xp": 450,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "coolant_pumps",
+          "label": "To The Coolant Pump Hall"
+        },
+        {
+          "to": "reactor_core",
+          "label": "To The Reactor Core"
+        },
+        {
+          "to": "power_junction",
+          "label": "To The Power Junction"
+        }
+      ]
+    },
+    {
+      "id": "reactor_core",
+      "name": "The Reactor Core",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A vaulted chamber of black steel around a glowing, caged sphere, bright as a small sun, behind a ring of shielding glass. Cables thick as a man's waist run into it. A catwalk crosses the chamber at mid-height. The Brood have grown a nest of resin across the catwalk, and from the heart of it a huge shape turns slowly to face you.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "reactor_nest",
+          "trigger": "enter",
+          "narration": "The nest's guardian steps down onto the catwalk, rocking it like a bridge in a gale. Its inner jaw clicks. Behind it the breaker housing is thick with resin, and if it dies the lights may come back. If you do, that is.",
+          "encounter": {
+            "monsters": [
+              "brood_warrior",
+              "brood_drone"
+            ]
+          },
+          "xp": 800,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ],
+          "setsFlags": [
+            "power_restored"
+          ],
+          "requires": [
+            "pumps_primed"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "fusion_antechamber",
+          "label": "To The Fusion Antechamber"
+        },
+        {
+          "to": "power_junction",
+          "label": "To The Power Junction"
+        }
+      ]
+    },
+    {
+      "id": "power_junction",
+      "name": "The Power Junction",
+      "kind": "site",
+      "rest": "risky",
+      "description": "A crossroads of cable ducts where the ship's main power bus splits into a hundred branches, each stencilled for a deck. Half the breakers are tripped, and a bank of dead lamps flickers weakly in the dark. A heavy lift door on the far wall is marked COMMAND, and a red lamp over it shows that it is dead.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "junction_lights",
+          "trigger": "enter",
+          "narration": "With a heavy, shuddering clunk the breakers reset one by one. A bank of long-dead lamps pops back to life. Somewhere deep in the ship a lift begins to hum.",
+          "setsFlags": [
+            "lift_live"
+          ],
+          "xp": 50,
+          "requires": [
+            "power_restored"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "fusion_antechamber",
+          "label": "To The Fusion Antechamber"
+        },
+        {
+          "to": "reactor_core",
+          "label": "To The Reactor Core"
+        },
+        {
+          "to": "waste_reclamation",
+          "label": "To Waste Reclamation"
+        },
+        {
+          "to": "command_lift",
+          "label": "Up in the command lift",
+          "hours": 3,
+          "requires": [
+            "power_restored"
+          ],
+          "blockedText": "The lift is dead. Nothing on the Command deck draws power until the reactor is back."
+        }
+      ]
+    },
+    {
+      "id": "waste_reclamation",
+      "name": "Waste Reclamation",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A cavern of cisterns, filters and centrifuges, the machinery that kept two thousand people from drowning in their own waste. It smells like you would expect. The Brood have been using the settling tanks as feeding pens, and in the dim light the surface of each tank is thick with a skin of white, shifting shapes.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "waste_pens",
+          "trigger": "enter",
+          "narration": "The tanks' skins part with a wet sucking noise. Husks climb out of the sludge, slowly, then more quickly, and in the shadows behind them an acid spitter is already taking aim.",
+          "encounter": {
+            "monsters": [
+              "husk",
+              "husk",
+              "husk",
+              "acid_spitter"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "power_junction",
+          "label": "To The Power Junction"
+        },
+        {
+          "to": "engine_gallery",
+          "label": "To The Engine Gallery"
+        },
+        {
+          "to": "drone_bay",
+          "label": "To The Drone Bay"
+        }
+      ]
+    },
+    {
+      "id": "engine_gallery",
+      "name": "The Engine Gallery",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A cathedral of pistons and shafts, each driveshaft thick as a tree trunk, running in a long row toward the aft thrusters. Walkways cross overhead at every level. The gallery is dim and hot and deafening, and the floor shakes with the vibration of the great drives, which are still, impossibly, turning.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "gallery_stalkers",
+          "trigger": "enter",
+          "narration": "The vibration of the engines masks everything, including the claws on the walkway overhead. When the first stalker drops it lands among the party before anyone has time to turn; the second lands on the far side.",
+          "encounter": {
+            "monsters": [
+              "stalker",
+              "brood_drone"
+            ]
+          },
+          "xp": 400,
+          "map": [
+            "######################",
+            "#PP.....#c#.....MM...#",
+            "#P..............MMM..#",
+            "#PP.....#c#.....MM...#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "waste_reclamation",
+          "label": "To Waste Reclamation"
+        },
+        {
+          "to": "thruster_bay",
+          "label": "To The Thruster Bay"
+        },
+        {
+          "to": "escape_pod_bay",
+          "label": "To The Escape Pod Bay"
+        }
+      ]
+    },
+    {
+      "id": "thruster_bay",
+      "name": "The Thruster Bay",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A ring of vast engine nozzles seen from behind, each one big enough to drive a train through, silent now, cooling in the dark. There is a bench here with a flask and a pair of work gloves. A hand-painted sign reads THE BEST VIEW ON THE SHIP and points at a small circular window where the stars wheel slowly.",
+      "events": [
+        {
+          "id": "thruster_stash",
+          "trigger": "search",
+          "narration": "In a locker marked WEN'S, under the spare gloves, sits a tin of emergency rations and a half-finished letter home that begins: 'I think we will make it after all.'",
+          "potions": 1
+        }
+      ],
+      "exits": [
+        {
+          "to": "engine_gallery",
+          "label": "To The Engine Gallery"
+        }
+      ]
+    },
+    {
+      "id": "escape_pod_bay",
+      "name": "The Escape Pod Bay",
+      "kind": "site",
+      "rest": "safe",
+      "description": "Forty launch cradles in a long, vaulted hall, forty glass-fronted pods with their hatches wide and their seats empty. Nobody left. A single pod's hatch is sealed and a single pair of hands is pressed against the inside of its glass, the fingers black and still. The cradle's status board reads LAUNCH FAILED, over and over, forty times.",
+      "randomTable": "engine",
+      "events": [
+        {
+          "id": "pod_bay_hatch",
+          "trigger": "enter",
+          "narration": "The pressed hands move. The pod's hatch rises with a slow hiss and the thing that was a passenger steps out, followed by others from the neighbouring pods, one after another, hunched, patient, glistening.",
+          "encounter": {
+            "monsters": [
+              "husk",
+              "husk",
+              "brood_drone"
+            ]
+          },
+          "xp": 300,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "engine_gallery",
+          "label": "To The Engine Gallery"
+        }
+      ]
+    },
+    {
+      "id": "command_lift",
+      "name": "The Command Lift",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A brass-and-glass lift car the size of a small room, with a polished rail and a view panel that shows the deck falling away as you rise. A little speaker plays a recording of a woman's voice, soft and bright: 'Welcome to Command. Please keep arms and tentacles inside the car.' Someone has scratched out the second word with a knife.",
+      "events": [
+        {
+          "id": "lift_arrive",
+          "trigger": "enter",
+          "narration": "The car slows and stops. The doors open on a corridor lit steady white, without a single shadow in it. For a moment the silence is complete. Then, a long way off, a door closes.",
+          "xp": 50
+        }
+      ],
+      "exits": [
+        {
+          "to": "power_junction",
+          "label": "Down to the Power Junction",
+          "hours": 3,
+          "requires": [
+            "power_restored"
+          ],
+          "blockedText": "The lift is dead. Nothing on the Command deck draws power until the reactor is back."
+        },
+        {
+          "to": "security_station",
+          "label": "To The Security Station"
+        }
+      ]
+    },
+    {
+      "id": "security_station",
+      "name": "The Security Station",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A semicircle of consoles around a bank of camera feeds, nearly all of them showing static. One shows a corridor on the lower decks, from which something is slowly withdrawing its tail. Spent casings litter the floor in a tide-line, and the barricade at the station's door has been torn open from the outside.",
+      "randomTable": "command",
+      "events": [
+        {
+          "id": "security_ambush",
+          "trigger": "enter",
+          "narration": "The static on the screens ripples as something crosses in front of the cameras. A moment later the barricade at the far door is flung inward, and three stalkers pour into the room at a dead run.",
+          "encounter": {
+            "monsters": [
+              "stalker",
+              "skitterling",
+              "skitterling"
+            ]
+          },
+          "xp": 450,
+          "map": [
+            "######################",
+            "#PP.....#c#.....MM...#",
+            "#P..............MMM..#",
+            "#PP.....#c#.....MM...#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "command_lift",
+          "label": "To The Command Lift"
+        },
+        {
+          "to": "armory",
+          "label": "To The Armory"
+        },
+        {
+          "to": "brig",
+          "label": "To The Brig"
+        },
+        {
+          "to": "navigation_deck",
+          "label": "To The Navigation Deck"
+        }
+      ]
+    },
+    {
+      "id": "armory",
+      "name": "The Armory",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A vault of racked weapons and body armour behind a heavy cage door that has been rammed open. The racks are three-quarters empty. What remains is old, heavy and still oiled: a few rifles, a crate of flares, a rack of riot shields. Someone has stacked a mound of empty magazines in the middle of the floor and painted a skull on the wall above it.",
+      "events": [
+        {
+          "id": "armory_cache",
+          "trigger": "search",
+          "narration": "Behind the cage, in a locker the looters missed, lie a case of emergency medical kits and a sealed canister of flame fuel. It is exactly what you needed.",
+          "potions": 2
+        }
+      ],
+      "exits": [
+        {
+          "to": "security_station",
+          "label": "To The Security Station"
+        }
+      ]
+    },
+    {
+      "id": "brig",
+      "name": "The Brig",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A short corridor of steel cells, each with a bench and a drain. The cells have been left open and in a few of them somebody has spread blankets. A table at the end holds a fan of playing cards, a thermos and a thick, handwritten log. Two people sit at the table, a big man in a security jacket and a woman in a long robe, who are both quite clearly waiting for the world to end.",
+      "events": [
+        {
+          "id": "brig_welcome",
+          "trigger": "enter",
+          "narration": "'You're the ones from the shuttle,' says the big man without standing. 'We saw you on the camera before it died. You've got a nerve, I'll give you that.' The woman beside him smiles faintly and moves a chair out with her foot.",
+          "setsFlags": [
+            "found_security"
+          ],
+          "xp": 75
+        }
+      ],
+      "npcs": [
+        {
+          "id": "voss",
+          "name": "Security Chief Marek Voss",
+          "type": "guard",
+          "description": "A huge, grey-bearded man with a security chief's jacket, a shotgun across his knees and a very quiet voice. His hands shake when he thinks nobody is watching.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Marek Voss. Chief of security. I've kept the peace on this ship for twenty years and I've never lost a prisoner. I've lost everything else, though.\""
+            },
+            {
+              "id": "bridge",
+              "text": "\"The bridge locks from the inside. The Captain is in there, and so is the Navigator. The door will open for the override code. I'll give you it, if you tell me you're going to finish this.\"",
+              "setsFlags": [
+                "bridge_unlocked"
+              ]
+            },
+            {
+              "id": "armory",
+              "text": "\"The armory is yours. I've nobody left who can carry the heavy stuff. Take what you need and make it count.\""
+            },
+            {
+              "id": "fire",
+              "text": "\"Fire works. Not on the big ones, but it works on the small. Burn the nest and the swarm loses its heart. There is no tactic more dangerous, and none better.\"",
+              "setsFlags": [
+                "knows_weakness"
+              ]
+            }
+          ],
+          "chatter": [
+            "\"Brandt, you should rest.\"",
+            "\"Keep the door shut. Always, always keep it shut.\"",
+            "\"My men were good. I want you to know that.\""
+          ]
+        },
+        {
+          "id": "brandt",
+          "name": "Chaplain Ilse Brandt",
+          "type": "priest",
+          "description": "A calm, elderly woman in a plain grey robe, a single candle burning on the table at her elbow. She watches you the way a doctor watches a patient.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Ilse Brandt. I'm the chaplain, though there are no faiths left aboard. I minister to those who ask. Do you want to ask?\""
+            },
+            {
+              "id": "faith",
+              "text": "\"I don't believe the ship is cursed. I believe it is frightened. That is a different kind of illness, and a more curable one. Be kind to the ones that remain. They need it more than the dead.\""
+            },
+            {
+              "id": "captain",
+              "text": "\"Captain Quinn has not left the bridge in three years. She watches the nest on the sensors. She thinks that if she looks away, it will wake. I have told her it doesn't work like that, but she doesn't listen.\""
+            }
+          ],
+          "chatter": [
+            "\"Marek, a little tea?\"",
+            "\"Everyone is welcome in the Quiet Room.\"",
+            "\"Forgive me. I was thinking aloud.\""
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "security_station",
+          "label": "To The Security Station"
+        }
+      ]
+    },
+    {
+      "id": "captains_quarters",
+      "name": "The Captain's Quarters",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A spacious cabin, panelled in dark wood and lined with books, bare of any photograph. A narrow bed has been made with a soldier's precision. On the desk lies a captain's log, open and unfinished, and a bottle with two glasses, one of which is still half full. The room is cold, and somebody has taken great care to keep it that way.",
+      "randomTable": "command",
+      "events": [
+        {
+          "id": "captains_safe",
+          "trigger": "search",
+          "narration": "Behind a framed star chart a small wall safe stands ajar. In it lies the Captain's command override cylinder, stamped BRIDGE, and a letter to the ship's owners dated nine years ago that begins 'I regret to inform you.'",
+          "setsFlags": [
+            "bridge_unlocked"
+          ],
+          "xp": 100
+        },
+        {
+          "id": "captain_quarters_guard",
+          "trigger": "enter",
+          "narration": "The half-full glass has not been touched in years, but the shadow beside the desk moves. A stalker unfolds from behind the bookshelf, mouth open, tail already lashing, and its fellows come in from the corridor.",
+          "encounter": {
+            "monsters": [
+              "stalker",
+              "skitterling"
+            ]
+          },
+          "xp": 400,
+          "map": [
+            "##################",
+            "#PP...c...c...MM.#",
+            "#P....~~......MM.#",
+            "#PP...c...c...MM.#",
+            "##################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "navigation_deck",
+          "label": "To The Navigation Deck"
+        }
+      ]
+    },
+    {
+      "id": "comms_array",
+      "name": "The Communications Array",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A cluttered chamber at the base of the great dish tower, full of racks of long-range transmitters and half-dismantled antenna controls. A tall window shows the dish above, a vast, tilted bowl of metal turning slowly to stay on a star that is no longer there. A single dead panel flickers: NO CARRIER.",
+      "randomTable": "command",
+      "events": [
+        {
+          "id": "comms_ambush",
+          "trigger": "enter",
+          "narration": "The racks of transmitters hide a nest. A pair of spitters rear above the equipment and a warrior emerges from behind the dish controls, plates ticking against the metal as it moves.",
+          "encounter": {
+            "monsters": [
+              "brood_drone",
+              "acid_spitter",
+              "acid_spitter"
+            ]
+          },
+          "xp": 500,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "navigation_deck",
+          "label": "To The Navigation Deck"
+        },
+        {
+          "to": "observatory",
+          "label": "In through the Comms airlock",
+          "hours": 3,
+          "requires": [
+            "hull_suit"
+          ],
+          "blockedText": "Beyond the airlock there is nothing but vacuum. You would need a suit to cross the hull."
+        }
+      ]
+    },
+    {
+      "id": "navigation_deck",
+      "name": "The Navigation Deck",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A circular chamber with a table of holographic stars at the centre and curved consoles around the edge. The star table shows a faint, flickering chart of the ship's course: a long, straight line to nowhere. A pair of heavy doors at the far end are marked BRIDGE, and the thick steel is slightly bowed outward.",
+      "randomTable": "command",
+      "events": [
+        {
+          "id": "nav_ambush",
+          "trigger": "enter",
+          "narration": "The star table flickers, and in its glow you see them: tall, still, a ring of them standing around the chamber like statues. Then the lights come up and they all move.",
+          "encounter": {
+            "monsters": [
+              "stalker",
+              "brood_drone",
+              "skitterling"
+            ]
+          },
+          "xp": 550,
+          "map": [
+            "######################",
+            "#PP..c.....c.....MM..#",
+            "#P.......~~.......MM.#",
+            "#PP..c.....c.....MM..#",
+            "#P...........~...MM..#",
+            "######################"
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "security_station",
+          "label": "To The Security Station"
+        },
+        {
+          "to": "captains_quarters",
+          "label": "To The Captain's Quarters"
+        },
+        {
+          "to": "comms_array",
+          "label": "To The Communications Array"
+        },
+        {
+          "to": "bridge",
+          "label": "Through the bridge doors",
+          "requires": [
+            "bridge_unlocked"
+          ],
+          "blockedText": "The bridge doors are sealed on a Command override, and nobody has given you the code."
+        }
+      ]
+    },
+    {
+      "id": "bridge",
+      "name": "The Bridge",
+      "kind": "site",
+      "rest": "safe",
+      "description": "A long, tiered room whose entire front is a window onto the stars. Banks of consoles descend in rows to a captain's chair, and every one of them is lit. It is warm, clean and bright, and it feels like the inside of a held breath. The captain's chair is occupied. Its occupant turns, slowly, and her face is lined with years of sleeplessness and the beginnings of hope.",
+      "events": [
+        {
+          "id": "bridge_beacon",
+          "trigger": "search",
+          "narration": "At the communications console a single large red key is marked TRANSMIT: DISTRESS. You press it, and across the dark the Meridian's call goes out again, louder and stronger, with a new line added at the end: 'Survivors aboard. The Brood are being fought. Send help.'",
+          "setsFlags": [
+            "distress_sent"
+          ],
+          "xp": 300
+        }
+      ],
+      "npcs": [
+        {
+          "id": "quinn",
+          "name": "Captain Eliora Quinn",
+          "type": "captain",
+          "description": "A tall, gaunt woman of sixty, in a captain's coat gone grey at the seams, with an unwavering stare and a voice that carries without ever being raised.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Eliora Quinn, captain of the Meridian. I'm told it's a courtesy title now. I am inclined to disagree. A captain is whoever is left at the helm, and I am still here.\""
+            },
+            {
+              "id": "log",
+              "text": "\"I've kept the log for three thousand days. The entries are short. There's nothing in them but what happened, and a line at the end to say whether anyone was lost. The last twenty read: none lost today. I have never been so proud of a sentence.\""
+            },
+            {
+              "id": "orders",
+              "text": "\"Kill the queen. It's the only order I have left to give. Everything else the ship has been doing is waiting for it. Go down into the pit, and make an end.\""
+            },
+            {
+              "id": "relief",
+              "text": "\"It is over. The nest is silent. I can hear it in the hull: for the first time in nine years, no thumping. I think I am going to sit down.\"",
+              "requires": [
+                "queen_dead"
+              ]
+            }
+          ],
+          "chatter": [
+            "\"Yuki, the beacon.\"",
+            "\"Hold the course. We have no other.\"",
+            "\"I do not intend to die on this chair.\""
+          ]
+        },
+        {
+          "id": "aoyama",
+          "name": "Navigator Yuki Aoyama",
+          "type": "officer",
+          "description": "A slight, composed woman in a navigator's jacket with a long plait of hair and a tablet she holds like a shield.",
+          "topics": [
+            {
+              "id": "who",
+              "text": "\"Yuki Aoyama, navigation. I plotted the Meridian's course for nine years. I know exactly where we are, and exactly how far from anywhere. It is a comfort and a torment.\""
+            },
+            {
+              "id": "beacon",
+              "text": "\"The call you answered was mine. I sent it, every month, on the dot. Nobody ever came. And then, you did. I would very much like to know what you were thinking.\"",
+              "setsFlags": [
+                "heard_beacon"
+              ]
+            },
+            {
+              "id": "course",
+              "text": "\"If the queen dies, I can put the ship on a path for the nearest colony. Six years at the speed we have. I'd rather that than drift. Do you hear that? I would rather do anything than drift.\""
+            }
+          ],
+          "chatter": [
+            "\"Captain, the numbers.\"",
+            "\"We are on course. We are always on course.\"",
+            "\"I wrote a poem about the stars. It is not very good.\""
+          ]
+        }
+      ],
+      "exits": [
+        {
+          "to": "navigation_deck",
+          "label": "Back to the Navigation Deck",
+          "requires": [
+            "bridge_unlocked"
+          ],
+          "blockedText": "The bridge doors are sealed on a Command override, and nobody has given you the code."
+        }
+      ]
+    }
+  ]
+}

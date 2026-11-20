@@ -64,15 +64,16 @@ TEST(History, PairsAndGroup) {
         EXPECT_TRUE(g.Travel("greywick").ok && g.Talk("marta", "rumours").ok);
         g.FlushHistory();
         Json t = readJson("thorin-marta_hollin.json"), m = readJson("marta_hollin-thorin.json"), grp = readJson("group-history.json");
-        EXPECT_TRUE(t.is_object() && t["owner"] == "Thorin" && t["with"] == "Marta Hollin" && t["entries"].size() == 2);
-        EXPECT_TRUE(t["entries"][0]["kind"] == "ask" && t["entries"][0]["dir"] == "to" && t["entries"][1]["kind"] == "reply" && t["entries"][1]["dir"] == "from");
-        EXPECT_TRUE(m.is_object() && m["owner"] == "Marta Hollin" && m["entries"][0]["dir"] == "from" && m["entries"][1]["dir"] == "to");
+        EXPECT_TRUE(t.is_object() && t["owner"] == "Thorin" && t["with"] == "Marta Hollin" && t["entries"].size() == 3);  // first sight, the question, the answer
+        EXPECT_TRUE(t["entries"][0]["kind"] == "scene" && t["entries"][0]["dir"] == "to");
+        EXPECT_TRUE(t["entries"][1]["kind"] == "ask" && t["entries"][1]["dir"] == "to" && t["entries"][2]["kind"] == "reply" && t["entries"][2]["dir"] == "from");
+        EXPECT_TRUE(m.is_object() && m["owner"] == "Marta Hollin" && m["entries"][0]["dir"] == "from" && m["entries"][1]["dir"] == "from" && m["entries"][2]["dir"] == "to");
         EXPECT_TRUE(grp.is_object() && grp["entries"].size() >= 2 && grp["entries"][0]["kind"] == "scene");  // intro and the walk to the village
         // switching who you control changes whose side the next conversation is written from
         std::string err;
         EXPECT_TRUE(g.SetHero("elara", err) && g.Talk("marta", "rumours").ok);
         g.FlushHistory();
-        EXPECT_EQ(readJson("elara-marta_hollin.json")["entries"].size(), 2);
+        EXPECT_EQ(readJson("elara-marta_hollin.json")["entries"].size(), 3);  // she too saw Marta when the party arrived
         // saves carry the history
         EXPECT_EQ(Game::Load(g.Save())->Hist().Dump(), g.Hist().Dump());
     }
@@ -127,7 +128,8 @@ TEST(History, PairsAndGroup) {
         EXPECT_TRUE(fe["entries"].size() == 1 && fe["entries"][0]["kind"] == "tell" && fe["entries"][0]["dir"] == "to");
         EXPECT_TRUE(ef["entries"].size() == 1 && ef["entries"][0]["dir"] == "from" && ef["entries"][0]["text"] == "I do not trust the innkeeper.");
         EXPECT_TRUE(g.Hist().Pair("Finn", "Thorin")["entries"].empty() && g.Hist().Pair("Thorin", "Elara")["entries"].empty());  // private
-        EXPECT_EQ(g.Hist().Index()["pairs"].size(), 2);  // the made-up recipient was dropped
+        const Json idx = g.Hist().Index();  // the made-up recipient was dropped; the rest are first sights of the village's people
+        for (const auto& p : idx["pairs"]) EXPECT_TRUE(p["owner"] != "Nobody" && p["with"] != "Nobody");
         bool said = false, proposed = false;
         const Json grp = g.Hist().GroupJson();
         for (const auto& e : grp["entries"]) {

@@ -338,6 +338,89 @@ Game::RoomWriter MakeLlmRoomWriter(std::shared_ptr<ILlmClient> client, const Gam
     };
 }
 
+// ---------------------------------------------------------------- NPC memory
+
+namespace {
+// The last few lines of one actor's record of another, oldest first, written for a prompt.
+std::string MemoryOf(const Game& game, const std::string& owner, const std::string& with, int lines) {
+    const Json p = game.Hist().Pair(owner, with, 0, lines);
+    std::string out;
+    for (const auto& e : p.value("entries", Json::array())) {
+        const std::string who = e.value("speaker", "");
+        const std::string kind = e.value("kind", "");
+        out += Cat("- ", kind == "scene" ? "" : who + " (" + kind + "): ", e.value("text", ""), "\n");
+    }
+    return out;
+}
+
+std::string CleanLine(std::string t, std::size_t cap) {
+    std::replace(t.begin(), t.end(), '\n', ' ');
+    while (!t.empty() && (t.front() == ' ' || t.front() == '"')) t.erase(t.begin());
+    while (!t.empty() && (t.back() == ' ' || t.back() == '"')) t.pop_back();
+    if (t.size() > cap) { t.resize(cap); const auto dot = t.find_last_of(".!?"); if (dot != std::string::npos) t.resize(dot + 1); }
+    return t;
+}
+}  // namespace
+
+Game::Chatter MakeLlmChatter(std::shared_ptr<ILlmClient> client, const Game& game) {
+    struct State { int failures = 0; int skip = 0; };
+    auto st = std::make_shared<State>();
+    return [client, &game, st](const NpcDef& a, const NpcDef& b) -> std::string {
+        if (st->skip > 0) { --st->skip; return {}; }
+        const std::string system =
+            Cat("You play ", a.name, ", a non-player character in a Dungeons & Dragons 5e game. The setting is: ", game.Module().setting, ". ",
+                "You are talking to ", b.name, ", who is right beside you, not to the adventurers. Say one or two short sentences in your own voice, "
+                "in character and in keeping with what has passed between you before. Do not repeat an earlier line. Never mention dice, numbers or rules, "
+                "never use dashes, and do not narrate actions. Reply with the spoken words only.");
+        std::string user = Cat("You: ", a.name, ". ", a.description, "\nThey: ", b.name, ". ", b.description, "\nPlace: ");
+        if (const LocationDef* l = game.Module().FindLocation(game.LocationId())) user += l->name;
+        user += Cat("\nTime: ", game.Module().IsNight(game.ClockHour()) ? "night" : "day", "\nWhat you remember of ", b.name, ":\n");
+        const std::string mem = MemoryOf(game, a.name, b.name, 6);
+        user += mem.empty() ? "- Nothing yet; you have only just met.\n" : mem;
+        const std::string seen = MemoryOf(game, a.name, game.Hero(), 3);
+        if (!seen.empty()) user += Cat("What you remember of the adventurer ", game.Hero(), ":\n", seen);
+        const LlmReply r = client->Chat(system, user, false);
+        if (!r.ok || r.content.empty()) {
+            if (++st->failures >= 3) { st->failures = 0; st->skip = 20; }
+            return {};
+        }
+        st->failures = 0;
+        return CleanLine(r.content, 280);
+    };
+}
+
+Game::NpcVoice MakeLlmNpcVoice(std::shared_ptr<ILlmClient> client, const Game& game) {
+    struct State { int failures = 0; int skip = 0; };
+    auto st = std::make_shared<State>();
+    return [client, &game, st](const NpcDef& n, const TopicDef& t) -> std::string {
+        if (st->skip > 0) { --st->skip; return {}; }
+        const std::string system =
+            Cat("You play ", n.name, ", a non-player character in a Dungeons & Dragons 5e game. The setting is: ", game.Module().setting, ". ",
+                "An adventurer asks you about a topic. Answer in your own voice, in two to four sentences, in character. Every fact in the written reply must "
+                "survive, and you must not add facts, names, places or promises it does not contain. If you remember the adventurer or have talked about this before, "
+                "let it show naturally, and do not repeat yourself. Never mention dice, numbers or rules, never use dashes. Reply with the spoken words only.");
+        std::string user = Cat("You: ", n.name, ". ", n.description, "\nThe adventurer: ", game.Hero(), "\nTopic: ", t.id, "\nWritten reply (the facts to keep): ", t.text, "\n");
+        const std::string mem = MemoryOf(game, n.name, game.Hero(), 6);
+        if (!mem.empty()) user += Cat("What you remember of ", game.Hero(), ":\n", mem);
+        const Json rec = game.Hist().OwnerJson(n.name, 2);
+        std::string others;
+        for (const auto& p : rec.value("partners", Json::array())) {
+            const std::string with = p.value("with", "");
+            if (with == game.Hero()) continue;
+            for (const auto& e : p.value("entries", Json::array())) others += Cat("- ", with, ": ", e.value("text", ""), "\n");
+        }
+        if (!others.empty()) user += Cat("What you remember of others lately:\n", others);
+        const LlmReply r = client->Chat(system, user, false);
+        if (!r.ok || r.content.empty()) {
+            if (++st->failures >= 3) { st->failures = 0; st->skip = 20; }
+            return {};
+        }
+        st->failures = 0;
+        const std::string out = CleanLine(r.content, 600);
+        return out.size() < 12 ? std::string{} : out;
+    };
+}
+
 // ---------------------------------------------------------------- LLM DM
 
 LlmDmController::LlmDmController(std::shared_ptr<ILlmClient> client) : client_(std::move(client)), fallback_(std::make_unique<AIController>()) {}

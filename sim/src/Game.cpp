@@ -379,6 +379,39 @@ void Game::Arrive(const std::string& locId) {
     Emit(EventType::Scene, first ? Cat(l.name, "\n", DescriptionOf(l)) : Cat(l.name));
     QueueEvents("enter");
     RunQueue();
+    NpcSocial(true);
+}
+
+void Game::NpcSocial(bool arrived) {
+    if (loading_ || mode_ != Mode::Exploring) return;
+    const auto& npcs = Here().npcs;
+    if (npcs.empty()) return;
+    if (arrived) {
+        // First sight: each one's record of the other begins, once per place.
+        for (const auto& n : npcs) {
+            for (const auto& pm : party_) {
+                if (pm.dead) continue;
+                if (fired_.insert(Cat("met:", n.id, "/", pm.sheet.name, "/", location_)).second)
+                    history_.Between(pm.sheet.name, n.name, "scene", Cat(pm.sheet.name, " came into ", Here().name, ", where ", n.name, " was."), Now());
+            }
+            for (const auto& o : npcs)
+                if (n.id < o.id && fired_.insert(Cat("met:", n.id, "/", o.id)).second)
+                    history_.Between(n.name, o.name, "scene", Cat(n.name, " and ", o.name, " were together in ", Here().name, "."), Now());
+        }
+    }
+    if (npcs.size() < 2) return;
+    const std::size_t n = npcs.size(), turn = static_cast<std::size_t>(chatterTurn_++);
+    const std::size_t i = turn % n, j = (i + 1 + (turn / n) % (n - 1)) % n;  // everyone gets a turn to speak, to each of the others in rotation
+    const NpcDef& a = npcs[i];
+    const NpcDef& b = npcs[j];
+    std::string line;
+    if (chatter_) {
+        try { line = chatter_(a, b); } catch (...) { line.clear(); }
+    }
+    if (line.empty() && !a.chatter.empty()) line = a.chatter[turn % a.chatter.size()];
+    if (line.empty()) return;
+    history_.Between(a.name, b.name, "say", line, Now());
+    Emit(EventType::Narration, Cat(a.name, " to ", b.name, ": ", line));
 }
 
 const std::string& Game::DescriptionOf(const LocationDef& l) const {
@@ -577,7 +610,12 @@ CmdResult Game::Explore() {
     ExtraRoom r;
     if (made) r = *made;
     else {
-        const RoomSeed& s = here.kind == "wilderness" ? Pick(kWildRooms) : here.kind == "settlement" ? Pick(kTownRooms) : Pick(kSiteRooms);
+        RoomSeed own{};
+        if (!module_.roomSeeds.empty()) {
+            const auto& m = module_.roomSeeds[static_cast<std::size_t>(DiceRoller::Index(static_cast<int>(module_.roomSeeds.size())))];
+            own = RoomSeed{m.name.c_str(), m.text.c_str()};
+        }
+        const RoomSeed& s = own.name ? own : here.kind == "wilderness" ? Pick(kWildRooms) : here.kind == "settlement" ? Pick(kTownRooms) : Pick(kSiteRooms);
         r.name = s.name;
         r.kind = here.kind == "settlement" ? "settlement" : here.kind == "wilderness" ? "wilderness" : "site";
         r.description = s.text;
@@ -680,7 +718,8 @@ CmdResult Game::Wait(int hours) {
     hours = std::clamp(hours, 1, 24);
     Emit(EventType::Travel, Cat("You wait ", hours, " hour(s)."));
     for (int i = 0; i < hours; ++i)
-        if (PassHour("", 1.0, Here().rest != "safe")) break;
+        if (PassHour("", 1.0, Here().rest != "safe")) return {true, "ok"};
+    NpcSocial(false);
     return {true, "ok"};
 }
 
@@ -753,6 +792,7 @@ CmdResult Game::Rest(const std::string& kind, int maxDice) {
     if (kind == "short") {
         if (PassHour("", 1.0, risky)) { Emit(EventType::Rest, "The rest is interrupted."); return {true, "interrupted"}; }
         ApplyShortRest(maxDice);
+        NpcSocial(false);
         return {true, "ok"};
     }
     if (kind == "long") {
@@ -764,6 +804,7 @@ CmdResult Game::Rest(const std::string& kind, int maxDice) {
         for (int i = 0; i < 8; ++i)
             if (PassHour("", 1.0, risky)) { Emit(EventType::Rest, "The long rest is interrupted and brings no benefit."); return {true, "interrupted"}; }
         ApplyLongRest();
+        NpcSocial(false);
         return {true, "ok"};
     }
     return {false, "rest kind must be short or long"};

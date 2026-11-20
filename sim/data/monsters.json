@@ -1,4 +1,4 @@
-/* SRD 5.1 stat blocks (values checked against dnd5eapi.co), except "cult_adept", "hollow_king", "pale_abbess" and the CyberHood creatures (gutter_punk to hush_avatar), which are original. */
+/* SRD 5.1 stat blocks (values checked against dnd5eapi.co), except "cult_adept", "hollow_king", "pale_abbess", the CyberHood creatures (gutter_punk to hush_avatar) and the Meridian creatures (skitterling to hive_queen), which are original. */
 [
   { "id": "cultist", "name": "Cultist", "cr": "1/8", "xp": 25, "ac": 12, "hp": 9, "speed": 30,
     "scores": [11,12,10,10,11,10], "tags": ["humanoid"],
@@ -110,5 +110,45 @@
     "resist": ["necrotic"],
     "attacksPerAction": 2,
     "attacks": [ { "name": "claws", "toHit": 7, "damage": "2d6+3", "type": "slashing" },
-                 { "name": "bite", "toHit": 7, "damage": "1d8+4", "type": "necrotic" } ] }
+                 { "name": "bite", "toHit": 7, "damage": "1d8+4", "type": "necrotic" } ] },
+
+  /* The Meridian: the Brood, an alien swarm loose in a colony ship, and the ship's own security. All original. The Brood
+     are tagged "alien" (agents.json gives them one mind) and "monstrosity". */
+  { "id": "skitterling", "name": "Skitterling", "cr": "1/4", "xp": 50, "ac": 12, "hp": 6, "speed": 40,
+    "scores": [6,16,10,2,10,4], "tags": ["monstrosity","alien"], "traits": { "pack_tactics": 1 },
+    "attacks": [ { "name": "bite", "toHit": 3, "damage": "1d4+2", "type": "piercing" } ] },
+  { "id": "husk", "name": "Husk", "cr": "1/2", "xp": 100, "ac": 9, "hp": 13, "speed": 30,
+    "scores": [14,8,12,3,6,3], "tags": ["monstrosity","alien"], "conditionImmune": ["frightened"],
+    "attacks": [ { "name": "slam", "toHit": 3, "damage": "1d6+1", "type": "bludgeoning" } ] },
+  { "id": "brood_drone", "name": "Brood Drone", "cr": "1", "xp": 200, "ac": 12, "hp": 19, "speed": 40,
+    "scores": [16,17,13,3,12,5], "tags": ["monstrosity","alien"], "resist": ["acid"],
+    "attacksPerAction": 2,
+    "attacks": [ { "name": "claws", "toHit": 4, "damage": "1d6+1", "type": "slashing" },
+                 { "name": "barbed tail", "toHit": 4, "damage": "1d4+2", "type": "piercing" } ] },
+  { "id": "acid_spitter", "name": "Acid Spitter", "cr": "1", "xp": 200, "ac": 11, "hp": 16, "speed": 30,
+    "scores": [10,15,14,3,10,4], "tags": ["monstrosity","alien"], "resist": ["acid"], "immune": [],
+    "attacks": [ { "name": "acid spit", "toHit": 4, "damage": "1d8+2", "type": "acid", "range": [30,90] },
+                 { "name": "claw", "toHit": 3, "damage": "1d4+1", "type": "slashing" } ] },
+  { "id": "stalker", "name": "Brood Stalker", "cr": "2", "xp": 450, "ac": 13, "hp": 27, "speed": 50,
+    "scores": [14,18,14,4,14,6], "tags": ["monstrosity","alien"], "resist": ["acid"],
+    "attacksPerAction": 2,
+    "attacks": [ { "name": "claws", "toHit": 5, "damage": "1d6+2", "type": "slashing" },
+                 { "name": "inner jaw", "toHit": 5, "damage": "1d6+3", "type": "piercing" } ] },
+  { "id": "brood_warrior", "name": "Brood Warrior", "cr": "3", "xp": 700, "ac": 14, "hp": 40, "speed": 40,
+    "scores": [20,14,17,5,12,7], "tags": ["monstrosity","alien"], "resist": ["acid"], "saves": ["str","con"],
+    "attacksPerAction": 2,
+    "attacks": [ { "name": "claws", "toHit": 5, "damage": "2d6+2", "type": "slashing" },
+                 { "name": "barbed tail", "toHit": 5, "damage": "1d8+2", "type": "piercing" } ] },
+  { "id": "security_mech", "name": "Security Mech", "cr": "1", "xp": 200, "ac": 14, "hp": 22, "speed": 30,
+    "scores": [16,10,16,4,10,2], "tags": ["construct"], "immune": ["poison"], "conditionImmune": ["poisoned","frightened"],
+    "attacks": [ { "name": "pulse rifle", "toHit": 4, "damage": "1d10+1", "type": "fire", "range": [60,180] },
+                 { "name": "servo fist", "toHit": 4, "damage": "1d6+2", "type": "bludgeoning" } ] },
+
+  /* The Meridian boss: the Brood's mother, grown huge in the ship's greenhouse. No regeneration, like the Abbess, so an
+     unprepared party can still win; she hits hard and has the most hit points of any creature in the data. */
+  { "id": "hive_queen", "name": "The Hive Queen", "cr": "6", "xp": 2300, "ac": 15, "hp": 80, "speed": 40,
+    "scores": [22,12,20,12,14,16], "tags": ["monstrosity","alien"], "saves": ["con","wis"], "resist": ["acid"],
+    "attacksPerAction": 2,
+    "attacks": [ { "name": "rending claws", "toHit": 7, "damage": "2d6+3", "type": "slashing" },
+                 { "name": "barbed tail", "toHit": 7, "damage": "1d8+4", "type": "piercing" } ] }
 ]

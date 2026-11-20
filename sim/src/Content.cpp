@@ -232,6 +232,8 @@ ModuleDef ParseModule(const json& j, const std::string& file) {
         m.nightStart = j.at("clock").value("nightStart", 19);
         m.nightEnd = j.at("clock").value("nightEnd", 6);
     }
+    if (j.contains("roomSeeds"))
+        for (const auto& r : j.at("roomSeeds")) m.roomSeeds.push_back(RoomSeedDef{r.at("name").get<std::string>(), r.at("text").get<std::string>()});
     m.start = j.at("start").get<std::string>();
     m.endWhen = Strs(j, "endWhen");
     if (j.contains("draws"))
@@ -281,6 +283,7 @@ ModuleDef ParseModule(const json& j, const std::string& file) {
                 if (n.contains("topics"))
                     for (const auto& t : n.at("topics"))
                         npc.topics.push_back(TopicDef{t.at("id").get<std::string>(), t.value("text", ""), Strs(t, "requires"), Strs(t, "setsFlags"), t.value("potions", 0)});
+                npc.chatter = Strs(n, "chatter");
                 loc.npcs.push_back(std::move(npc));
             }
         m.locations.push_back(std::move(loc));

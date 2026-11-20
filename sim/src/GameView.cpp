@@ -146,6 +146,7 @@ Json Game::Save() const {
     j["flags"] = flags_;
     j["roomText"] = roomText_;
     j["stash"] = Json{{"weapons", stash_}, {"potions", stashPotions_}};
+    j["chatterTurn"] = chatterTurn_;
     Json extra = Json::array();
     for (const auto& r : extra_) extra.push_back(Json{{"id", r.id}, {"parent", r.parent}, {"name", r.name}, {"kind", r.kind}, {"description", r.description}, {"exitLabel", r.exitLabel}, {"fight", r.fight}, {"cache", r.cache}});
     j["extraRooms"] = extra;
@@ -195,6 +196,7 @@ std::unique_ptr<Game> Game::Load(const Json& j) {
     g->travelHoursToday_ = j.value("travelHoursToday", 0);
     g->flags_ = j.value("flags", std::map<std::string, std::string>{});
     g->roomText_ = j.value("roomText", std::map<std::string, std::string>{});
+    g->chatterTurn_ = j.value("chatterTurn", 0);
     if (j.contains("stash")) {
         g->stash_ = j.at("stash").value("weapons", std::vector<std::string>{});
         g->stashPotions_ = j.at("stash").value("potions", 0);

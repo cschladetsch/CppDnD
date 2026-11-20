@@ -152,6 +152,7 @@ Every game keeps a record of what was said and done, in two forms.
 |---|---|
 | `GET /api/games/:id/history` | `{group, groupFile, dir, pairs: [{owner, with, count, file}]}` |
 | `GET /api/games/:id/history/group?since=SEQ&limit=N` | `{entries: [{seq, day, hour, speaker, kind, text}]}` |
+| `GET /api/games/:id/history/:x?limit=N` | `{owner, partners: [{with, count, entries}]}`: everything x remembers, one block per partner (the party, or another NPC), most recent partner first, `limit` entries each. NPCs record the first sight of each member of the party and of each other NPC in the same place, then talk to one another (see `chatter` in the data README), so an NPC's record is never only its talks with the hero |
 | `GET /api/games/:id/history/:x/:y?since=SEQ&limit=N` | `{owner, with, perspective, entries: [{seq, day, hour, speaker, dir, kind, text}]}`, x's private record of y (names match without regard to case; use the full name, `Marta%20Hollin`) |
 
 The server also writes these as files, one per ordered pair and one for the group, in `<history dir>/<game id>/`: `thorin-marta_hollin.json` (Thorin's side), `marta_hollin-thorin.json` (Marta's side) and `group-history.json`. The folder defaults to `sim/history/` (`--history DIR` or `DND_HISTORY`; `--history ""` turns files off). History is also part of the save file, so a loaded game keeps it. Each list keeps its newest 2000 entries.

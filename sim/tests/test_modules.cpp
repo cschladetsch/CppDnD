@@ -243,10 +243,10 @@ TEST_P(ModuleContent, TheAutopilotAlwaysFinishesAndOftenWins) {
     EXPECT_GE(won, 3) << "the autopilot should win at least a third of the time";
 }
 
-INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown", "sunless_abbey"));
+INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown", "sunless_abbey", "meridian"));
 
 TEST(Modules, EveryShippedModuleIsCovered) {
-    EXPECT_EQ(Content::Modules().size(), 4u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
+    EXPECT_EQ(Content::Modules().size(), 5u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
 }
 
 // ---------------------------------------------------------------- CyberHood specifics
@@ -433,4 +433,80 @@ TEST(SunlessAbbey, TheKeyAndTheThrallAreEachDrawnFromTwoPlaces) {
     }
     EXPECT_EQ(keys, (std::set<std::string>{"scriptorium", "infirmary"}));
     EXPECT_EQ(thralls, (std::set<std::string>{"bess", "tolliver"}));
+}
+
+// ---------------------------------------------------------------- The Meridian specifics
+
+TEST(Meridian, HasFiftyRoomsThirteenNpcsAndItsOwnQueen) {
+    const ModuleDef* m = Content::FindModule("meridian");
+    ASSERT_NE(m, nullptr);
+    EXPECT_EQ(m->locations.size(), 50u);
+    EXPECT_EQ(m->start, "lifeboat_cradle");
+    EXPECT_EQ(m->quests.size(), 7u);
+    EXPECT_EQ(m->roomSeeds.size(), 6u);
+    int npcs = 0, chatty = 0;
+    for (const auto& l : m->locations)
+        for (const auto& n : l.npcs) { ++npcs; chatty += !n.chatter.empty(); }
+    EXPECT_EQ(npcs, 13);
+    EXPECT_EQ(chatty, 13);  // everyone has lines to say to a neighbour, even the ship's AI
+    bool queen = false;
+    for (const auto& mon : Content::Monsters()) queen = queen || mon.id == "hive_queen";
+    EXPECT_TRUE(queen);
+}
+
+TEST(Meridian, EveryRoomWithTwoNpcsLetsThemTalk) {
+    const ModuleDef* m = Content::FindModule("meridian");
+    ASSERT_NE(m, nullptr);
+    int pairs = 0;
+    for (const auto& l : m->locations) {
+        if (l.npcs.size() < 2) continue;
+        ++pairs;
+        for (const auto& n : l.npcs) EXPECT_GE(n.chatter.size(), 3u) << n.id;
+    }
+    EXPECT_EQ(pairs, 6);
+}
+
+TEST(Meridian, EngineeringCanBeReachedByTheKeycardOrTheVentShaft) {
+    const ModuleDef* m = Content::FindModule("meridian");
+    ASSERT_NE(m, nullptr);
+    const Flags draw{{"keycard", "medbay"}, {"host", "pip"}};
+    EXPECT_TRUE(Closure(Without(*m, {"has_keycard"}), draw).places.count("coolant_pumps"));
+    EXPECT_TRUE(Closure(Without(*m, {"vent_open"}), draw).places.count("maintenance_crawl"));
+    EXPECT_FALSE(Closure(Without(Without(*m, {"vent_open"}), {"has_keycard"}), draw).places.count("coolant_pumps"));
+}
+
+TEST(Meridian, CommandCanBeReachedByTheLiftOrAcrossTheHull) {
+    const ModuleDef* m = Content::FindModule("meridian");
+    ASSERT_NE(m, nullptr);
+    const Flags draw{{"keycard", "officers"}, {"host", "teo"}};
+    EXPECT_TRUE(Closure(Without(*m, {"power_restored"}), draw).places.count("comms_array"));
+    EXPECT_TRUE(Closure(Without(*m, {"hull_suit"}), draw).places.count("command_lift"));
+    EXPECT_TRUE(Closure(*m, draw).places.count("bridge"));
+}
+
+TEST(Meridian, TheNestNeedsPowerAndKnowingWhereItIs) {
+    const ModuleDef* m = Content::FindModule("meridian");
+    ASSERT_NE(m, nullptr);
+    for (const Flags& draw : {Flags{{"keycard", "medbay"}, {"host", "pip"}}, Flags{{"keycard", "officers"}, {"host", "teo"}}}) {
+        EXPECT_TRUE(Closure(*m, draw).places.count("hive_heart"));
+        EXPECT_FALSE(Closure(Without(*m, {"power_restored"}), draw).places.count("hive_heart"));
+        EXPECT_FALSE(Closure(Without(*m, {"nest_located"}), draw).places.count("hive_heart"));
+    }
+}
+
+TEST(Meridian, TheKeycardAndTheCarrierAreEachDrawnFromTwoPlaces) {
+    std::set<std::string> cards, hosts;
+    for (std::uint64_t seed = 1; seed <= 40; ++seed) {
+        GameConfig c;
+        c.moduleId = "meridian";
+        c.seed = seed;
+        c.role = Role::Spectator;
+        Game g(c);
+        ASSERT_TRUE(g.HasFlag("keycard"));
+        ASSERT_TRUE(g.HasFlag("host"));
+        cards.insert(g.FlagValue("keycard"));
+        hosts.insert(g.FlagValue("host"));
+    }
+    EXPECT_EQ(cards, (std::set<std::string>{"medbay", "officers"}));
+    EXPECT_EQ(hosts, (std::set<std::string>{"pip", "teo"}));
 }

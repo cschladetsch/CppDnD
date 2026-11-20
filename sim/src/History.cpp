@@ -79,6 +79,24 @@ Json History::Pair(const std::string& owner, const std::string& with, int sinceS
     return ThreadJson(it->second, sinceSeq, limit);
 }
 
+std::size_t History::Count(const std::string& owner, const std::string& with) const {
+    auto it = pairs_.find(Key(owner, with));
+    return it == pairs_.end() ? 0 : it->second.entries.size();
+}
+
+Json History::OwnerJson(const std::string& owner, int perPartner) const {
+    std::vector<const Thread*> mine;
+    for (const auto& [k, t] : pairs_)
+        if (Lower(t.owner) == Lower(owner) && !t.entries.empty()) mine.push_back(&t);
+    std::sort(mine.begin(), mine.end(), [](const Thread* a, const Thread* b) { return a->entries.back().seq > b->entries.back().seq; });
+    Json partners = Json::array();
+    for (const Thread* t : mine) {
+        Json th = ThreadJson(*t, 0, perPartner);
+        partners.push_back(Json{{"with", t->with}, {"count", t->entries.size()}, {"entries", th["entries"]}});
+    }
+    return Json{{"owner", owner}, {"partners", partners}};
+}
+
 Json History::GroupJson(int sinceSeq, int limit) const {
     Json entries = Json::array();
     for (const auto& e : group_)

@@ -345,3 +345,61 @@ TEST(Llm, CppCoderClientTalksToTheChatEndpoint) {
     EXPECT_EQ(seenSystem, "sys");
     EXPECT_EQ(seenUser, "usr");
 }
+
+// ---------------------------------------------------------------- NPC lines read the NPC's own memory
+
+namespace {
+std::unique_ptr<Game> MeridianMess() {
+    GameConfig cfg;
+    cfg.moduleId = "meridian";
+    cfg.seed = 3;
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    Json j = g.Save();
+    j["location"] = "promenade";
+    return Game::Load(j);
+}
+}  // namespace
+
+TEST(NpcLines, ChatterPromptCarriesWhatTheSpeakerRemembersOfTheListener) {
+    auto g = MeridianMess();
+    std::vector<std::string> prompts;
+    auto mock = std::make_shared<MockLlmClient>([&](const std::string& system, const std::string& user, bool) {
+        prompts.push_back(system + "\n" + user);
+        LlmReply r;
+        r.ok = true;
+        r.content = "\"The rice is low.\"\n";
+        return r;
+    });
+    g->SetChatter(MakeLlmChatter(mock, *g));
+    ASSERT_TRUE(g->Travel("mess_hall").ok);
+    g->Wait(1);
+    ASSERT_GE(prompts.size(), 2u);
+    EXPECT_NE(prompts[0].find("were together in"), std::string::npos);  // first line: all it remembers is seeing the other there
+    EXPECT_NE(prompts[1].find("The rice is low."), std::string::npos);   // second line: the first one is now remembered
+    EXPECT_NE(prompts[1].find("non-player character"), std::string::npos);
+    EXPECT_EQ(prompts[1].find('\xE2'), std::string::npos);                 // nothing fancy in the prompt (no dashes)
+    bool kept = false;
+    const Json p = g->Hist().Pair("Quartermaster Bo Tran", "Cook Hob Marsh");
+    for (const auto& e : p["entries"]) kept = kept || e["text"] == "The rice is low.";  // quotes and newline stripped
+    EXPECT_TRUE(kept);
+}
+
+TEST(NpcLines, TheVoiceRemembersThePartyAndFallsBackWhenTheModelFails) {
+    auto g = MeridianMess();
+    ASSERT_TRUE(g->Travel("mess_hall").ok);
+    std::string seen;
+    auto mock = std::make_shared<MockLlmClient>([&](const std::string&, const std::string& user, bool) {
+        seen = user;
+        LlmReply r;
+        r.ok = true;
+        r.content = "Hob and I count the stores twice. Eleven of us eat here, and we are glad of company.";
+        return r;
+    });
+    g->SetNpcVoice(MakeLlmNpcVoice(mock, *g));
+    ASSERT_TRUE(g->Talk("tran", "who").ok);
+    EXPECT_NE(seen.find("came into"), std::string::npos);  // it remembers the party arriving
+    auto failing = std::make_shared<MockLlmClient>([](const std::string&, const std::string&, bool) { LlmReply r; r.error = "boom"; return r; });
+    g->SetNpcVoice(MakeLlmNpcVoice(failing, *g));
+    ASSERT_TRUE(g->Talk("tran", "stores").ok);  // the written text is used instead
+}

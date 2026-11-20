@@ -215,7 +215,7 @@ int main(int argc, char** argv) {
         if (g->Config().llmNarration || g->Config().llmDm || llmSay) {
             const LlmConfig lc = LlmConfig::FromEnv();
             llm = std::make_shared<HttpLlmClient>(lc);
-            if (g->Config().llmNarration) { g->SetNarrator(MakeLlmNarrator(llm, *g)); g->SetDescriber(MakeLlmDescriber(llm, *g)); g->SetRoomWriter(MakeLlmRoomWriter(llm, *g)); }
+            if (g->Config().llmNarration) { g->SetNarrator(MakeLlmNarrator(llm, *g)); g->SetDescriber(MakeLlmDescriber(llm, *g)); g->SetRoomWriter(MakeLlmRoomWriter(llm, *g)); g->SetChatter(MakeLlmChatter(llm, *g)); g->SetNpcVoice(MakeLlmNpcVoice(llm, *g)); }
             if (g->Config().llmDm) g->SetMonsterFactory([llm] { return std::make_unique<LlmDmController>(llm); });
             std::cerr << "LLM: " << llm->Describe() << "  model store: " << LocateModel(lc.model).path << "\n";
         }

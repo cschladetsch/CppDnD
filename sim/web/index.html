@@ -46,6 +46,7 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .itemart { display:inline-block; flex:none; vertical-align:middle; line-height:0; } img.itemart { object-fit:cover; border-radius:6px; }
 .strip { display:flex; gap:4px; align-items:center; margin:4px 0 2px; flex-wrap:wrap; } .strip .itemart { background:#14111c; border:1px solid var(--edge); border-radius:6px; padding:1px; } .stripp { display:inline-flex; align-items:center; gap:2px; }
 .wepl { display:flex; gap:8px; align-items:center; }
+.memory { margin:4px 0 8px 12px; padding:6px 8px; border-left:2px solid var(--edge); background:#17141f; border-radius:0 6px 6px 0; } .memwho { margin-top:6px; } .memline { margin:2px 0 2px 6px; line-height:1.3; }
 .eqbox { border:1px solid var(--edge); border-radius:8px; padding:6px 8px 8px; margin:8px 0; background:#17141f; } .eqbox.stash { border-style:dashed; border-color:#8a6d2f; background:#1d1912; } .eqbox.dead { opacity:.45; }
 .eqbox.target { border-color:var(--accent); cursor:pointer; } .eqbox.over { background:#2a2438; border-color:var(--accent); }
 .eqhead { display:flex; gap:8px; align-items:center; margin-bottom:6px; }
@@ -173,13 +174,14 @@ const ICONS = {
   beast: "M7 4c2 0 3 2 3 4S9 11 7 11 4 9 4 7s1-3 3-3zm10 0c2 0 3 1 3 3s-1 4-3 4-3-1-3-3 1-4 3-4zM12 12c4 0 7 4 7 7 0 2-2 2-4 1-1-.5-2-.5-3-.5s-2 0-3 .5c-2 1-4 1-4-1 0-3 3-7 7-7z",
   humanoid: "M12 3a4 4 0 110 8 4 4 0 010-8zM5 21c0-5 3-8 7-8s7 3 7 8z",
   giant: "M3 9l4 3 2-6 3 4 3-4 2 6 4-3-2 12H5z",
+  alien: "M12 2c4 0 6 3 6 6 0 2-1 3-2 4l3 7-3-1-2 4-2-3-2 3-2-4-3 1 3-7c-1-1-2-2-2-4 0-3 2-6 6-6zM10 8l-2 3 3-1zm4 0l-1 2 3 1z",
   construct: "M12 2l2 3h4l1 4 3 2-3 2-1 4h-4l-2 3-2-3H6l-1-4-3-2 3-2 1-4h4z",
   other: "M12 3l9 18H3z",
 };
 function iconFor(a) {
   if (a.team === "party" && ICONS[a.classId]) return a.classId;
   const tags = a.tags || [];
-  for (const t of ["undead", "beast", "giant", "construct", "humanoid"]) if (tags.includes(t)) return t;
+  for (const t of ["alien", "undead", "beast", "giant", "construct", "humanoid"]) if (tags.includes(t)) return t;
   return ICONS[a.classId] ? a.classId : "other";
 }
 // a round token: team colour, class or creature icon, a health ring, and a pip for each condition
@@ -275,7 +277,7 @@ async function refreshTable() {
   box.hidden = false;
   const rows = data.agents.map(a => el("div", { className: "small", style: "padding:2px 0", title: a.persona,
     textContent: `${a.name}  [${a.selector}]  ${a.model}  ${a.calls} call(s)${a.failures ? `, ${a.failures} failed` : ""}${a.modelStore && a.modelStore.exists ? "  (in store)" : ""}` }));
-  const sels = [...new Set([...data.agents.map(a => a.selector), "type:undead", "type:beast", "type:humanoid", "type:giant"])];
+  const sels = [...new Set([...data.agents.map(a => a.selector), "type:undead", "type:beast", "type:humanoid", "type:giant", "type:alien"])];
   const sel = el("select", {}, ...sels.map(s => el("option", { value: s, textContent: s })));
   const model = el("input", { type: "text", placeholder: "model name", style: "flex:1;min-width:0" });
   const store = el("input", { type: "checkbox" });
@@ -503,6 +505,28 @@ function renderMap() {
   if (cur) { const p = pos.get(cur.id); wrap.scrollLeft = keep ? keep.scrollLeft : Math.max(0, p.x - wrap.clientWidth / 2); wrap.scrollTop = keep ? keep.scrollTop : Math.max(0, p.y - wrap.clientHeight / 2); }
 }
 
+// ---------------------------------------------------------------- what an NPC remembers
+// Each NPC keeps its own private record of everyone it has dealt with, the party and other NPCs alike (GET /history/<name>).
+const npcMem = {};   // npc id -> {partners:[{with,count,entries}]} while its memory is open
+async function toggleMemory(n) {
+  if (npcMem[n.id]) { delete npcMem[n.id]; return renderScene(); }
+  const r = await api("GET", `/api/games/${gid}/history/${encodeURIComponent(n.name)}?limit=6`);
+  if (r.status !== 200) return toast(r.data.error || "could not read that memory");
+  npcMem[n.id] = r.data; renderScene();
+}
+function memoryPanel(n, rec) {
+  const box = el("div", { className: "memory" });
+  if (!rec.partners.length) box.append(el("div", { className: "dim small", textContent: `${n.name} has not dealt with anyone yet.` }));
+  for (const p of rec.partners) {
+    box.append(el("div", { className: "memwho" }, el("b", { textContent: p.with }), el("span", { className: "dim small", textContent: `  ${p.count} ${p.count === 1 ? "thing" : "things"} remembered` })));
+    for (const e of p.entries) {
+      const arrow = e.dir === "to" ? "\u2192" : "\u2190";   // to: they acted on the other; from: the other acted on them
+      box.append(el("div", { className: "memline small" }, el("span", { className: "dim", textContent: `d${e.day} ${String(e.hour).padStart(2, "0")}h ${arrow} ` }), el("span", { textContent: e.text })));
+    }
+  }
+  return box;
+}
+
 // ---------------------------------------------------------------- exploration
 function renderScene() {
   const box = $("#scene"), v = view, l = v.location;
@@ -526,7 +550,9 @@ function renderScene() {
     const np = artUrl("npcs", n.id);
     const r = el("div", { className: "row" }, ...(np ? [el("img", { src: np, className: "portrait", alt: "" })] : []), el("span", { className: "dim", textContent: n.name + ` (${n.type || "commoner"}):` }));
     for (const t of n.topics) r.append(el("button", { textContent: t.id + (t.heard ? " \u2713" : ""), disabled: !exploring, onclick: () => cmd("talk", { npc: n.id, topic: t.id }) }));
+    r.append(el("button", { textContent: npcMem[n.id] ? "Hide memory" : "Memory", title: "What this person remembers of everyone they have dealt with", onclick: () => toggleMemory(n) }));
     rows.push(r);
+    if (npcMem[n.id]) rows.push(memoryPanel(n, npcMem[n.id]));
   }
   const act = el("div", { className: "row" },
     ...[["Search (1h)", () => cmd("search")], ["Explore (2h)", () => cmd("explore")], ["Short rest", () => cmd("rest", { kind: "short" })], ["Long rest", () => cmd("rest", { kind: "long" })], ["Wait 1h", () => cmd("wait", { hours: 1 })],

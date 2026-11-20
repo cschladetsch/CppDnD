@@ -105,6 +105,13 @@ Game::Describer MakeLlmDescriber(std::shared_ptr<ILlmClient> client, const Game&
 // of the path to it. nullopt on any failure or unusable reply, which makes Explore use its built-in rooms.
 Game::RoomWriter MakeLlmRoomWriter(std::shared_ptr<ILlmClient> client, const Game& game);
 
+// Lines for the NPCs. Both read the speaker's own private record of the listener (History::Pair), so what each one says
+// follows from what has passed between them: earlier talk, who they have seen fight, what they were told.
+// Chatter: one line an NPC says to another NPC in the same place. NpcVoice: an NPC answering the hero about a topic,
+// keeping to the written facts but in its own voice and with its memory of the hero.
+Game::Chatter MakeLlmChatter(std::shared_ptr<ILlmClient> client, const Game& game);
+Game::NpcVoice MakeLlmNpcVoice(std::shared_ptr<ILlmClient> client, const Game& game);
+
 // ---------------------------------------------------------------- LLM Dungeon Master
 
 // Asks the model for a short plan (a few actions) at the start of a monster's turn, then replays it.

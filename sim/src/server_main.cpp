@@ -84,7 +84,7 @@ std::shared_ptr<AgentTable> Wire(Server& s, Game& g) {
     }
     if (!c.llmDm && !c.llmNarration) return nullptr;
     if (!s.llm) throw HttpError{400, "LLM features were requested but no model is configured (set DND_LLM_MODEL / DND_LLM_URL, or run with --mock-llm)"};
-    if (c.llmNarration) { g.SetNarrator(MakeLlmNarrator(s.llm, g)); g.SetDescriber(MakeLlmDescriber(s.llm, g)); g.SetRoomWriter(MakeLlmRoomWriter(s.llm, g)); }
+    if (c.llmNarration) { g.SetNarrator(MakeLlmNarrator(s.llm, g)); g.SetDescriber(MakeLlmDescriber(s.llm, g)); g.SetRoomWriter(MakeLlmRoomWriter(s.llm, g)); g.SetChatter(MakeLlmChatter(s.llm, g)); g.SetNpcVoice(MakeLlmNpcVoice(s.llm, g)); }
     if (c.llmDm) {
         auto client = s.llm;
         g.SetMonsterFactory([client] { return std::make_unique<LlmDmController>(client); });
@@ -470,6 +470,11 @@ int main(int argc, char** argv) {
         auto slot = find(req);
         std::lock_guard<std::mutex> lk(slot->m);
         Reply(res, 200, slot->game->Hist().GroupJson(sinceOf(req), limitOf(req)));
+    }));
+    svr.Get("/api/games/:id/history/:x", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        Reply(res, 200, slot->game->Hist().OwnerJson(req.path_params.at("x"), limitOf(req)));
     }));
     svr.Get("/api/games/:id/history/:x/:y", guarded([&](const httplib::Request& req, httplib::Response& res) {
         auto slot = find(req);

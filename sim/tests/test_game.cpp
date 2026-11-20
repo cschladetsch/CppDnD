@@ -575,3 +575,123 @@ TEST(Stash, PotionsPassThroughToo) {
     EXPECT_EQ(g.StashPotions(), 0);
     EXPECT_FALSE(g.MoveItem("stash", "elara", "potion", "", err));
 }
+
+// ---------------------------------------------------------------- NPC memory (The Meridian)
+
+namespace {
+// A Meridian game with the party already standing in `loc`, as if they had walked there.
+std::unique_ptr<Game> MeridianAt(const std::string& loc, std::uint64_t seed = 3) {
+    GameConfig cfg;
+    cfg.moduleId = "meridian";
+    cfg.seed = seed;
+    cfg.role = Role::Spectator;
+    Game g(cfg);
+    Json j = g.Save();
+    j["location"] = loc;
+    j["visited"].push_back(loc);
+    return Game::Load(j);
+}
+const char* kTran = "Quartermaster Bo Tran";
+const char* kHob = "Cook Hob Marsh";
+}  // namespace
+
+TEST(NpcMemory, TheFirstSightOfThePartyAndOfEachOtherIsRecorded) {
+    auto g = MeridianAt("promenade");
+    ASSERT_TRUE(g->Travel("mess_hall").ok);
+    ASSERT_EQ(g->LocationId(), "mess_hall");
+    const std::string hero = g->Hero();
+    EXPECT_GT(g->Hist().Count(kTran, hero), 0u);
+    EXPECT_GT(g->Hist().Count(hero, kTran), 0u);
+    EXPECT_GT(g->Hist().Count(kHob, hero), 0u);
+    EXPECT_GT(g->Hist().Count(kTran, kHob), 0u);
+    EXPECT_GT(g->Hist().Count(kHob, kTran), 0u);
+    EXPECT_EQ(g->Hist().Count(kTran, "Dr. Ruth Calloway"), 0u);  // never met
+}
+
+TEST(NpcMemory, NpcsTalkToEachOtherAndBothKeepTheLine) {
+    auto g = MeridianAt("promenade");
+    ASSERT_TRUE(g->Travel("mess_hall").ok);
+    g->Wait(1);
+    g->Wait(1);
+    const Json fromTran = g->Hist().Pair(kTran, kHob);
+    bool said = false, heard = false;
+    for (const auto& e : fromTran["entries"]) {
+        if (e["kind"] == "say" && e["dir"] == "to") said = true;
+        if (e["kind"] == "say" && e["dir"] == "from") heard = true;
+    }
+    EXPECT_TRUE(said);   // the written chatter, since no model is attached
+    EXPECT_TRUE(heard);  // the rotation gives each a turn to speak
+    const Json fromHob = g->Hist().Pair(kHob, kTran);
+    EXPECT_EQ(fromHob["entries"].size(), fromTran["entries"].size());
+}
+
+TEST(NpcMemory, AModelWritesTheLinesWhenOneIsAttached) {
+    auto g = MeridianAt("promenade");
+    std::vector<std::string> seen;
+    g->SetChatter([&](const NpcDef& a, const NpcDef& b) {
+        seen.push_back(a.id + ">" + b.id);
+        return std::string("Remember the rice.");
+    });
+    ASSERT_TRUE(g->Travel("mess_hall").ok);
+    ASSERT_FALSE(seen.empty());
+    bool kept = false;
+    const Json a = g->Hist().Pair(kTran, kHob), b = g->Hist().Pair(kHob, kTran);
+    for (const auto& e : a["entries"]) kept = kept || e["text"] == "Remember the rice.";
+    for (const auto& e : b["entries"]) kept = kept || e["text"] == "Remember the rice.";
+    EXPECT_TRUE(kept);
+}
+
+TEST(NpcMemory, TalkingToAnNpcIsRememberedOnBothSides) {
+    auto g = MeridianAt("promenade");
+    ASSERT_TRUE(g->Travel("mess_hall").ok);
+    ASSERT_TRUE(g->Talk("tran", "who").ok);
+    const std::string hero = g->Hero();
+    bool asked = false, replied = false;
+    const Json p = g->Hist().Pair(kTran, hero);
+    for (const auto& e : p["entries"]) {
+        if (e["kind"] == "ask" && e["dir"] == "from") asked = true;
+        if (e["kind"] == "reply" && e["dir"] == "to") replied = true;
+    }
+    EXPECT_TRUE(asked);
+    EXPECT_TRUE(replied);
+}
+
+TEST(NpcMemory, OneNpcsWholeRecordIsListedByPartner) {
+    auto g = MeridianAt("promenade");
+    ASSERT_TRUE(g->Travel("mess_hall").ok);
+    g->Wait(1);
+    const Json rec = g->Hist().OwnerJson(kTran);
+    std::set<std::string> with;
+    for (const auto& p : rec["partners"]) {
+        with.insert(p["with"].get<std::string>());
+        EXPECT_GT(p["count"].get<int>(), 0);
+    }
+    EXPECT_TRUE(with.count(kHob));
+    EXPECT_TRUE(with.count(g->Hero()));
+}
+
+TEST(NpcMemory, TheRecordAndTheTurnSurviveSavingAndLoading) {
+    auto g = MeridianAt("promenade");
+    ASSERT_TRUE(g->Travel("mess_hall").ok);
+    g->Wait(1);
+    const auto n = g->Hist().Count(kTran, kHob);
+    auto h = Game::Load(g->Save());
+    EXPECT_EQ(h->Hist().Count(kTran, kHob), n);
+    h->Wait(1);
+    EXPECT_GT(h->Hist().Count(kTran, kHob), n);
+}
+
+TEST(NpcMemory, ExploringTheShipFindsShipRooms) {
+    bool found = false;
+    for (std::uint64_t seed = 1; seed <= 30 && !found; ++seed) {
+        auto g = MeridianAt("observation_lounge", seed);
+        const CmdResult r = g->Explore();
+        if (!r.ok || r.message == "interrupted" || g->ExtraRooms().empty()) continue;
+        found = true;
+        const std::string name = g->ExtraRooms().front().name;
+        const bool ship = name.find("Closet") != std::string::npos || name.find("Bay") != std::string::npos || name.find("Crawlspace") != std::string::npos ||
+                          name.find("Workshop") != std::string::npos || name.find("Cabin") != std::string::npos || name.find("Locker") != std::string::npos;
+        EXPECT_TRUE(ship) << name;
+    }
+    EXPECT_TRUE(found);
+}

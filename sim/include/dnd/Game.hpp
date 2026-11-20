@@ -71,6 +71,8 @@ public:
     // Picks the controller for one monster (so each kind of enemy can have its own mind); overrides the plain factory.
     using ActorFactory = std::function<std::unique_ptr<IController>(const GameActor&)>;
     using NpcVoice = std::function<std::string(const NpcDef&, const TopicDef&)>;
+    // One line that `speaker` says to `listener` (both NPCs in the same place); empty means "use the written chatter".
+    using Chatter = std::function<std::string(const NpcDef& speaker, const NpcDef& listener)>;
     using Council = std::function<std::optional<CmdResult>(Game&)>;
 
     explicit Game(GameConfig cfg);  // throws std::runtime_error on unknown ids
@@ -93,6 +95,7 @@ public:
     void SetPartyFactory(PartyFactory f);         // default: AIController for every non-human party member
     void SetCouncil(Council c) { council_ = std::move(c); }
     void SetNpcVoice(NpcVoice v) { npcVoice_ = std::move(v); }
+    void SetChatter(Chatter c) { chatter_ = std::move(c); }
     void SetMonsterControllerFactory(ActorFactory f);
     void SetRole(Role r, const std::string& hero = "");
     // Change which party member the user controls (and make the user a player). Fails for an unknown or dead member.
@@ -228,6 +231,10 @@ private:
     PartyFactory partyFactory_;
     Council council_;
     NpcVoice npcVoice_;
+    Chatter chatter_;
+    int chatterTurn_ = 0;
+    // NPCs in the same place notice the party and one another, and talk. Everything lands in each one's own pair history.
+    void NpcSocial(bool arrived);
     ActorFactory monsterFor_;
     DungeonMasterEngine dm_;
 
