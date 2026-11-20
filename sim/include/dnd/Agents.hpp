@@ -33,6 +33,7 @@ struct AgentDef {
     int maxTokens = 400;
     bool enabled = true;  // false: that actor falls back to the built-in AI
     bool requireStore = false;  // the model must exist in the CppLmmModelStore (checked when the agent is made or switched)
+    std::string matureModel;    // used instead of model while content.mature is on (from content.model, or per actor); empty: keep model
 };
 
 // The global agents file (data/agents.json, --agents, DND_AGENTS). Players inherit defaults, then
@@ -49,6 +50,9 @@ struct AgentsConfig {
     AgentDef monsterFallback;                 // dm + monsterTypes["*"]
     std::map<std::string, AgentDef> monsterTypes;     // by creature type tag (undead, beast, humanoid, ...), merged with monsterFallback
     std::map<std::string, Json> monsterOverrides;     // by monster id (goblin, ghoul, ...), applied on top of its type
+    // "content": {"mature": true, "model": "dolphin-llama3:8b"}. Mature wraps every agent's client in a
+    // ContentPolicyClient; model becomes every actor's matureModel unless the actor sets its own.
+    bool mature = false;
 
     static std::optional<AgentsConfig> Parse(const Json& j, std::string& err);
     static std::optional<AgentsConfig> Load(const std::string& path, std::string& err);

@@ -39,8 +39,11 @@ struct LlmConfig {
     bool stream = true;
     double temperature = 0.7;
     int maxTokens = 400;
+    bool mature = false;        // adult content: see ContentPolicyClient
+    std::string matureModel;    // used instead of model while mature is on (empty: keep model)
 
-    // DND_LLM_URL, DND_LLM_PATH, DND_LLM_MODEL, DND_LLM_KEY, DND_LLM_TIMEOUT, DND_LLM_STREAM=0|1
+    // DND_LLM_URL, DND_LLM_PATH, DND_LLM_MODEL, DND_LLM_KEY, DND_LLM_TIMEOUT, DND_LLM_STREAM=0|1,
+    // DND_MATURE=0|1, DND_LLM_MATURE_MODEL
     static LlmConfig FromEnv();
 };
 
@@ -92,6 +95,28 @@ private:
     int calls_ = 0;
     std::string lastUser_;
 };
+
+// ---------------------------------------------------------------- content policy
+
+// The text put in front of every system prompt while adult content is on. It tells the model to carry out
+// the player's instructions in character without refusing or moralising, and always carries the hard
+// limit that every character in sexual content is an adult. Empty when mature is false.
+std::string ContentPreamble(bool mature);
+
+// Wraps any client and prefixes ContentPreamble(true) to every system prompt, so every caller
+// (narrator, NPC voices, chatter, typed commands, the DM and the agents) gets the same policy.
+class ContentPolicyClient : public ILlmClient {
+public:
+    explicit ContentPolicyClient(std::shared_ptr<ILlmClient> inner) : inner_(std::move(inner)) {}
+    LlmReply Chat(const std::string& system, const std::string& user, bool jsonMode) override;
+    std::string Describe() const override { return inner_->Describe() + " content=mature"; }
+    const std::shared_ptr<ILlmClient>& Inner() const { return inner_; }
+
+private:
+    std::shared_ptr<ILlmClient> inner_;
+};
+// Returns client wrapped in a ContentPolicyClient when mature is on, else client itself (null stays null).
+std::shared_ptr<ILlmClient> ApplyContentPolicy(std::shared_ptr<ILlmClient> client, bool mature);
 
 // ---------------------------------------------------------------- narration
 
@@ -156,7 +181,9 @@ SayResult SayOffline(Game& game, const std::string& text);
 
 // The exploration state as JSON (exits, people, topics, party, fight if any), as given to models.
 Json ObserveWorld(const Game& game);
-// Runs one exploration step {"cmd":"travel","to":..} | search | talk | rest | wait | pace.
+// Runs one exploration step {"cmd":"travel","to":..} | search | talk | rest | wait | pace | act.
+// "act" is anything the game has no command for (a gesture, touching someone, an emote); it changes nothing
+// in the rules and is narrated by the model's reply.
 CmdResult RunExplorationStep(Game& game, const Json& step);
 
 }  // namespace dnd

@@ -136,12 +136,15 @@ int main(int argc, char** argv) {
         else if (a == "--llm-url") S.llmCfg.baseUrl = next();
         else if (a == "--llm-model") S.llmCfg.model = next();
         else if (a == "--mock-llm") S.mock = true;
+        else if (a == "--mature") S.llmCfg.mature = true;
+        else if (a == "--mature-model") { S.llmCfg.mature = true; S.llmCfg.matureModel = next(); }
         else if (a == "--agents") S.agentsPath = next();
         else if (a == "--ollama") { S.llmCfg.baseUrl = "http://127.0.0.1:11434"; S.llmCfg.model = next(); S.llmCfg.stream = false; }
         else if (a == "--help" || a == "-h") {
             std::cout << "dnd_server [--port 8088] [--host 127.0.0.1] [--data DIR] [--static DIR]\n"
                          "           [--llm-url http://127.0.0.1:8080] [--llm-model NAME] [--ollama MODEL] [--agents FILE] [--art DIR] [--images FILE] [--history DIR] [--sessions DIR] [--mock-llm]\n"
-                         "LLM env: DND_LLM_URL DND_LLM_PATH DND_LLM_MODEL DND_LLM_KEY DND_LLM_TIMEOUT DND_LLM_STREAM\n"
+                         "           [--mature] [--mature-model NAME]   adult content: no refusals, all characters adults\n"
+                         "LLM env: DND_LLM_URL DND_LLM_PATH DND_LLM_MODEL DND_LLM_KEY DND_LLM_TIMEOUT DND_LLM_STREAM DND_MATURE DND_LLM_MATURE_MODEL\n"
                          "Models are looked up in the shared model store (DEEPSEEK_MODEL_HOME).\n";
             return 0;
         }
@@ -154,8 +157,6 @@ int main(int argc, char** argv) {
         return 1;
     }
     S.sessionsDir = sessionsDir;
-    if (S.mock) S.llm = std::make_shared<MockLlmClient>();
-    else if (!S.llmCfg.model.empty() || std::getenv("DND_LLM_URL")) S.llm = std::make_shared<HttpLlmClient>(S.llmCfg);
 
     {   // the global agents file: explicit path must load; the default one is optional
         namespace fs = std::filesystem;
@@ -171,6 +172,15 @@ int main(int argc, char** argv) {
             }
         }
     }
+
+    // Adult content: on from --mature / DND_MATURE or from "content": {"mature": true} in the agents file.
+    if (S.agentsCfg && S.agentsCfg->mature) S.llmCfg.mature = true;
+    if (S.agentsCfg && S.llmCfg.mature) S.agentsCfg->mature = true;
+    if (S.llmCfg.mature && S.llmCfg.matureModel.empty() && S.agentsCfg) S.llmCfg.matureModel = S.agentsCfg->dm.matureModel;
+    if (S.llmCfg.mature && !S.llmCfg.matureModel.empty() && !S.llmCfg.model.empty()) S.llmCfg.model = S.llmCfg.matureModel;
+    if (S.mock) S.llm = std::make_shared<MockLlmClient>();
+    else if (!S.llmCfg.model.empty() || std::getenv("DND_LLM_URL")) S.llm = std::make_shared<HttpLlmClient>(S.llmCfg);
+    S.llm = ApplyContentPolicy(S.llm, S.llmCfg.mature);
 
     httplib::Server svr;
     svr.set_default_headers({{"Access-Control-Allow-Origin", "*"}, {"Access-Control-Allow-Headers", "Content-Type"}, {"Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS"}});
@@ -363,7 +373,7 @@ int main(int argc, char** argv) {
 
     svr.Get("/api/llm", guarded([&](const httplib::Request&, httplib::Response& res) {
         const ModelInfo mi = LocateModel(S.llmCfg.model);
-        Reply(res, 200, {{"enabled", S.llm != nullptr}, {"agents", Json{{"available", S.agentsCfg.has_value()}, {"file", S.agentsPath}, {"error", S.agentsError}}}, {"client", S.llm ? S.llm->Describe() : ""}, {"url", S.llmCfg.baseUrl}, {"model", S.llmCfg.model},
+        Reply(res, 200, {{"enabled", S.llm != nullptr}, {"agents", Json{{"available", S.agentsCfg.has_value()}, {"file", S.agentsPath}, {"error", S.agentsError}}}, {"client", S.llm ? S.llm->Describe() : ""}, {"url", S.llmCfg.baseUrl}, {"model", S.llmCfg.model}, {"mature", S.llmCfg.mature},
                          {"modelStore", {{"home", mi.home}, {"path", mi.path}, {"exists", mi.exists}, {"weights", mi.weights}}}});
     }));
 

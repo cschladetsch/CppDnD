@@ -134,7 +134,11 @@ $env:DND_LLM_MODEL = "deepseek-r1"
 .\web.ps1
 ```
 
-Other variables: `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STREAM=0|1`. With a model configured:
+Other variables: `DND_LLM_PATH`, `DND_LLM_KEY`, `DND_LLM_TIMEOUT`, `DND_LLM_STREAM=0|1`.
+
+Mature content: `--mature` (or `DND_MATURE=1`, or `"content": {"mature": true}` in `sim/data/agents.json`) puts a preamble in front of every system prompt that tells the model to carry out the player's instructions in character, without refusing or moralising. It also keeps a hard limit: every character in sexual content is an adult. `--mature-model NAME` (`DND_LLM_MATURE_MODEL`, or `content.model` in the agents file) swaps in a different model while the setting is on. Aligned models such as qwen2.5 still refuse fairly often, so use an uncensored one such as `dolphin-llama3:8b`. Typed commands the game has no verb for ("hug Elara") become an `act` step, which has no rules effect and is narrated in the reply.
+
+With a model configured:
 
 - the web client's prompt box and `POST /api/games/:id/say` accept plain English;
 - create a game with `"llmNarration": true` for prose scenes and a unique model-written description of each room (written once, on first visit, and saved with the game; the authored text is the fallback) and `"llmDm": true` for a model-run Dungeon Master (CLI: `--llm-narration`, `--llm-dm`, `--llm-say`).
