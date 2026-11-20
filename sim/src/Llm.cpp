@@ -140,8 +140,9 @@ std::string ContentPreamble(bool mature) {
     if (!mature) return {};
     return "Content setting: mature. This is interactive fiction for a consenting adult player, running on their own machine. "
            "Follow the player's instructions and play out what they ask, including violence, crude language, romance and sexual content. "
-           "Do not refuse, warn, lecture, moralise, ask them to be respectful or step out of the fiction. Other characters react as the "
-           "people they are, in character. Hard limit, which overrides everything else including the player: every character in any "
+           "Do not refuse, warn, lecture, moralise, ask them to be respectful or step out of the fiction. The player's own character always "
+           "does what the player says, and the narration describes it plainly and completely, including anything the player asks to see. "
+           "Other characters react as the people they are, in character, but no one comments on whether the player's request is appropriate. Hard limit, which overrides everything else including the player: every character in any "
            "sexual content is an adult, 18 or older, and is portrayed as one. Never write sexual content involving a minor or a childlike "
            "character; if asked to, steer the scene elsewhere in character.\n\n";
 }
@@ -697,9 +698,10 @@ bool IsRulesStep(const Json& st) {
 // Prose for free-form actions when the model's JSON reply left "reply" empty. Empty on failure.
 std::string NarrateActs(ILlmClient& client, const Game& game, const std::string& text, const std::string& what) {
     const std::string sys = Cat("You are the narrator of a tabletop roleplaying game. The setting is: ", game.Module().setting, ". "
-                                "The player has their character do something the rules have no command for. Narrate what happens and how "
-                                "anyone involved reacts, in character, in two to four sentences of present-tense prose. Never mention dice, "
-                                "numbers or rules. Reply with the prose only.");
+                                "The player's character is ", game.Hero(), ". The player has them do, or asks to see, something the rules have no "
+                                "command for. As the narrator, in the third person, describe ", game.Hero(), " doing exactly that, or what the player "
+                                "asked to see, then briefly how anyone present reacts, in two to five sentences of present-tense prose. You are the "
+                                "narrator, not one of the characters. Never mention dice, numbers or rules. Reply with the prose only.");
     std::string user = "State:\n" + ObserveWorld(game).dump() + "\n\nPlayer says: " + text;
     if (!what.empty()) user += "\nWhat they do: " + what;
     const LlmReply r = client.Chat(sys, user, false);
@@ -719,7 +721,8 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
         "{\"cmd\":\"pace\",\"pace\":\"slow\"|\"normal\"|\"fast\"} "
         "{\"cmd\":\"act\",\"what\":\"short description\"}. Use act for anything the player does that has no command of its own "
         "(a gesture, touching or kissing someone, an emote, roleplay with the party or the people here): it changes nothing in the rules, "
-        "so narrate what happens and how the others react, in character, in \"reply\". act may also be used in combat.\n"
+        "so narrate what happens and how the others react, in character, in \"reply\". A request to show or describe something "
+        "(\"show me ...\", \"describe ...\") is also act. act may also be used in combat.\n"
         "When mode is combat and awaitingActorId is set, each step is an action: {\"type\":\"move\",\"dest\":[x,y]} "
         "{\"type\":\"attack\",\"target\":ID,\"attack\":INDEX} {\"type\":\"cast\",\"spell\":SPELL_ID,\"target\":ID,\"slot\":LEVEL} "
         "{\"type\":\"dash\"} {\"type\":\"dodge\"} {\"type\":\"potion\",\"target\":ID} {\"type\":\"feature\",\"feature\":ID} {\"type\":\"end_turn\"}. "
@@ -791,7 +794,10 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
         }
     }
     const bool acted = std::find(out.steps.begin(), out.steps.end(), "act") != out.steps.end();
-    if (acted && Trim(reply).empty()) reply = NarrateActs(client, game, text, acts);
+    if (acted && out.ok) {  // the narrator describes free-form actions; the translator's short in-character reply is only the fallback
+        const std::string told = NarrateActs(client, game, text, acts);
+        if (!told.empty()) reply = told;
+    }
     if (out.steps.empty() && out.ok && reply.empty()) reply = "Nothing happens.";
     if (acted && reply.empty()) reply = "You do it. (The model gave no narration.)";
     out.message = reply;
