@@ -51,6 +51,7 @@ A module is the space for a long session. Top-level keys:
 | `draws` | seeded secrets: `{id, choices}`; the pick is stored as flag `<id>=<choice>` |
 | `quests` | `{id, name, description, completeWhen: [flags], xp}` |
 | `endWhen` | flag that completes the module |
+| `art` | optional picture style for this module: `prefix`, `suffix`, `negative`, `creature` (wording for monsters), `framing` (per kind). Replaces the global `art/style.json` words for the module's pictures |
 | `roomSeeds` | optional `[{name, text}]`: rooms that Explore finds when no model writes them, so a setting can have rooms of its own (the general fantasy ones are used when empty) |
 
 A location has `id`, `name`, `kind` (`wilderness`, `settlement`, `boundary`, `site`), `description`, `rest` (`safe`, `risky`, `none`), an optional `randomTable` and `map`, and lists of `events`, `exits` and `npcs`.

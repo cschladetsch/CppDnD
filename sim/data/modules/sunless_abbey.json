@@ -2,6 +2,10 @@
   "id": "sunless_abbey",
   "name": "The Sunless Abbey",
   "setting": "dark fantasy dungeon crawl: the sealed Abbey of Saint Veyra, whose lamps were put out ten years ago and have just been lit again by something that was once its abbess",
+  "art": {
+    "prefix": "dark gothic fantasy illustration, ruined abbey and cold crypts, damp stone, guttering candles, fog, moody dramatic lighting, rich detail,",
+    "negative": "text, watermark, signature, logo, lowres, blurry, jpeg artifacts, deformed, extra limbs, extra fingers, modern clothing, photo, science fiction, neon, bright sunlight"
+  },
   "recommendedLevel": 5,
   "hardHp": 1.1,
   "intro": "Ten years ago the lamps of Saint Veyra's Abbey went out, one by one, and the monks stopped coming down to market. Nobody went up to ask. This spring the lamps came back in the Abbey's windows, and people have started vanishing off the Pilgrim Road at dusk. The reeve of Candlemere has sixty crowns and a rusty key. Above the village the Abbey waits on its hill, with fifty rooms and a bell that rings itself.",

@@ -2,6 +2,10 @@
  "id": "hollow_crown",
  "name": "The Hollow Crown",
  "setting": "dark fantasy: the mountain kingdom of Karrow, where an order of cultists is waking a dead king whose crown was broken in three",
+ "art": {
+   "prefix": "dark medieval fantasy illustration, painterly, candlelit stone halls, banners and heraldry, moody dramatic lighting, rich detail,",
+   "negative": "text, watermark, signature, logo, lowres, blurry, jpeg artifacts, deformed, extra limbs, extra fingers, modern clothing, photo, science fiction, neon, guns"
+ },
  "recommendedLevel": 5,
  "hardHp": 1.1,
  "intro": "Karrow has been quiet for a hundred years, and that is the trouble. King Aldhelm held Ashfall Pass against the orc hordes until the day he died on it, and the realm broke his crown in three and buried him under his own throne so that nothing would ever wake him. Now the shepherds on the high slopes are going missing, the church bell in Thornwick rings itself at dusk, and Reeve Maud has nailed a notice to the market cross offering twenty silver crowns to anyone with the nerve to ride up the king's road and see why.",

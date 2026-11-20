@@ -188,3 +188,54 @@ TEST(Images, ServiceAndConfig) {
     }
     fs::remove_all(root);
 }
+
+// A module's own look (the art block in its JSON) words its pictures, so a starship is not drawn as a forest.
+TEST(Images, ModuleArtStyleReplacesTheGlobalWords) {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "dnd_images_modart";
+    fs::remove_all(root);
+    const std::string png = std::string("\x89PNG\r\n\x1a\n", 8) + "fakepixels";
+    std::mutex mu;
+    std::map<std::string, ImageRequest> seen;  // by the id's seed
+    std::vector<ImageRequest> all;
+    auto client = std::make_shared<MockImageClient>([&](const ImageRequest& r) {
+        std::lock_guard<std::mutex> lk(mu);
+        all.push_back(r);
+        ImageResult o; o.ok = true; o.bytes = png; return o;
+    });
+    ImageConfig cfg;
+    cfg.style.prefix = "GLOBALSTYLE";
+    cfg.style.negative = "GLOBALNEG";
+    ArtService svc(cfg, root.string(), client);
+    std::string err;
+    svc.Enqueue(Json{{"ids", Json::array({"locations/lifeboat_cradle", "locations/greywick", "monsters/husk", "monsters/zombie", "characters/cmdr_reyes"})}}, err);
+    svc.WaitIdle();
+    ASSERT_EQ(all.size(), 5u) << err;
+    auto find = [&](const std::string& word) { for (const auto& r : all) if (r.prompt.find(word) != std::string::npos) return r; ADD_FAILURE() << word; return ImageRequest{}; };
+    const ImageRequest ship = find("Boarding Shuttle Cradle"), town = find("Greywick"), husk = find("husk"), zombie = find("zombie"), hero = find("Commander Reyes");
+    for (const auto& r : {ship, husk, hero}) {
+        EXPECT_NE(r.prompt.find("starship"), std::string::npos) << r.prompt;
+        EXPECT_EQ(r.prompt.find("GLOBALSTYLE"), std::string::npos) << r.prompt;
+        EXPECT_NE(r.negative.find("forest"), std::string::npos);
+        EXPECT_EQ(r.negative.find("GLOBALNEG"), std::string::npos);
+    }
+    EXPECT_NE(husk.prompt.find("alien"), std::string::npos);
+    EXPECT_EQ(husk.prompt.find("dungeons and dragons"), std::string::npos);
+    EXPECT_EQ(town.prompt.find("GLOBALSTYLE"), 0u);       // Ravenmoor has no art block: the global words stay
+    EXPECT_EQ(zombie.prompt.find("GLOBALSTYLE"), 0u);
+    EXPECT_NE(zombie.prompt.find("dungeons and dragons"), std::string::npos);
+
+    // camera views take the style of the game's module
+    all.clear();
+    ViewJob v; v.id = "v1"; v.subject = "a corridor"; v.module = "meridian";
+    svc.EnqueueView(v, err);
+    ViewJob w; w.id = "v2"; w.subject = "a lane"; w.module = "ravenmoor";
+    svc.EnqueueView(w, err);
+    svc.WaitIdle();
+    ASSERT_EQ(all.size(), 2u);
+    for (const auto& r : all) {
+        if (r.prompt.find("corridor") != std::string::npos) EXPECT_NE(r.prompt.find("starship"), std::string::npos);
+        else EXPECT_EQ(r.prompt.find("GLOBALSTYLE"), 0u);
+    }
+    fs::remove_all(root);
+}

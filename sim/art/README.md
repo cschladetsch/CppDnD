@@ -45,7 +45,7 @@ The HTTP routes are in [../docs/API.md](../docs/API.md#images).
 
 ### Modules with another look
 
-The default style is gothic horror. For CyberHood (cyberpunk, 2040) put a replacement `prefix` in `art/style.json`, or per picture in `art/prompts.json` (for example `"locations/night_market": "neon cyberpunk night market, rain, holograms, cinematic"`), otherwise its locations are drawn in the gothic style.
+The default style is gothic horror, but each module can carry its own look in an `art` block of its JSON (`prefix`, `suffix`, `negative`, `creature` for monsters, and `framing` per kind). What is set there replaces the global `style.json` words for that module's locations, NPCs, cast, monsters (when only that module fields them) and camera views, so The Meridian is drawn as a starship interior and CyberHood as neon cyberpunk. A single picture can still be reworded in `art/prompts.json`. Pictures already drawn are kept; redraw them with `force`.
 
 ### Gallery and git
 

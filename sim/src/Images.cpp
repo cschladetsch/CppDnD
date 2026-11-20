@@ -280,28 +280,43 @@ std::vector<ArtSubject> ArtSubjects(const std::map<std::string, std::string>& ov
     static const std::set<std::string> creatureTypes = {"humanoid", "undead", "beast", "giant", "fiend", "celestial", "construct", "dragon", "elemental", "fey", "monstrosity", "ooze", "plant", "aberration"};
     std::vector<ArtSubject> out;
     std::set<std::string> seen;
-    auto add = [&](const std::string& kind, const std::string& id, std::string subject, bool wide) {
+    auto add = [&](const std::string& kind, const std::string& id, std::string subject, bool wide, const std::string& module = "") {
         if (id.empty() || !seen.insert(kind + "/" + id).second) return;
         bool custom = false;
         if (auto it = overrides.find(kind + "/" + id); it != overrides.end()) { subject = it->second; custom = true; }
-        out.push_back(ArtSubject{kind, id, std::move(subject), wide, custom});
+        out.push_back(ArtSubject{kind, id, std::move(subject), wide, custom, module});
     };
+    // a monster that only one module fields takes that module's look
+    std::map<std::string, std::string> monsterModule;
+    for (const auto& mod : Content::Modules())
+        for (const auto& loc : mod.locations)
+            for (const auto& ev : loc.events)
+                if (ev.encounter)
+                    for (const auto& mid : ev.encounter->monsters) {
+                        auto [it, fresh] = monsterModule.emplace(mid, mod.id);
+                        if (!fresh && it->second != mod.id) it->second = "*";
+                    }
     for (const auto& c : Content::Characters()) {
         std::vector<std::string> race;
         for (const auto& t : c.tags) if (!creatureTypes.count(t)) race.push_back(t);
         if (race.empty()) race = {"human"};
-        add("characters", c.id, Cat(c.name.empty() ? c.id : c.name, ", ", Article(Join(race)), " ", Join(race), " ", c.classId.empty() ? "adventurer" : c.classId, ", adventurer"), false);
+        add("characters", c.id, Cat(c.name.empty() ? c.id : c.name, ", ", Article(Join(race)), " ", Join(race), " ", c.classId.empty() ? "adventurer" : c.classId, ", adventurer"), false, c.module);
     }
     for (const auto& id : Content::WeaponIds()) add("items", id, Cat("a fantasy ", id, ", a medieval weapon"), false);
     add("items", "potion", "a glass flask of glowing red healing potion with a cork stopper", false);
-    for (const auto& m : Content::Monsters())
-        add("monsters", m.id, Cat(LowerCase(m.name.empty() ? m.id : m.name), ", ", Join(m.sheet.tags), " monster, dungeons and dragons creature, menacing"), false);
+    for (const auto& m : Content::Monsters()) {
+        std::string mod;
+        if (auto it = monsterModule.find(m.id); it != monsterModule.end() && it->second != "*") mod = it->second;
+        const ModuleDef* md = mod.empty() ? nullptr : Content::FindModule(mod);
+        const std::string kind = md && !md->art.creature.empty() ? md->art.creature : "dungeons and dragons creature";
+        add("monsters", m.id, Cat(LowerCase(m.name.empty() ? m.id : m.name), ", ", Join(m.sheet.tags), " monster, ", kind, ", menacing"), false, mod);
+    }
     for (const auto& mod : Content::Modules()) {
-        add("modules", mod.id, Cat(mod.name.empty() ? mod.id : mod.name, ", ", mod.setting), true);
+        add("modules", mod.id, Cat(mod.name.empty() ? mod.id : mod.name, ", ", mod.setting), true, mod.id);
         for (const auto& loc : mod.locations) {
-            add("locations", loc.id, Cat(loc.name.empty() ? loc.id : loc.name, ", ", loc.kind, ", ", loc.description), true);
+            add("locations", loc.id, Cat(loc.name.empty() ? loc.id : loc.name, ", ", loc.kind, ", ", loc.description), true, mod.id);
             for (const auto& n : loc.npcs)
-                add("npcs", n.id, Cat(n.name.empty() ? n.id : n.name, ", ", Article(n.type), " ", n.type, ". ", n.description), false);
+                add("npcs", n.id, Cat(n.name.empty() ? n.id : n.name, ", ", Article(n.type), " ", n.type, ". ", n.description), false, mod.id);
         }
     }
     return out;
@@ -544,14 +559,22 @@ bool ArtService::Do(const Item& it, std::string& err) {
     const ImageStyle& st = cfg.style;
     const std::string subject = it.view ? it.view->subject : it.promptOverride.empty() ? it.s.subject : it.promptOverride;
     std::string framing;
-    if (!it.view && !it.s.custom && it.promptOverride.empty())
-        if (auto f = st.framing.find(it.s.kind); f != st.framing.end()) framing = f->second;
-    for (const std::string& part : {st.prefix, subject, framing, st.suffix}) {  // comma-separated phrases, as Stable Diffusion likes them
+    // the module's own look (art in its JSON) replaces the global words
+    const std::string moduleId = it.view ? it.view->module : it.s.module;
+    const ModuleDef* mod = moduleId.empty() ? nullptr : Content::FindModule(moduleId);
+    const ArtStyleDef* art = mod ? &mod->art : nullptr;
+    const std::string prefix = art && !art->prefix.empty() ? art->prefix : st.prefix;
+    const std::string suffix = art && !art->suffix.empty() ? art->suffix : st.suffix;
+    if (!it.view && !it.s.custom && it.promptOverride.empty()) {
+        if (art) if (auto f = art->framing.find(it.s.kind); f != art->framing.end()) framing = f->second;
+        if (framing.empty()) if (auto f = st.framing.find(it.s.kind); f != st.framing.end()) framing = f->second;
+    }
+    for (const std::string& part : {prefix, subject, framing, suffix}) {  // comma-separated phrases, as Stable Diffusion likes them
         if (part.empty()) continue;
         if (!r.prompt.empty()) r.prompt += (r.prompt.back() == ',' || r.prompt.back() == '.') ? " " : ", ";
         r.prompt += part;
     }
-    r.negative = st.negative;
+    r.negative = art && !art->negative.empty() ? art->negative : st.negative;
     r.sampler = st.sampler;
     r.steps = st.steps;
     r.cfg = st.cfg;

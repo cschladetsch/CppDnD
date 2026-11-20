@@ -233,6 +233,16 @@ ModuleDef ParseModule(const json& j, const std::string& file) {
         m.nightEnd = j.at("clock").value("nightEnd", 6);
     }
     m.party = Strs(j, "party");
+    if (j.contains("art") && j["art"].is_object()) {
+        const auto& a = j["art"];
+        m.art.prefix = a.value("prefix", "");
+        m.art.suffix = a.value("suffix", "");
+        m.art.negative = a.value("negative", "");
+        m.art.creature = a.value("creature", "");
+        if (a.contains("framing") && a["framing"].is_object())
+            for (auto it = a["framing"].begin(); it != a["framing"].end(); ++it)
+                if (it.value().is_string()) m.art.framing[it.key()] = it.value().get<std::string>();
+    }
     if (j.contains("roomSeeds"))
         for (const auto& r : j.at("roomSeeds")) m.roomSeeds.push_back(RoomSeedDef{r.at("name").get<std::string>(), r.at("text").get<std::string>()});
     m.start = j.at("start").get<std::string>();

@@ -45,25 +45,46 @@ def override(entry, subject):
     return art["prompt"] if isinstance(art, dict) and art.get("prompt") else subject
 
 
+def character_subject(c):
+    race = [t for t in c.get("tags", []) if t not in CREATURE_TYPES] or ["human"]
+    cls = c.get("class", "adventurer")
+    return override(c, f"{c.get('name', c['id'])}, {article(' '.join(race))} {' '.join(race)} {cls}, adventurer")
+
+
 def jobs(data_dir):
-    """Yield (kind, id, subject, shape) for everything that can have a picture."""
+    """Yield (kind, id, subject, shape, art) for everything that can have a picture; art is the module's "art" block (or {})."""
+    modules_dir = os.path.join(data_dir, "modules")
+    mods = []
+    for fn in sorted(os.listdir(modules_dir)) if os.path.isdir(modules_dir) else []:
+        if fn.endswith(".json"):
+            mods.append(load_json(os.path.join(modules_dir, fn)))
+    # a monster that only one module fields takes that module's look
+    owner = {}
+    for mod in mods:
+        for loc in mod.get("locations", []):
+            for ev in loc.get("events", []):
+                for mid in (ev.get("encounter") or {}).get("monsters", []):
+                    owner[mid] = mod["id"] if owner.get(mid, mod["id"]) == mod["id"] else "*"
+    arts = {m["id"]: m.get("art") or {} for m in mods}
     for c in load_json(os.path.join(data_dir, "characters.json")):
-        race = [t for t in c.get("tags", []) if t not in CREATURE_TYPES] or ["human"]
-        cls = c.get("class", "adventurer")
-        yield "characters", c["id"], override(c, f"{c.get('name', c['id'])}, {article(' '.join(race))} {' '.join(race)} {cls}, adventurer"), "portrait"
+        yield "characters", c["id"], character_subject(c), "portrait", {}
+    for mod in mods:
+        cast = os.path.join(modules_dir, mod["id"], "characters.json")
+        if os.path.exists(cast):
+            for c in load_json(cast):
+                yield "characters", c["id"], character_subject(c), "portrait", arts[mod["id"]]
     for m in load_json(os.path.join(data_dir, "monsters.json")):
         kinds = [t for t in m.get("tags", [])]
-        yield "monsters", m["id"], override(m, f"{m.get('name', m['id']).lower()}, {' '.join(kinds)} monster, dungeons and dragons creature, menacing"), "portrait"
-    modules_dir = os.path.join(data_dir, "modules")
-    for fn in sorted(os.listdir(modules_dir)) if os.path.isdir(modules_dir) else []:
-        if not fn.endswith(".json"):
-            continue
-        mod = load_json(os.path.join(modules_dir, fn))
-        yield "modules", mod["id"], override(mod, f"{mod.get('name', mod['id'])}, {mod.get('setting', '')}"), "wide"
+        art = arts.get(owner.get(m["id"], ""), {})
+        creature = art.get("creature") or "dungeons and dragons creature"
+        yield "monsters", m["id"], override(m, f"{m.get('name', m['id']).lower()}, {' '.join(kinds)} monster, {creature}, menacing"), "portrait", art
+    for mod in mods:
+        art = arts[mod["id"]]
+        yield "modules", mod["id"], override(mod, f"{mod.get('name', mod['id'])}, {mod.get('setting', '')}"), "wide", art
         for loc in mod.get("locations", []):
-            yield "locations", loc["id"], override(loc, f"{loc.get('name', loc['id'])}, {loc.get('kind', '')}, {loc.get('description', '')}"), "wide"
+            yield "locations", loc["id"], override(loc, f"{loc.get('name', loc['id'])}, {loc.get('kind', '')}, {loc.get('description', '')}"), "wide", art
             for n in loc.get("npcs", []):
-                yield "npcs", n["id"], override(n, f"{n.get('name', n['id'])}, {article(n.get('type', 'commoner'))} {n.get('type', 'commoner')}. {n.get('description', '')}"), "portrait"
+                yield "npcs", n["id"], override(n, f"{n.get('name', n['id'])}, {article(n.get('type', 'commoner'))} {n.get('type', 'commoner')}. {n.get('description', '')}"), "portrait", art
 
 
 def post(url, payload, timeout):
@@ -109,13 +130,13 @@ def main():
         print("nothing matches", file=sys.stderr)
         return 1
     made = skipped = failed = 0
-    for kind, ident, subject, shape in todo:
+    for kind, ident, subject, shape, art in todo:
         custom = isinstance(prompts.get(f"{kind}/{ident}"), str)
         subject = prompts[f"{kind}/{ident}"] if custom else subject
-        framing = "" if custom else {**FRAMING, **style.get("framing", {})}.get(kind, "")
+        framing = "" if custom else {**FRAMING, **style.get("framing", {}), **art.get("framing", {})}.get(kind, "")
         path = os.path.join(a.out, kind, ident + ".png")
         prompt = ""
-        for part in (style.get("prefix", ""), subject, framing, style.get("suffix", "")):
+        for part in (art.get("prefix") or style.get("prefix", ""), subject, framing, art.get("suffix") or style.get("suffix", "")):
             if part:
                 prompt += ("" if not prompt else " " if prompt[-1] in ",." else ", ") + part
         if a.list:
@@ -124,7 +145,7 @@ def main():
         if os.path.exists(path) and not a.force:
             skipped += 1
             continue
-        payload = {"prompt": prompt, "negative_prompt": style.get("negative", ""), "seed": zlib.crc32(ident.encode()) & 0x7FFFFFFF,
+        payload = {"prompt": prompt, "negative_prompt": art.get("negative") or style.get("negative", ""), "seed": zlib.crc32(ident.encode()) & 0x7FFFFFFF,
                    "steps": steps, "cfg_scale": cfg, "width": sizes[shape][0], "height": sizes[shape][1], "sampler_name": style.get("sampler", "DPM++ 2M Karras")}
         if style.get("checkpoint"):
             payload["override_settings"] = {"sd_model_checkpoint": style["checkpoint"]}

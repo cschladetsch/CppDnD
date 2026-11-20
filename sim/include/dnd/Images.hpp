@@ -66,6 +66,7 @@ struct ArtSubject {
     std::string subject;  // what the picture shows, built from the JSON content (or prompts.json)
     bool wide = false;
     bool custom = false;  // the subject came from prompts.json and is used as written, with no framing added
+    std::string module;   // the module whose art style (ModuleDef::art) words this picture; empty: the global style
 };
 // Everything in the loaded content that can have a picture.
 std::vector<ArtSubject> ArtSubjects(const std::map<std::string, std::string>& overrides = {});
@@ -118,6 +119,7 @@ struct ViewJob {
     double strength = 0.7;    // how far the picture may depart from the preview (img2img denoising strength)
     int width = 768, height = 432;
     std::uint32_t seed = 0;   // 0: derived from the id
+    std::string module;       // the game's module, for its art style
 };
 
 // ---------------------------------------------------------------- the art service

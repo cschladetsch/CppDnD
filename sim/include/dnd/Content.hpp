@@ -129,6 +129,14 @@ struct RoomSeedDef {
     std::string name, text;
 };
 
+// How a module's pictures are worded, so a spaceship is not drawn as a forest. Every field is optional; what is set replaces
+// the global art/style.json value for pictures of this module (its locations, NPCs, cast, monsters and camera views).
+struct ArtStyleDef {
+    std::string prefix, suffix, negative;
+    std::string creature;  // replaces "dungeons and dragons creature" in monster subjects
+    std::map<std::string, std::string> framing;  // per kind: locations, modules, ...
+};
+
 struct ModuleDef {
     std::string id, name, setting, intro, endText;
     int recommendedLevel = 3;
@@ -141,6 +149,7 @@ struct ModuleDef {
     std::vector<QuestDef> quests;
     std::vector<LocationDef> locations;
     std::vector<std::string> endWhen;
+    ArtStyleDef art;
     std::vector<std::string> party;      // optional: the default party, by character id; empty: the first four of the module's own cast
     std::vector<RoomSeedDef> roomSeeds;  // rooms for Explore to find when no model writes them; empty means the general ones
 

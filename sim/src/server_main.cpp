@@ -616,13 +616,16 @@ int main(int argc, char** argv) {
         auto slot = find(req);
         const Json b = Body(req);
         Json scene;
+        std::string moduleOfGame;
         {
             std::lock_guard<std::mutex> lk(slot->m);
             scene = BuildScene(slot->game->View(0));
+            moduleOfGame = slot->game->Config().moduleId;
         }
         const Camera dflt = Camera::FromJson(scene["camera"]);
         const Camera cam = b.contains("camera") && b["camera"].is_object() ? Camera::FromJson(b["camera"], dflt) : dflt;
         ViewJob job;
+        job.module = moduleOfGame;
         auto numOf = [&](const char* k, double d) { return b.contains(k) && b[k].is_number() ? b[k].get<double>() : d; };
         job.width = static_cast<int>(numOf("width", 768));
         job.height = static_cast<int>(numOf("height", 432));

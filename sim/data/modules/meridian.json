@@ -2,6 +2,15 @@
   "id": "meridian",
   "name": "The Meridian",
   "setting": "science fiction horror aboard the Meridian, a four kilometre colony ark adrift and half dark for nine years, where an alien swarm called the Brood has overrun the lower decks and nineteen survivors are holding out",
+  "art": {
+    "prefix": "science fiction illustration, interior of a huge starship, metal bulkheads, steel deck plating, pipes and conduits, glowing control panels, cold blue and amber emergency lighting, gritty industrial sci-fi, cinematic, rich detail,",
+    "negative": "text, watermark, signature, logo, lowres, blurry, jpeg artifacts, deformed, extra limbs, extra fingers, forest, trees, grass, sky, outdoors, medieval, castle, fantasy, magic, swords, armor, wooden, stone walls, torches",
+    "creature": "alien bio-horror creature from a science fiction horror film",
+    "framing": {
+      "locations": "wide establishing shot of a starship interior, eye level, no people",
+      "modules": "sweeping panoramic shot of a huge starship, low angle, stars outside, no people"
+    }
+  },
   "recommendedLevel": 5,
   "hardHp": 1.1,
   "intro": "Nine years ago the colony ship Meridian stopped answering. Last month a beacon began to repeat from its flank, a tired woman's voice: we are no longer alone aboard, do not use the main lock. Your shuttle is clamped to the main lock now. Ahead lies a ship of fifty rooms: the docking ring, the habitat decks, the gardens and laboratories, the engine spine, and the command deck at the bow. Somewhere below the great garden, something is growing, and it has a heartbeat.",
