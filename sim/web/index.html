@@ -1829,6 +1829,7 @@ function uxHeader() {
   mk("undoBtn", "Undo", "Take back your last action (U)", undoLast); mk("rewBtn", "Rewind", "Go back to the last rest", rewindRest); mk("jrnBtn", "Journal", "People you have met, quests (J)", showJournal);
   const h = el("button", { id: "helpBtn", textContent: "?", title: "How to play (?)", "aria-label": "Help", onclick: showHelp }), s = el("button", { id: "setBtn", textContent: "Settings", title: "Sound, voices, text size, colours (S)", onclick: showSettings });
   hdr.insertBefore(h, anchor); hdr.insertBefore(s, anchor);
+  hdr.insertBefore(el("button", { id: "modelsBtn", textContent: "3D", title: "3D models: textures and characters, fly around with W A S D and the mouse", onclick: () => { location.href = "models.html"; } }), anchor);
   $("#log")?.setAttribute("aria-live", "polite");
 }
 let undoTimer = 0;

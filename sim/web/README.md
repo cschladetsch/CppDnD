@@ -28,6 +28,18 @@
 - **Settings** (saved in the browser): sound effects and a quiet drone per module (synthesised, no files), narration and NPC lines read aloud by the device's own voices, typed-out narration (click to finish it), computer turns without a pause, text size and a colour-blind marker set. Neighbouring rooms' pictures are fetched ahead of time.
 - **Keys.** `/` focuses the prompt, `1` to `9` choose an attack or spell, `E` ends the turn, `U` undoes, `J` journal, `S` settings, `?` help; Tab and Enter work on squares and buttons. New games default to Normal difficulty.
 
+## 3D models viewer
+
+`models.html` (the **3D** button in the header) shows each world's textures and its characters as real 3D models and lets you fly through the room: click the view, then W A S D to move, the mouse to look, Q and E down and up, Shift for speed, the wheel to change speed, Esc to free the mouse (arrow keys also turn). Click a character to pick it, F flies to it, and Shift+click the floor sends it there. It uses a vendored three.js (`vendor/three`, MIT, no network needed).
+
+Everything it shows is built by Blender, from the game data, with `assets.ps1` at the repo root (`sim/tools/gen_assets.py`, run as `blender -b -P`, or with the `bpy` pip module):
+
+- **Textures.** Each world has a floor and a wall made from shader nodes (cobble, flagstone, brick, riveted plate, moss) and baked to a diffuse and a normal map; noise-based ones are made seamless. `.\assets.ps1 -NewTextures` adds another variant of every world (new noise seed, shifted colours) and keeps the old ones. A running viewer notices the new set within ten seconds and switches to it.
+- **Characters.** One rigged low-poly model per hero (the global cast and each module's cast) with Idle and Walk animations and its own baked cloth texture. Look, build and props come from the id and class, so a hero is always the same figure, and an existing model is never overwritten unless `-RebuildCharacters` is given. Sci-fi worlds get helmets and blasters instead of hats and swords.
+- **Persistence.** The files are the persistent part (`assets/manifest.json` lists them). The viewer also remembers your world, texture variant, animation, camera and where you put each character, in the browser.
+
+The pre-built set is committed under `assets/`; rebuilding needs Blender (`winget install BlenderFoundation.Blender`).
+
 ## Using a different front end
 
 The server only needs a folder of static files:

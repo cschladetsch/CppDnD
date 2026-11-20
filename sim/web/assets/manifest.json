@@ -1,0 +1,618 @@
+{
+ "themes": {
+  "classic": {
+   "label": "Classic delve",
+   "accent": "#c9a24a",
+   "variants": {
+    "1": {
+     "floor": {
+      "d": "textures/classic_floor_v1_d.png",
+      "n": "textures/classic_floor_v1_n.png",
+      "kind": "flagstone"
+     },
+     "wall": {
+      "d": "textures/classic_wall_v1_d.png",
+      "n": "textures/classic_wall_v1_n.png",
+      "kind": "brick"
+     }
+    }
+   }
+  },
+  "ravenmoor": {
+   "label": "The Dread of Ravenmoor",
+   "accent": "#8a2c3a",
+   "variants": {
+    "1": {
+     "floor": {
+      "d": "textures/ravenmoor_floor_v1_d.png",
+      "n": "textures/ravenmoor_floor_v1_n.png",
+      "kind": "cobble"
+     },
+     "wall": {
+      "d": "textures/ravenmoor_wall_v1_d.png",
+      "n": "textures/ravenmoor_wall_v1_n.png",
+      "kind": "brick"
+     }
+    }
+   }
+  },
+  "cyberhood": {
+   "label": "CyberHood",
+   "accent": "#ff2bd6",
+   "variants": {
+    "1": {
+     "floor": {
+      "d": "textures/cyberhood_floor_v1_d.png",
+      "n": "textures/cyberhood_floor_v1_n.png",
+      "kind": "plate"
+     },
+     "wall": {
+      "d": "textures/cyberhood_wall_v1_d.png",
+      "n": "textures/cyberhood_wall_v1_n.png",
+      "kind": "plate"
+     }
+    }
+   }
+  },
+  "hollow_crown": {
+   "label": "The Hollow Crown",
+   "accent": "#d9b13b",
+   "variants": {
+    "1": {
+     "floor": {
+      "d": "textures/hollow_crown_floor_v1_d.png",
+      "n": "textures/hollow_crown_floor_v1_n.png",
+      "kind": "flagstone"
+     },
+     "wall": {
+      "d": "textures/hollow_crown_wall_v1_d.png",
+      "n": "textures/hollow_crown_wall_v1_n.png",
+      "kind": "brick"
+     }
+    }
+   }
+  },
+  "sunless_abbey": {
+   "label": "The Sunless Abbey",
+   "accent": "#6fbf73",
+   "variants": {
+    "1": {
+     "floor": {
+      "d": "textures/sunless_abbey_floor_v1_d.png",
+      "n": "textures/sunless_abbey_floor_v1_n.png",
+      "kind": "moss"
+     },
+     "wall": {
+      "d": "textures/sunless_abbey_wall_v1_d.png",
+      "n": "textures/sunless_abbey_wall_v1_n.png",
+      "kind": "cobble"
+     }
+    }
+   }
+  },
+  "meridian": {
+   "label": "The Meridian",
+   "accent": "#37d6ff",
+   "variants": {
+    "1": {
+     "floor": {
+      "d": "textures/meridian_floor_v1_d.png",
+      "n": "textures/meridian_floor_v1_n.png",
+      "kind": "plate"
+     },
+     "wall": {
+      "d": "textures/meridian_wall_v1_d.png",
+      "n": "textures/meridian_wall_v1_n.png",
+      "kind": "plate"
+     }
+    },
+    "2": {
+     "floor": {
+      "d": "textures/meridian_floor_v2_d.png",
+      "n": "textures/meridian_floor_v2_n.png",
+      "kind": "plate"
+     },
+     "wall": {
+      "d": "textures/meridian_wall_v2_d.png",
+      "n": "textures/meridian_wall_v2_n.png",
+      "kind": "plate"
+     }
+    }
+   }
+  }
+ },
+ "characters": [
+  {
+   "id": "thorin",
+   "name": "Thorin",
+   "cls": "fighter",
+   "module": "classic",
+   "tags": [
+    "humanoid",
+    "dwarf"
+   ],
+   "model": "models/thorin.glb",
+   "cloth": "textures/char_thorin.png",
+   "height": 1.84
+  },
+  {
+   "id": "elara",
+   "name": "Elara",
+   "cls": "wizard",
+   "module": "classic",
+   "tags": [
+    "humanoid",
+    "elf"
+   ],
+   "model": "models/elara.glb",
+   "cloth": "textures/char_elara.png",
+   "height": 1.8
+  },
+  {
+   "id": "aldric",
+   "name": "Aldric",
+   "cls": "cleric",
+   "module": "classic",
+   "tags": [
+    "humanoid"
+   ],
+   "model": "models/aldric.glb",
+   "cloth": "textures/char_aldric.png",
+   "height": 1.86
+  },
+  {
+   "id": "finn",
+   "name": "Finn",
+   "cls": "rogue",
+   "module": "classic",
+   "tags": [
+    "humanoid",
+    "halfling"
+   ],
+   "model": "models/finn.glb",
+   "cloth": "textures/char_finn.png",
+   "height": 1.86
+  },
+  {
+   "id": "gruk",
+   "name": "Gruk",
+   "cls": "barbarian",
+   "module": "classic",
+   "tags": [
+    "humanoid",
+    "half-orc"
+   ],
+   "model": "models/gruk.glb",
+   "cloth": "textures/char_gruk.png",
+   "height": 1.72
+  },
+  {
+   "id": "sylva",
+   "name": "Sylva",
+   "cls": "ranger",
+   "module": "classic",
+   "tags": [
+    "humanoid",
+    "elf"
+   ],
+   "model": "models/sylva.glb",
+   "cloth": "textures/char_sylva.png",
+   "height": 1.85
+  },
+  {
+   "id": "kade_riot",
+   "name": "Kade Riot",
+   "cls": "fighter",
+   "module": "cyberhood",
+   "tags": [
+    "humanoid",
+    "human",
+    "augmented"
+   ],
+   "model": "models/kade_riot.glb",
+   "cloth": "textures/char_kade_riot.png",
+   "height": 1.72
+  },
+  {
+   "id": "nyx_cipher",
+   "name": "Nyx Cipher",
+   "cls": "wizard",
+   "module": "cyberhood",
+   "tags": [
+    "humanoid",
+    "human",
+    "netrunner"
+   ],
+   "model": "models/nyx_cipher.glb",
+   "cloth": "textures/char_nyx_cipher.png",
+   "height": 1.72
+  },
+  {
+   "id": "doc_vasquez",
+   "name": "Doc Vasquez",
+   "cls": "cleric",
+   "module": "cyberhood",
+   "tags": [
+    "humanoid",
+    "human",
+    "ripperdoc"
+   ],
+   "model": "models/doc_vasquez.glb",
+   "cloth": "textures/char_doc_vasquez.png",
+   "height": 1.75
+  },
+  {
+   "id": "slip_marlowe",
+   "name": "Slip Marlowe",
+   "cls": "rogue",
+   "module": "cyberhood",
+   "tags": [
+    "humanoid",
+    "human",
+    "street"
+   ],
+   "model": "models/slip_marlowe.glb",
+   "cloth": "textures/char_slip_marlowe.png",
+   "height": 1.76
+  },
+  {
+   "id": "juno_vance",
+   "name": "Juno Vance",
+   "cls": "ranger",
+   "module": "cyberhood",
+   "tags": [
+    "humanoid",
+    "human",
+    "courier"
+   ],
+   "model": "models/juno_vance.glb",
+   "cloth": "textures/char_juno_vance.png",
+   "height": 1.66
+  },
+  {
+   "id": "tank_okafor",
+   "name": "Tank Okafor",
+   "cls": "barbarian",
+   "module": "cyberhood",
+   "tags": [
+    "humanoid",
+    "human",
+    "augmented"
+   ],
+   "model": "models/tank_okafor.glb",
+   "cloth": "textures/char_tank_okafor.png",
+   "height": 1.74
+  },
+  {
+   "id": "ser_aldwin",
+   "name": "Ser Aldwin Vale",
+   "cls": "fighter",
+   "module": "hollow_crown",
+   "tags": [
+    "humanoid",
+    "human",
+    "knight"
+   ],
+   "model": "models/ser_aldwin.glb",
+   "cloth": "textures/char_ser_aldwin.png",
+   "height": 1.83
+  },
+  {
+   "id": "lady_isolde",
+   "name": "Lady Isolde Marrow",
+   "cls": "wizard",
+   "module": "hollow_crown",
+   "tags": [
+    "humanoid",
+    "elf",
+    "court"
+   ],
+   "model": "models/lady_isolde.glb",
+   "cloth": "textures/char_lady_isolde.png",
+   "height": 1.77
+  },
+  {
+   "id": "mother_perpetua",
+   "name": "Mother Perpetua",
+   "cls": "cleric",
+   "module": "hollow_crown",
+   "tags": [
+    "humanoid",
+    "human",
+    "priest"
+   ],
+   "model": "models/mother_perpetua.glb",
+   "cloth": "textures/char_mother_perpetua.png",
+   "height": 1.77
+  },
+  {
+   "id": "jory_sparrow",
+   "name": "Jory Sparrow",
+   "cls": "rogue",
+   "module": "hollow_crown",
+   "tags": [
+    "humanoid",
+    "human",
+    "spy"
+   ],
+   "model": "models/jory_sparrow.glb",
+   "cloth": "textures/char_jory_sparrow.png",
+   "height": 1.69
+  },
+  {
+   "id": "kestrel_wood",
+   "name": "Kestrel of the Wood",
+   "cls": "ranger",
+   "module": "hollow_crown",
+   "tags": [
+    "humanoid",
+    "elf",
+    "forester"
+   ],
+   "model": "models/kestrel_wood.glb",
+   "cloth": "textures/char_kestrel_wood.png",
+   "height": 1.71
+  },
+  {
+   "id": "grimm_ironhide",
+   "name": "Grimm Ironhide",
+   "cls": "barbarian",
+   "module": "hollow_crown",
+   "tags": [
+    "humanoid",
+    "half-orc",
+    "mercenary"
+   ],
+   "model": "models/grimm_ironhide.glb",
+   "cloth": "textures/char_grimm_ironhide.png",
+   "height": 1.81
+  },
+  {
+   "id": "cmdr_reyes",
+   "name": "Commander Reyes",
+   "cls": "fighter",
+   "module": "meridian",
+   "tags": [
+    "humanoid",
+    "human",
+    "marine"
+   ],
+   "model": "models/cmdr_reyes.glb",
+   "cloth": "textures/char_cmdr_reyes.png",
+   "height": 1.71
+  },
+  {
+   "id": "dr_halloran",
+   "name": "Dr. Halloran",
+   "cls": "cleric",
+   "module": "meridian",
+   "tags": [
+    "humanoid",
+    "human",
+    "medic"
+   ],
+   "model": "models/dr_halloran.glb",
+   "cloth": "textures/char_dr_halloran.png",
+   "height": 1.63
+  },
+  {
+   "id": "ensign_pike",
+   "name": "Ensign Pike",
+   "cls": "rogue",
+   "module": "meridian",
+   "tags": [
+    "humanoid",
+    "human",
+    "infiltrator"
+   ],
+   "model": "models/ensign_pike.glb",
+   "cloth": "textures/char_ensign_pike.png",
+   "height": 1.85
+  },
+  {
+   "id": "tech_ozawa",
+   "name": "Tech Ozawa",
+   "cls": "wizard",
+   "module": "meridian",
+   "tags": [
+    "humanoid",
+    "human",
+    "engineer"
+   ],
+   "model": "models/tech_ozawa.glb",
+   "cloth": "textures/char_tech_ozawa.png",
+   "height": 1.65
+  },
+  {
+   "id": "scout_kiri",
+   "name": "Scout Kiri",
+   "cls": "ranger",
+   "module": "meridian",
+   "tags": [
+    "humanoid",
+    "human",
+    "scout"
+   ],
+   "model": "models/scout_kiri.glb",
+   "cloth": "textures/char_scout_kiri.png",
+   "height": 1.85
+  },
+  {
+   "id": "sgt_brakk",
+   "name": "Sergeant Brakk",
+   "cls": "barbarian",
+   "module": "meridian",
+   "tags": [
+    "humanoid",
+    "half-orc",
+    "marine"
+   ],
+   "model": "models/sgt_brakk.glb",
+   "cloth": "textures/char_sgt_brakk.png",
+   "height": 1.83
+  },
+  {
+   "id": "bram_oakhand",
+   "name": "Bram Oakhand",
+   "cls": "fighter",
+   "module": "ravenmoor",
+   "tags": [
+    "humanoid",
+    "human"
+   ],
+   "model": "models/bram_oakhand.glb",
+   "cloth": "textures/char_bram_oakhand.png",
+   "height": 1.77
+  },
+  {
+   "id": "maeve_hollin",
+   "name": "Maeve Hollin",
+   "cls": "wizard",
+   "module": "ravenmoor",
+   "tags": [
+    "humanoid",
+    "human"
+   ],
+   "model": "models/maeve_hollin.glb",
+   "cloth": "textures/char_maeve_hollin.png",
+   "height": 1.72
+  },
+  {
+   "id": "brother_edmund",
+   "name": "Brother Edmund",
+   "cls": "cleric",
+   "module": "ravenmoor",
+   "tags": [
+    "humanoid",
+    "human"
+   ],
+   "model": "models/brother_edmund.glb",
+   "cloth": "textures/char_brother_edmund.png",
+   "height": 1.86
+  },
+  {
+   "id": "wren_tallow",
+   "name": "Wren Tallow",
+   "cls": "rogue",
+   "module": "ravenmoor",
+   "tags": [
+    "humanoid",
+    "halfling"
+   ],
+   "model": "models/wren_tallow.glb",
+   "cloth": "textures/char_wren_tallow.png",
+   "height": 1.72
+  },
+  {
+   "id": "hob_marsh",
+   "name": "Hob Marsh",
+   "cls": "ranger",
+   "module": "ravenmoor",
+   "tags": [
+    "humanoid",
+    "human"
+   ],
+   "model": "models/hob_marsh.glb",
+   "cloth": "textures/char_hob_marsh.png",
+   "height": 1.71
+  },
+  {
+   "id": "agnes_blackthorn",
+   "name": "Agnes Blackthorn",
+   "cls": "barbarian",
+   "module": "ravenmoor",
+   "tags": [
+    "humanoid",
+    "human"
+   ],
+   "model": "models/agnes_blackthorn.glb",
+   "cloth": "textures/char_agnes_blackthorn.png",
+   "height": 1.62
+  },
+  {
+   "id": "sister_marguerite",
+   "name": "Sister Marguerite",
+   "cls": "cleric",
+   "module": "sunless_abbey",
+   "tags": [
+    "humanoid",
+    "human",
+    "pilgrim"
+   ],
+   "model": "models/sister_marguerite.glb",
+   "cloth": "textures/char_sister_marguerite.png",
+   "height": 1.86
+  },
+  {
+   "id": "brother_anselm",
+   "name": "Brother Anselm",
+   "cls": "fighter",
+   "module": "sunless_abbey",
+   "tags": [
+    "humanoid",
+    "human",
+    "lay-brother"
+   ],
+   "model": "models/brother_anselm.glb",
+   "cloth": "textures/char_brother_anselm.png",
+   "height": 1.77
+  },
+  {
+   "id": "ilse_candlewick",
+   "name": "Ilse Candlewick",
+   "cls": "wizard",
+   "module": "sunless_abbey",
+   "tags": [
+    "humanoid",
+    "human",
+    "scribe"
+   ],
+   "model": "models/ilse_candlewick.glb",
+   "cloth": "textures/char_ilse_candlewick.png",
+   "height": 1.81
+  },
+  {
+   "id": "toby_gaunt",
+   "name": "Toby Gaunt",
+   "cls": "rogue",
+   "module": "sunless_abbey",
+   "tags": [
+    "humanoid",
+    "halfling",
+    "grave-robber"
+   ],
+   "model": "models/toby_gaunt.glb",
+   "cloth": "textures/char_toby_gaunt.png",
+   "height": 1.63
+  },
+  {
+   "id": "odette_fell",
+   "name": "Odette Fell",
+   "cls": "ranger",
+   "module": "sunless_abbey",
+   "tags": [
+    "humanoid",
+    "human",
+    "hunter"
+   ],
+   "model": "models/odette_fell.glb",
+   "cloth": "textures/char_odette_fell.png",
+   "height": 1.63
+  },
+  {
+   "id": "ulf_stonebreaker",
+   "name": "Ulf Stonebreaker",
+   "cls": "barbarian",
+   "module": "sunless_abbey",
+   "tags": [
+    "humanoid",
+    "dwarf",
+    "quarryman"
+   ],
+   "model": "models/ulf_stonebreaker.glb",
+   "cloth": "textures/char_ulf_stonebreaker.png",
+   "height": 1.64
+  }
+ ],
+ "version": 1
+}
