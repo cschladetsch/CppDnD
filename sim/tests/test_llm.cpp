@@ -411,6 +411,7 @@ TEST(Llm, MatureContentPolicy) {
     EXPECT_NE(pre.find("Do not refuse"), std::string::npos);
     EXPECT_NE(pre.find("18 or older"), std::string::npos);
     EXPECT_NE(pre.find("minor"), std::string::npos);
+    EXPECT_NE(pre.find("always does what the player says"), std::string::npos);
 
     // ---- the wrapper puts it in front of every system prompt and leaves the rest alone
     std::string seen;
@@ -428,10 +429,11 @@ TEST(Llm, MatureContentPolicy) {
     Game g(cfg);
     const std::string before = g.LocationId();
     std::string sayPrompt;
-    MockLlmClient actor([&](const std::string& sys, const std::string&, bool) {
-        sayPrompt = sys;
+    MockLlmClient actor([&](const std::string& sys, const std::string&, bool json) {
         LlmReply r; r.ok = true;
-        r.content = R"({"steps":[{"cmd":"act","what":"hug Elara"}],"reply":"Elara laughs and hugs you back."})";
+        if (!json) { r.content = "Elara laughs and hugs you back."; return r; }  // the narrator
+        sayPrompt = sys;
+        r.content = R"({"steps":[{"cmd":"act","what":"hug Elara"}],"reply":"Hm."})";
         return r;
     });
     const SayResult sr = Say(actor, g, "hug elara");
@@ -491,12 +493,23 @@ TEST(Llm, SayNarratesStepsTheEngineHasNoCommandFor) {
     EXPECT_NE(narrateUser.find("Kade kneels; smiles"), std::string::npos);
     EXPECT_EQ(g.LocationId(), before);
     // an act step mixed with a real command still runs the command, and a given reply is not re-narrated
-    MockLlmClient mixed([&](const std::string&, const std::string&, bool) {
-        LlmReply r; r.ok = true; r.content = R"({"steps":[{"cmd":"act","what":"waves"},{"cmd":"search"}],"reply":"You wave, then look around."})"; return r; });
+    // an act step mixed with a real command still runs the command; the narrator, not the translator's reply, describes the act
+    std::string narratorSys;
+    MockLlmClient mixed([&](const std::string& sys, const std::string&, bool json) {
+        LlmReply r; r.ok = true;
+        if (json) r.content = R"({"steps":[{"cmd":"act","what":"waves"},{"cmd":"search"}],"reply":"The constable frowns."})";
+        else { narratorSys = sys; r.content = "You wave, then look around."; }
+        return r; });
     const SayResult mx = Say(mixed, g, "wave and search");
     EXPECT_TRUE(mx.ok);
     EXPECT_EQ(mx.steps, (std::vector<std::string>{"act", "search"}));
     EXPECT_EQ(mx.message, "You wave, then look around.");
+    EXPECT_NE(narratorSys.find("not one of the characters"), std::string::npos);
+    EXPECT_NE(narratorSys.find(g.Hero()), std::string::npos);
+    // the narrator failing keeps the translator's reply
+    MockLlmClient noNarrator([&](const std::string&, const std::string&, bool json) {
+        LlmReply r; r.ok = json; r.content = R"({"steps":[{"cmd":"act"}],"reply":"You wave."})"; return r; });
+    EXPECT_EQ(Say(noNarrator, g, "wave").message, "You wave.");
     // plain prose instead of JSON is shown as the narration; broken JSON names what came back
     MockLlmClient prose([](const std::string&, const std::string&, bool) { LlmReply r; r.ok = true; r.content = "She kneels."; return r; });
     const SayResult pr = Say(prose, g, "kneel");
