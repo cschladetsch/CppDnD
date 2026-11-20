@@ -468,3 +468,43 @@ TEST(Llm, MatureContentPolicy) {
     AgentTable plain(*off, [](const std::string&, const BackendDef&, const AgentDef&) { return std::make_shared<MockLlmClient>(); });
     EXPECT_FALSE(std::dynamic_pointer_cast<ContentPolicyClient>(plain.Dm()->Client()));
 }
+
+TEST(Llm, SayNarratesStepsTheEngineHasNoCommandFor) {
+    GameConfig cfg; cfg.moduleId = "ravenmoor"; cfg.seed = 11;
+    Game g(cfg);
+    const std::string before = g.LocationId();
+    // a step with no cmd at all (what the model sent for "kade takes off her top and kneels"), and no reply: a second call narrates it
+    int calls = 0;
+    std::string narrateUser;
+    MockLlmClient m([&](const std::string&, const std::string& user, bool json) {
+        ++calls;
+        LlmReply r; r.ok = true;
+        if (json) r.content = R"({"steps":[{"action":"Kade kneels"},{"cmd":"emote","what":"smiles"}],"reply":""})";
+        else { narrateUser = user; r.content = "Kade kneels on the wet tiles."; }
+        return r;
+    });
+    const SayResult sr = Say(m, g, "kade kneels");
+    EXPECT_TRUE(sr.ok);
+    EXPECT_EQ(sr.steps, (std::vector<std::string>{"act", "act"}));
+    EXPECT_EQ(sr.message, "Kade kneels on the wet tiles.");
+    EXPECT_EQ(calls, 2);
+    EXPECT_NE(narrateUser.find("Kade kneels; smiles"), std::string::npos);
+    EXPECT_EQ(g.LocationId(), before);
+    // an act step mixed with a real command still runs the command, and a given reply is not re-narrated
+    MockLlmClient mixed([&](const std::string&, const std::string&, bool) {
+        LlmReply r; r.ok = true; r.content = R"({"steps":[{"cmd":"act","what":"waves"},{"cmd":"search"}],"reply":"You wave, then look around."})"; return r; });
+    const SayResult mx = Say(mixed, g, "wave and search");
+    EXPECT_TRUE(mx.ok);
+    EXPECT_EQ(mx.steps, (std::vector<std::string>{"act", "search"}));
+    EXPECT_EQ(mx.message, "You wave, then look around.");
+    // plain prose instead of JSON is shown as the narration; broken JSON names what came back
+    MockLlmClient prose([](const std::string&, const std::string&, bool) { LlmReply r; r.ok = true; r.content = "She kneels."; return r; });
+    const SayResult pr = Say(prose, g, "kneel");
+    EXPECT_TRUE(pr.ok && pr.message == "She kneels.");
+    MockLlmClient broken([](const std::string&, const std::string&, bool) { LlmReply r; r.ok = true; r.content = "{\"steps\": [oops"; return r; });
+    const SayResult br = Say(broken, g, "kneel");
+    EXPECT_FALSE(br.ok);
+    EXPECT_NE(br.message.find("not the JSON"), std::string::npos);
+    EXPECT_NE(br.message.find("oops"), std::string::npos);
+    EXPECT_NE(RunExplorationStep(g, Json::object()).message.find("no command"), std::string::npos);
+}
