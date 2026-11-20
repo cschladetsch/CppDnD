@@ -10,6 +10,8 @@ Design notes: [dungeons_dragons_c_simulator_architecture.md](dungeons_dragons_c_
 
 ## Quick start
 
+On a fresh Windows machine, start with `.\install.ps1` (git, cmake, ninja, the C++ build tools and clang++ via winget, then clone if needed, build, test, and optionally Ollama with its models and Stable Diffusion; `-Yes`, `-Minimal`, `-NoLlm`, `-NoArt`, `-NoTests`, `-Dir`, `-Update`, `-Rebuild`). If scripts are blocked: `powershell -ExecutionPolicy Bypass -File .\install.ps1`.
+
 ```powershell
 .\run.ps1                              # build if needed, then watch the AI play a 3 room delve
 .\run.ps1 --interactive                # play it yourself (one hero, you choose each action)
