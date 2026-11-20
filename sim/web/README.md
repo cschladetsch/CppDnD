@@ -24,6 +24,9 @@
 - Gallery panel: every stored picture in a grid, newest first, with a full-size view on click.
 - Pictures panel: draw the scene, the party portraits or everything missing with the local image model, switch the model, watch progress.
 - Prompt box (plain English). Enabled when the server has a model: start it with `--ollama <model>` or set `DND_LLM_URL` and `DND_LLM_MODEL`.
+- **Play aids.** In a fight the squares you can reach are shaded and every foe shows your chance to hit and the expected damage (hover for cover, advantage and range). The log gives one plain line per attack; click it for the dice. Chips under the prompt suggest things to say. **Undo** takes back your last action, **Rewind** returns to the last rest, **Journal** lists quests and the people you have met, and a "Previously..." line opens a returning game. Hover a condition for its rule.
+- **Settings** (saved in the browser): sound effects and a quiet drone per module (synthesised, no files), narration and NPC lines read aloud by the device's own voices, typed-out narration (click to finish it), computer turns without a pause, text size and a colour-blind marker set. Neighbouring rooms' pictures are fetched ahead of time.
+- **Keys.** `/` focuses the prompt, `1` to `9` choose an attack or spell, `E` ends the turn, `U` undoes, `J` journal, `S` settings, `?` help; Tab and Enter work on squares and buttons. New games default to Normal difficulty.
 
 ## Using a different front end
 

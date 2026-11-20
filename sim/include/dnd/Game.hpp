@@ -155,6 +155,9 @@ public:
     const std::vector<Event>& Log() const { return log_; }
     int LastSeq() const { return seq_; }
     Json View(int sinceSeq = 0) const;
+    // The player's notebook: every person met in the places visited (how often they have dealt, the last thing said, topics heard)
+    // and the places visited. {npcs: [{id,name,type,place,placeId,met,dealings,topicsHeard,topicsTotal,last}], places: [{id,name,current}]}
+    Json Journal() const;
 
     // ---- persistence
     Json Save() const;

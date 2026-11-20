@@ -436,6 +436,37 @@ Json CombatView(const Combat& c) {
         opts["features"] = ft;
         opts["potions"] = s.potions;
         opts["slots"] = s.slots;
+        // what each weapon attack would do to each foe right now: legality, range, cover, advantage, the chance to hit and the expected damage
+        Json preview = Json::array();
+        for (std::size_t i = 0; i < s.attacks.size(); ++i) {
+            const auto& w = s.attacks[i];
+            Json row = Json::array();
+            for (const GameActor* t : c.HostilesOf(*me, true)) {
+                const AttackPreview pv = c.PreviewWeapon(*me, *t, w);
+                Json e{{"target", t->id}, {"legal", pv.legal}, {"distanceFt", pv.distanceFt}};
+                if (!pv.legal) e["whyNot"] = pv.whyNot;
+                else {
+                    const int need = t->EffectiveAc() + pv.coverBonus - w.toHit;
+                    const double p = std::clamp((21.0 - need) / 20.0, 0.05, 0.95);
+                    double hit = p, crit = 0.05;
+                    if (pv.mode == RollMode::Advantage) { hit = 1 - (1 - p) * (1 - p); crit = 1 - 0.95 * 0.95; }
+                    else if (pv.mode == RollMode::Disadvantage) { hit = p * p; crit = 0.05 * 0.05; }
+                    if (pv.autoCritOnHit) crit = hit;
+                    const double dice = w.damage.count * (w.damage.sides + 1) / 2.0, sneak = pv.sneak ? me->sheet.sneakAttackDice * 3.5 : 0.0;
+                    const double avg = w.damage.Average() + sneak;
+                    const double expected = (hit - crit) * avg + crit * (avg + dice + sneak);
+                    e["hitPct"] = static_cast<int>(hit * 100 + 0.5);
+                    e["critPct"] = static_cast<int>(crit * 100 + 0.5);
+                    e["expected"] = static_cast<int>(expected * 10 + 0.5) / 10.0;
+                    e["cover"] = pv.cover == Cover::None ? "" : pv.cover == Cover::Half ? "half cover" : pv.cover == Cover::ThreeQuarters ? "three-quarters cover" : "cover";
+                    e["mode"] = pv.mode == RollMode::Advantage ? "advantage" : pv.mode == RollMode::Disadvantage ? "disadvantage" : "";
+                    e["sneak"] = pv.sneak;
+                }
+                row.push_back(e);
+            }
+            preview.push_back(row);
+        }
+        opts["preview"] = preview;
         v["options"] = opts;
     }
     if (c.IsFinished()) {

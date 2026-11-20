@@ -94,6 +94,25 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .camnum { display:grid; grid-template-columns:auto 1fr; gap:4px 10px; align-items:center; font-size:13px; } .camnum input { width:100%; }
 .keys { font-size:12px; color:var(--dim); margin-top:6px; line-height:1.9; }
 kbd { background:#2a2638; border:1px solid var(--edge); border-bottom-width:2px; border-radius:4px; padding:0 5px; margin:0 1px; font:11px ui-monospace, monospace; color:var(--text); }
+/* UX layer */
+.chips{margin-top:2px} .chip{border-radius:14px;font-size:12px;padding:3px 10px;opacity:.9}
+.cell.reach{box-shadow:inset 0 0 0 100px rgba(95,176,255,.16)} .cell.inrange{outline:2px solid #e5c24a} .cell.outrange{outline:2px dashed #777;opacity:.8}
+.cell .badge{position:absolute;right:0;bottom:0;background:#1b1726;color:#e5c24a;font:700 10px ui-monospace,monospace;padding:0 2px;border-radius:3px 0 0 0;pointer-events:none}
+.cell .float{position:absolute;left:0;right:0;top:-2px;text-align:center;font:700 13px ui-monospace,monospace;pointer-events:none;animation:floatup 1.1s ease-out forwards;text-shadow:0 0 3px #000;z-index:3}
+.float.hit{color:#ff8a7a}.float.crit{color:#ffd54a;font-size:16px}.float.miss{color:#bbb}.float.heal{color:#7be08a}
+@keyframes floatup{from{transform:translateY(0);opacity:1}to{transform:translateY(-22px);opacity:0}}
+.cell.fx-hit{animation:shake .3s}.cell.fx-crit{animation:shake .4s,critglow .8s}.cell.fx-heal{animation:healglow .8s}
+@keyframes shake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
+@keyframes critglow{from{box-shadow:0 0 14px 4px #ffd54a}to{box-shadow:none}} @keyframes healglow{from{box-shadow:0 0 10px 3px #7be08a}to{box-shadow:none}}
+@media (prefers-reduced-motion:reduce){.cell.fx-hit,.cell.fx-crit,.cell.fx-heal,.cell .float{animation:none}}
+#log .expandable{cursor:pointer} #log .expandable:hover{text-decoration:underline dotted} #log .recap{color:var(--dim);border-left:3px solid var(--accent);padding-left:8px;margin-bottom:6px}
+.tipcard{background:#241f33;border:1px solid var(--accent);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px}
+.uxdlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
+.uxbox{max-width:560px;width:92vw;max-height:80vh;overflow:auto}.uxset{display:flex;gap:8px;align-items:center;padding:4px 0;color:var(--text)}.jrow{padding:3px 0}
+kbd{background:#2c2740;border:1px solid #4a4266;border-radius:4px;padding:0 5px;font:12px ui-monospace,monospace}
+body.cb .cell.party{outline:2px solid #648fff}body.cb .cell.foe{outline:2px dashed #ffb000}body.cb .cell.reach{box-shadow:inset 0 0 0 100px rgba(255,176,0,.18)}
+button:focus-visible,.cell:focus-visible,input:focus-visible,select:focus-visible,#log .expandable:focus-visible{outline:3px solid #fff;outline-offset:1px}
+@media (max-width:820px){main{grid-template-columns:1fr !important}button{min-height:36px}}
 </style>
 </head>
 <body>
@@ -138,8 +157,8 @@ async function showStart() {
   };
   mods.onchange = fillHero;
   fillHero();
-  const diff = el("select", { id: "diff" }, ...[["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"], ["deadly", "Deadly"]].map(([v, t]) => el("option", { value: v, textContent: t })));
-  diff.value = "hard";
+  const diff = el("select", { id: "diff" }, ...[["easy", "Easy"], ["medium", "Normal (recommended)"], ["hard", "Hard"], ["deadly", "Deadly"]].map(([v, t]) => el("option", { value: v, textContent: t })));
+  diff.value = "medium";
   const agentsBox = el("input", { type: "checkbox", id: "agents", disabled: !agentsOn });
   const seed = el("input", { id: "seed", type: "number", placeholder: "random" });
   const file = el("input", { type: "file", accept: ".json" });
@@ -271,7 +290,7 @@ function apply(v) {
   const turn = cb ? `  |  round ${cb.round}${cur ? `, turn: ${cur.name}${cb.awaiting === cur.id ? " (waiting for you)" : ""}` : ""}` : "";
   $("#sub").textContent = `${v.module.name}  |  day ${v.clock.day}, ${String(v.clock.clockHour).padStart(2, "0")}:00${v.clock.night ? " (night)" : ""}  |  ${v.mode}${turn}`;
   renderMap(); renderViewBar(); renderScene(); renderParty(); renderQuests(); renderCombat(); refreshTable(); refreshHistory();
-  if (v.mode === "combat" && v.combat && !v.combat.finished && v.combat.awaiting < 0 && !busy) setTimeout(advance, 120);
+  if (v.mode === "combat" && v.combat && !v.combat.finished && v.combat.awaiting < 0 && !busy) setTimeout(advance, aiDelay());
 }
 async function advance() {
   if (busy || !gid) return; busy = true;
@@ -1541,6 +1560,321 @@ function openLightbox(list, start) {
       el("div", { className: "row", style: "justify-content:center" }, el("button", { textContent: "Previous", onclick: () => show(-1) }), el("button", { textContent: "Next", onclick: () => show(1) }), el("button", { textContent: "Close (Esc)", onclick: close }))));
   window.addEventListener("keydown", onKey); document.body.append(dlg); show(0);
 }
+// ---------------------------------------------------------------- UX layer: settings, sound, voices, previews, chips, journal, undo, accessibility
+// Everything here wraps the functions above; nothing is required for the game to work.
+const UXK = "cppdnd.ux";
+const ux = Object.assign({ sound: false, voice: false, reveal: true, text: 100, cb: false, fast: false, tipsSeen: false }, (() => { try { return JSON.parse(lsGet(UXK) || "{}"); } catch { return {}; } })());
+function uxSave() { lsSet(UXK, JSON.stringify(ux)); uxApply(); }
+function uxApply() {
+  document.documentElement.style.fontSize = ux.text + "%";
+  document.body.classList.toggle("cb", !!ux.cb);
+  if (ux.sound) ambientStart(); else ambientStop();
+  if (!ux.voice && window.speechSynthesis) speechSynthesis.cancel();
+}
+const aiDelay = () => (ux.fast ? 0 : 350);
+const hash = s => { let h = 2166136261; for (const c of String(s)) h = Math.imul(h ^ c.charCodeAt(0), 16777619); return h >>> 0; };
+
+// ---- sound: small synthesised effects and a quiet drone per module, no audio files
+let AC = null, amb = null;
+function actx() {
+  if (!ux.sound) return null;
+  try { AC = AC || new (window.AudioContext || window.webkitAudioContext)(); if (AC.state === "suspended") AC.resume(); return AC; } catch { return null; }
+}
+function blip(freq, dur, type = "sine", vol = 0.06, slide = 0, delay = 0) {
+  const c = actx(); if (!c) return;
+  const t = c.currentTime + delay, o = c.createOscillator(), g = c.createGain();
+  o.type = type; o.frequency.setValueAtTime(freq, t); if (slide) o.frequency.linearRampToValueAtTime(Math.max(20, freq + slide), t + dur);
+  g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+  o.connect(g).connect(c.destination); o.start(t); o.stop(t + dur + 0.02);
+}
+function noiseBurst(dur, vol = 0.08, delay = 0) {
+  const c = actx(); if (!c) return;
+  const n = Math.floor(c.sampleRate * dur), buf = c.createBuffer(1, n, c.sampleRate), d = buf.getChannelData(0);
+  for (let i = 0; i < n; i++) d[i] = (Math.random() * 2 - 1) * (1 - i / n);
+  const s = c.createBufferSource(), g = c.createGain(); s.buffer = buf; g.gain.value = vol;
+  s.connect(g).connect(c.destination); s.start(c.currentTime + delay);
+}
+const SFX = {
+  dice() { for (let i = 0; i < 5; i++) blip(300 + Math.random() * 500, 0.035, "square", 0.025, 0, i * 0.045); },
+  hit() { noiseBurst(0.12, 0.09, 0.2); blip(140, 0.14, "sawtooth", 0.06, -60, 0.2); },
+  miss() { blip(320, 0.18, "sine", 0.04, -200, 0.2); },
+  crit() { SFX.hit(); blip(880, 0.3, "triangle", 0.06, 300, 0.25); blip(1320, 0.3, "triangle", 0.04, 0, 0.3); },
+  down() { blip(130, 0.6, "sawtooth", 0.07, -90); },
+  heal() { blip(520, 0.25, "sine", 0.05, 320); },
+  quest() { [523, 659, 784].forEach((f, i) => blip(f, 0.18, "triangle", 0.05, 0, i * 0.12)); },
+  travel() { noiseBurst(0.35, 0.03); },
+};
+const sfx = k => { if (ux.sound && SFX[k]) SFX[k](); };
+function ambientStart() {
+  const c = actx(); if (!c || amb || !view) return;
+  const base = 55 + (hash(view.module.id) % 40);
+  const g = c.createGain(), lp = c.createBiquadFilter(), lfo = c.createOscillator(), lg = c.createGain();
+  g.gain.value = 0.0001; g.gain.linearRampToValueAtTime(0.035, c.currentTime + 3);
+  lp.type = "lowpass"; lp.frequency.value = 420; lfo.frequency.value = 0.07; lg.gain.value = 140; lfo.connect(lg).connect(lp.frequency);
+  const oscs = [1, 1.5, 2.01].map((m, i) => { const o = c.createOscillator(); o.type = i ? "sine" : "triangle"; o.frequency.value = base * m; o.connect(lp); o.start(); return o; });
+  lp.connect(g).connect(c.destination); lfo.start(); amb = { g, oscs, lfo, module: view.module.id, lp };
+}
+function ambientStop() { if (!amb || !AC) { amb = null; return; } const a = amb; amb = null; try { a.g.gain.linearRampToValueAtTime(0.0001, AC.currentTime + 0.6); setTimeout(() => { a.oscs.forEach(o => o.stop()); a.lfo.stop(); }, 700); } catch {} }
+function ambientFollow() {
+  if (!ux.sound || !view) return;
+  if (amb && amb.module !== view.module.id) ambientStop();
+  if (!amb) ambientStart();
+  if (amb && AC) amb.lp.frequency.linearRampToValueAtTime(view.mode === "combat" ? 900 : 420, AC.currentTime + 1.5);
+}
+
+// ---- local text-to-speech: narration in the default voice, a different voice and pitch per speaker
+function speak(text, speaker) {
+  if (!ux.voice || !window.speechSynthesis || !text) return;
+  const u = new SpeechSynthesisUtterance(text), vs = speechSynthesis.getVoices().filter(v => /^en/i.test(v.lang));
+  if (speaker && vs.length) { const h = hash(speaker); u.voice = vs[h % vs.length]; u.pitch = 0.7 + (h % 7) / 7 * 0.9; u.rate = 0.95 + (h % 5) / 25; }
+  speechSynthesis.speak(u);
+}
+const speakerOf = t => { const m = /^([A-Z][\w' .-]{1,24}):\s+(.*)$/s.exec(t || ""); return m ? { who: m[1], line: m[2] } : null; };
+
+// ---- narration reveal: typed out; click to finish
+function reveal(node, text) {
+  if (!ux.reveal || matchMedia("(prefers-reduced-motion: reduce)").matches || text.length < 40) { node.textContent = text; return; }
+  node.textContent = ""; let i = 0;
+  const step = () => { i = Math.min(text.length, i + 3); node.textContent = text.slice(0, i); const log = $("#log"); if (log) log.scrollTop = log.scrollHeight; if (i < text.length) node.h = setTimeout(step, 16); };
+  node.onclick = () => { clearTimeout(node.h); node.textContent = text; };
+  step();
+}
+const baseLogLine = logLine;
+logLine = function (cls, text) {
+  const log = $("#log"); if (!log) return;
+  const d = el("div", { className: cls }); log.append(d);
+  if (cls === "narration") { reveal(d, text); const s = speakerOf(text); speak(s ? s.line : text, s && s.who); } else d.textContent = text;
+  log.scrollTop = log.scrollHeight;
+};
+
+// ---- the log: one plain line per attack, the dice behind a click
+let fx = [];
+function actorName(id) { const a = view && view.combat && view.combat.actors.find(x => x.id === id); return a ? a.name : ""; }
+function shortAttack(e) {
+  const a = actorName(e.actor), t = actorName(e.target);
+  if (!a || !t) return e.text;
+  const crit = /crit/i.test(e.text), miss = /miss|fumble/i.test(e.text) && !(e.amount > 0), hit = e.amount > 0 || (!miss && /\bhit/i.test(e.text));
+  return crit ? `${a} lands a critical hit on ${t} for ${e.amount}` : hit ? `${a} hits ${t}${e.amount ? ` for ${e.amount}` : ""}` : `${a} misses ${t}`;
+}
+logEvents = function (events) {
+  const log = $("#log"); if (!log) return;
+  for (const e of events) {
+    if (e.seq <= lastSeq) continue; lastSeq = e.seq;
+    const d = el("div", { className: e.type });
+    const short = e.type === "attack" && e.text ? shortAttack(e) : e.text;
+    if (e.type === "narration" || e.type === "scene") { reveal(d, e.text); const s = speakerOf(e.text); speak(s ? s.line : e.text, s && s.who); }
+    else if (short !== e.text) {
+      d.classList.add("expandable"); d.textContent = short; d.title = "Click to see the dice"; d.tabIndex = 0;
+      const flip = () => { const open = d.dataset.open === "1"; d.dataset.open = open ? "0" : "1"; d.textContent = open ? short : e.text; };
+      d.onclick = flip; d.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); flip(); } };
+    } else d.textContent = e.text;
+    log.append(d);
+    if (e.flavour) log.append(el("div", { className: "flavour", textContent: e.flavour }));
+    uxEvent(e, short);
+  }
+  log.scrollTop = log.scrollHeight;
+};
+function uxEvent(e, short) {
+  if (e.type === "attack") {
+    const crit = /critical/i.test(short) || /crit/i.test(e.text), hit = e.amount > 0 && !/misses/.test(short);
+    sfx("dice"); sfx(crit ? "crit" : hit ? "hit" : "miss");
+    fx.push({ id: e.target, kind: crit ? "crit" : hit ? "hit" : "miss", amt: e.amount });
+  } else if (e.type === "heal") { sfx("heal"); fx.push({ id: e.target, kind: "heal", amt: e.amount }); }
+  else if (e.type === "down" || e.type === "death") { sfx("down"); fx.push({ id: e.target >= 0 ? e.target : e.actor, kind: "crit", amt: "" }); }
+  else if (e.type === "quest") sfx("quest");
+  else if (e.type === "travel") sfx("travel");
+}
+
+// ---- rule tooltips for conditions
+const GLOSS = {
+  blinded: "Cannot see; attacks against it have advantage and its own attacks have disadvantage.", charmed: "Cannot attack the charmer; the charmer has advantage on social checks.",
+  frightened: "Disadvantage on checks and attacks while the source is in sight; cannot move closer to it.", grappled: "Speed is 0 until released.", incapacitated: "Cannot take actions or reactions.",
+  invisible: "Cannot be seen; attacks against it have disadvantage and its own have advantage.", paralyzed: "Incapacitated; attacks against it have advantage and hits within 5 ft are critical.",
+  poisoned: "Disadvantage on attack rolls and ability checks.", prone: "Melee attacks against it have advantage, ranged have disadvantage; standing costs half the movement.",
+  restrained: "Speed 0; attacks against it have advantage; its attacks have disadvantage.", stunned: "Incapacitated; attacks against it have advantage.", unconscious: "Helpless and prone; hits within 5 ft are critical.",
+  dodging: "Attacks against it have disadvantage until its next turn.", raging: "Bonus melee damage and resistance to physical damage.", hasted: "Extra action and doubled speed.", slowed: "Halved speed, -2 to AC.",
+  bless: "Adds 1d4 to attack rolls and saves.", bane: "Subtracts 1d4 from attack rolls and saves.", "hunter's mark": "Extra 1d6 damage against the marked target.",
+};
+const gloss = n => GLOSS[String(n).toLowerCase()] || "";
+
+// ---- combat grid: reachable squares, hit chance and expected damage on each foe
+function reachable(c, me, ft) {
+  const w = c.grid.width, rows = c.grid.rows, occ = new Set(c.actors.filter(a => a.life !== "dead" && a.id !== me.id).map(a => a.pos.join(",")));
+  const best = new Map([[me.pos.join(","), 0]]), q = [[me.pos[0], me.pos[1], 0]];
+  while (q.length) {
+    q.sort((a, b) => a[2] - b[2]); const [x, y, d] = q.shift(); if (d > (best.get(`${x},${y}`) ?? 1e9)) continue;
+    for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+      if (!dx && !dy) continue; const nx = x + dx, ny = y + dy; if (nx < 0 || ny < 0 || nx >= w || ny >= rows.length) continue;
+      const ch = rows[ny][nx]; if (ch === "#" || occ.has(`${nx},${ny}`)) continue;
+      const nd = d + (ch === "~" ? 10 : 5); if (nd > ft || nd >= (best.get(`${nx},${ny}`) ?? 1e9)) continue;
+      best.set(`${nx},${ny}`, nd); q.push([nx, ny, nd]);
+    }
+  }
+  return best;
+}
+const baseRenderCombat = renderCombat;
+renderCombat = function () {
+  baseRenderCombat();
+  const c = view && view.combat, box = $("#combat"); if (!c || box.hidden) { fx = []; return; }
+  const grid = $("#grid", box); if (!grid) return;
+  grid.setAttribute("role", "grid"); grid.setAttribute("aria-label", "Combat grid");
+  const w = c.grid.width, cells = [...grid.children], opts = c.options, me = opts && c.actors.find(a => a.id === opts.actor);
+  cells.forEach((cell, i) => {
+    const x = i % w, y = Math.floor(i / w), who = c.actors.find(a => a.life !== "dead" && a.pos[0] === x && a.pos[1] === y);
+    cell.setAttribute("role", "gridcell"); cell.setAttribute("aria-label", cell.title || (who ? who.name : `square ${x},${y}`));
+    if (cell.onclick) { cell.tabIndex = 0; cell.onkeydown = ev => { if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); cell.onclick(); } }; }
+    if (who && who.effects && who.effects.length) cell.title += "\n" + who.effects.map(f => gloss(f) ? `${f}: ${gloss(f)}` : "").filter(Boolean).join("\n");
+  });
+  if (opts && me) {
+    const reach = reachable(c, me, opts.economy.movementFt);
+    cells.forEach((cell, i) => { const x = i % w, y = Math.floor(i / w); if (cell.classList.contains("move") && reach.has(`${x},${y}`)) { cell.classList.add("reach"); cell.title = `${reach.get(`${x},${y}`)} ft to get here`; } });
+    const rows = (opts.preview || [])[pending.kind === "attack" ? pending.index : -1] || [];
+    for (const p of rows) {
+      const t = c.actors.find(a => a.id === p.target); if (!t) continue;
+      const cell = cells[t.pos[1] * w + t.pos[0]]; if (!cell) continue;
+      cell.classList.add(p.legal ? "inrange" : "outrange");
+      const badge = el("span", { className: "badge", textContent: p.legal ? `${p.hitPct}%` : "✕", "aria-hidden": "true" }); cell.append(badge);
+      cell.title += p.legal ? `\n${p.hitPct}% to hit, about ${p.expected} damage${p.critPct >= 10 ? `, ${p.critPct}% crit` : ""}${p.mode ? ", " + p.mode : ""}${p.cover ? ", " + p.cover : ""}${p.sneak ? ", sneak attack" : ""}` : `\n${p.whyNot}`;
+      cell.setAttribute("aria-label", cell.title);
+    }
+  }
+  for (const f of fx) {
+    const t = c.actors.find(a => a.id === f.id), cell = t && cells[t.pos[1] * w + t.pos[0]]; if (!cell) continue;
+    cell.classList.add("fx-" + f.kind); cell.append(el("span", { className: "float " + f.kind, textContent: f.kind === "miss" ? "miss" : f.amt ? (f.kind === "heal" ? "+" : "-") + f.amt : "" }));
+  }
+  fx = [];
+  if (opts && opts.preview && me) {
+    const info = (opts.preview[pending.kind === "attack" ? pending.index : 0] || []).filter(p => p.legal).sort((a, b) => b.expected - a.expected)[0];
+    if (info) box.append(el("div", { className: "small dim", textContent: `Best target for this attack: ${actorName(info.target)}, ${info.hitPct}% to hit, about ${info.expected} damage.` }));
+  }
+};
+
+// ---- suggestion chips under the prompt
+const baseSayBox = sayBox;
+sayBox = function () {
+  const form = baseSayBox(), wrap = el("div", { id: "sayWrap", className: "panel", style: "padding:0;background:none;border:0" }, form, el("div", { id: "chips", className: "row chips", "aria-label": "Suggestions" }));
+  form.style.marginBottom = "4px"; return wrap;
+};
+function renderChips() {
+  const box = $("#chips"); if (!box || !view) return; box.replaceChildren();
+  const input = $("#sayText"), put = t => () => { if (!input) return; input.value = t; input.focus(); };
+  if (view.mode !== "exploring" || !view.location) return;
+  const l = view.location, add = (label, text, tip) => box.append(el("button", { className: "chip", textContent: label, title: tip || text, onclick: put(text) }));
+  for (const n of l.npcs.slice(0, 2)) { const t = n.topics.find(x => !x.heard) || n.topics[0]; add(`Ask ${n.name}`, `ask ${n.name}${t ? " about " + t.id : ""}`); }
+  for (const x of l.exits.filter(x => x.available).slice(0, 2)) add(`Go to ${x.name}`, `go to ${x.name}`);
+  add("Search", "search"); add("Rest", "short rest");
+}
+
+// ---- undo, rewind, journal, settings, help
+function rebuild(v) { const log = $("#log"); if (log) log.replaceChildren(); lastSeq = 0; if (window.speechSynthesis) speechSynthesis.cancel(); apply(v); }
+async function undoLast() {
+  if (busy || !gid) return; busy = true; const { data } = await api("POST", `/api/games/${gid}/undo`); busy = false;
+  if (data.view) { rebuild(data.view); toast("Undid your last action."); } else toast(data.error || data.message || "Nothing to undo.");
+}
+async function rewindRest() {
+  if (busy || !gid) return; if (!confirm("Go back to the last time the party rested?")) return;
+  busy = true; const { data } = await api("POST", `/api/games/${gid}/rewind`); busy = false;
+  if (data.view) { rebuild(data.view); toast("Back at the last rest."); } else toast(data.error || data.message || "No rest to return to.");
+}
+function dialog(title, ...body) {
+  const close = () => { dlg.remove(); document.removeEventListener("keydown", onKey); (prevFocus || document.body).focus?.(); }, prevFocus = document.activeElement;
+  const onKey = ev => { if (ev.key === "Escape") close(); };
+  const dlg = el("div", { className: "uxdlg", role: "dialog", "aria-modal": "true", "aria-label": title, onclick: ev => { if (ev.target === dlg) close(); } },
+    el("div", { className: "panel uxbox" }, el("div", { className: "row", style: "justify-content:space-between" }, el("h2", { textContent: title }), el("button", { textContent: "Close (Esc)", onclick: close })), ...body));
+  document.addEventListener("keydown", onKey); document.body.append(dlg); dlg.querySelector("button").focus(); return dlg;
+}
+async function showJournal() {
+  if (!gid) return;
+  const { data } = await api("GET", `/api/games/${gid}/journal`);
+  const kids = [];
+  const quests = (view && view.quests) || [];
+  kids.push(el("h3", { textContent: "Quests" }), ...(quests.length ? quests.map(q => el("div", { className: "small", textContent: `${q.done || q.complete ? "✓ " : "• "}${q.name || q.id}` })) : [el("div", { className: "dim small", textContent: "None yet." })]));
+  kids.push(el("h3", { textContent: "People" }));
+  const met = (data.npcs || []).filter(n => n.met);
+  if (!met.length) kids.push(el("div", { className: "dim small", textContent: "You have not spoken to anyone yet." }));
+  for (const n of met) kids.push(el("div", { className: "jrow" }, el("b", { textContent: `${n.name} ` }), el("span", { className: "dim small", textContent: `${n.type || ""}, ${n.place || "somewhere"}; ${n.dealings} dealing(s), ${n.topicsHeard}/${n.topicsTotal} topics` }),
+    ...(n.last ? [el("div", { className: "small flavour", textContent: `${n.last.speaker}: ${n.last.text}` })] : [])));
+  const unmet = (data.npcs || []).filter(n => !n.met).length; if (unmet) kids.push(el("div", { className: "dim small", textContent: `${unmet} more people are out there.` }));
+  kids.push(el("h3", { textContent: "Places" }), el("div", { className: "small", textContent: (data.places || []).map(p => (p.current ? "▶ " : "") + p.name).join("  |  ") || "None." }));
+  dialog("Journal", ...kids);
+}
+function showSettings() {
+  const row = (label, key, type = "check", extra) => {
+    const inp = type === "check" ? el("input", { type: "checkbox", checked: !!ux[key], onchange: e => { ux[key] = e.target.checked; uxSave(); if (key === "sound" && ux.sound) { actx(); sfx("quest"); } if (key === "voice" && ux.voice) speak("Voices are on."); } })
+      : el("input", { type: "range", min: 80, max: 160, step: 10, value: ux[key], oninput: e => { ux[key] = +e.target.value; uxSave(); } });
+    return el("label", { className: "uxset" }, inp, el("span", { textContent: label }), ...(extra ? [el("span", { className: "dim small", textContent: extra })] : []));
+  };
+  dialog("Settings", row("Sound effects and ambient drone", "sound"), row("Read narration and NPC lines aloud (this device's voices)", "voice"),
+    row("Type out narration", "reveal"), row("Colour-blind friendly markers", "cb"), row("Computer turns without a pause", "fast"), row("Text size", "text", "range", "80% to 160%"),
+    el("div", { className: "row" }, el("button", { textContent: "Show the tips again", onclick: () => { ux.tipsSeen = false; uxSave(); showTips(); } })));
+}
+const KEYS = [["/", "focus the prompt"], ["1 to 9", "pick an attack or spell in combat"], ["E", "end your turn"], ["U", "undo your last action"], ["J", "journal"], ["S", "settings"], ["?", "this help"], ["Tab and Enter", "move around and use squares, buttons and links"]];
+function showHelp() {
+  dialog("How to play", el("p", { className: "small", textContent: "Click a path to travel, a topic to talk, or type plain English below. In a fight, shaded squares are where you can walk, and each foe shows your chance to hit." }),
+    el("p", { className: "small", textContent: "Undo steps back one action. Rewind returns to the last rest. The journal lists who you have met and what they said." }),
+    el("h3", { textContent: "Keys" }), ...KEYS.map(([k, d]) => el("div", { className: "small" }, el("kbd", { textContent: k }), " " + d)));
+}
+function showTips() {
+  if (ux.tipsSeen || !$("#log")) return;
+  const tip = el("div", { className: "tipcard" }, el("b", { textContent: "First time? " }),
+    "Click a path or type what you want to do. In combat, shaded squares show where you can walk and each foe shows your chance to hit. Press ? for keys. ",
+    el("button", { textContent: "Got it", onclick: () => { ux.tipsSeen = true; uxSave(); tip.remove(); } }));
+  $("#log").before(tip);
+}
+
+// ---- header buttons
+function uxHeader() {
+  const hdr = $("header"), anchor = $("#saveBtn");
+  const mk = (id, text, title, fn) => { const b = el("button", { id, textContent: text, title, onclick: fn, hidden: true }); hdr.insertBefore(b, anchor); return b; };
+  mk("undoBtn", "Undo", "Take back your last action (U)", undoLast); mk("rewBtn", "Rewind", "Go back to the last rest", rewindRest); mk("jrnBtn", "Journal", "People you have met, quests (J)", showJournal);
+  const h = el("button", { id: "helpBtn", textContent: "?", title: "How to play (?)", "aria-label": "Help", onclick: showHelp }), s = el("button", { id: "setBtn", textContent: "Settings", title: "Sound, voices, text size, colours (S)", onclick: showSettings });
+  hdr.insertBefore(h, anchor); hdr.insertBefore(s, anchor);
+  $("#log")?.setAttribute("aria-live", "polite");
+}
+let undoTimer = 0;
+function refreshUndo() { clearTimeout(undoTimer); undoTimer = setTimeout(refreshUndoNow, 150); }
+async function refreshUndoNow() {
+  const u = $("#undoBtn"); if (!u) return;
+  u.hidden = $("#rewBtn").hidden = $("#jrnBtn").hidden = !gid;
+  if (!gid) return;
+  const { data } = await api("GET", `/api/games/${gid}/journal`);
+  u.disabled = !data.canUndo; $("#rewBtn").disabled = !data.canRewind;
+}
+const baseApply = apply;
+apply = function (v) {
+  baseApply(v); renderChips(); ambientFollow(); refreshUndo();
+  const log = $("#log"); if (log) { log.setAttribute("aria-live", "polite"); log.setAttribute("role", "log"); }
+  for (const b of document.querySelectorAll("#app button:not([aria-label])")) if (!b.getAttribute("aria-label") && b.title && !b.textContent.trim()) b.setAttribute("aria-label", b.title);
+  // warm the browser cache with the pictures of the next rooms so travelling does not wait on them
+  for (const x of (v.location && v.location.exits) || []) { const u = artUrl("locations", x.to); if (u && !apply.warm.has(u)) { apply.warm.add(u); const im = new Image(); im.src = u; } }
+};
+apply.warm = new Set();
+const baseStartGame = startGame;
+startGame = function (id, v) {
+  baseStartGame(id, v); showTips();
+  api("GET", `/api/games/${id}/journal`).then(({ data }) => {
+    if (!data || !data.npcs || !v || v.clock.day < 2) return;
+    const last = data.npcs.filter(n => n.last).sort((a, b) => (b.last.day || 0) - (a.last.day || 0))[0];
+    const log = $("#log"); if (!log) return;
+    log.prepend(el("div", { className: "recap", textContent: `Previously: day ${v.clock.day} in ${v.location ? v.location.name : v.module.name}.` + (last ? ` You last spoke with ${last.name}: ${last.last.text}` : "") }));
+  });
+};
+document.addEventListener("keydown", ev => {
+  if (ev.ctrlKey || ev.metaKey || ev.altKey || document.querySelector(".uxdlg")) return;
+  const typing = /^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement && document.activeElement.tagName);
+  if (ev.key === "Escape" && typing) { document.activeElement.blur(); return; }
+  if (typing || !gid) return;
+  if (ev.key === "/") { ev.preventDefault(); $("#sayText")?.focus(); }
+  else if (ev.key === "?") showHelp(); else if (ev.key === "j" || ev.key === "J") showJournal(); else if (ev.key === "s" || ev.key === "S") showSettings();
+  else if (ev.key === "u" || ev.key === "U") undoLast();
+  else if (view && view.combat && view.combat.options && !view.combat.finished) {
+    const o = view.combat.options;
+    if (ev.key === "e" || ev.key === "E") doAction({ type: "end_turn" });
+    else if (/^[1-9]$/.test(ev.key)) { const all = [...o.attacks.map(a => ({ kind: "attack", index: a.index })), ...o.spells.filter(s => s.available).map(s => ({ kind: "spell", index: s.id }))], p = all[+ev.key - 1]; if (p) { pending = p; renderCombat(); } }
+  }
+});
+uxHeader(); uxApply();
+
 // ---------------------------------------------------------------- boot: reopen the session that was open, otherwise the start screen
 (async () => {
   await refreshSessions();

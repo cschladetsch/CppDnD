@@ -9,6 +9,7 @@
 #include <map>
 #include <mutex>
 #include <random>
+#include <set>
 #include <regex>
 #include <vector>
 
@@ -33,6 +34,9 @@ struct Slot {
     std::shared_ptr<AgentTable> agents;  // set when the game was created with "agents": true
     std::string name;                    // the session's name, shown in the web client's dropdown
     long long created = 0, updated = 0;  // seconds since the epoch
+    std::optional<Json> undo;            // the game as it was before the player's last action (POST /undo)
+    std::optional<Json> rewind;          // the game as it was after the last rest (POST /rewind)
+    std::string modeBefore, locBefore;   // what the last POST started from, for telemetry
 };
 
 struct Server {
@@ -245,6 +249,64 @@ int main(int argc, char** argv) {
         } catch (const std::exception& e) { std::cerr << "warning: cannot save session " << id << ": " << e.what() << "\n"; }
     };
 
+    // Play telemetry: one JSON line per notable moment in <sessions dir>/telemetry.jsonl (where people start, arrive, are defeated, finish).
+    std::mutex telemetryMutex;
+    auto telemetry = [&](const std::string& event, const std::string& id, const Game& g, Json extra) {
+        if (S.sessionsDir.empty()) return;
+        try {
+            Json j = extra.is_object() ? extra : Json::object();
+            const LocationDef* loc = g.Module().FindLocation(g.LocationId());
+            j["t"] = nowSec(); j["event"] = event; j["game"] = id; j["module"] = g.Config().moduleId; j["location"] = loc ? loc->name : g.LocationId(); j["day"] = g.Day();
+            std::lock_guard<std::mutex> lk(telemetryMutex);
+            std::filesystem::create_directories(S.sessionsDir);
+            std::ofstream f((std::filesystem::path(S.sessionsDir) / "telemetry.jsonl"), std::ios::app | std::ios::binary);
+            f << j.dump() << "\n";
+        } catch (...) {}
+    };
+    // Replace a slot's game with a saved state, wiring models and history again.
+    auto restoreTo = [&](const std::string& id, Slot& slot, const Json& save) {
+        std::unique_ptr<Game> g;
+        try { g = Game::Load(save); } catch (const std::exception& e) { throw HttpError{500, std::string("cannot restore: ") + e.what()}; }
+        auto table = Wire(S, *g);
+        slot.agents = table;
+        slot.game = std::move(g);
+        if (!histDir.empty()) slot.game->SetHistoryDir((std::filesystem::path(histDir) / id).string());
+    };
+    // Before a player's own action the game is copied so POST /undo can put it back. Automatic steps (advance) do not count.
+    svr.set_pre_routing_handler([&](const httplib::Request& req, httplib::Response&) {
+        static const std::regex re(R"(^/api/games/([0-9a-f]{12})/(action|travel|talk|search|explore|rest|wait|say|auto|equipment|pace)$)");
+        std::smatch m;
+        if (req.method == "POST" && std::regex_match(req.path, m, re)) {
+            std::shared_ptr<Slot> slot;
+            {
+                std::lock_guard<std::mutex> lk(S.mapMutex);
+                const auto it = S.games.find(m[1].str());
+                if (it != S.games.end()) slot = it->second;
+            }
+            if (slot) {
+                std::lock_guard<std::mutex> lk(slot->m);
+                if (slot->game && slot->game->GetMode() != Mode::Defeated && slot->game->GetMode() != Mode::Complete) slot->undo = slot->game->Save();
+            }
+        }
+        if (req.method == "POST") {
+            static const std::regex any(R"(^/api/games/([0-9a-f]{12})(/.*)?$)");
+            std::smatch a;
+            if (std::regex_match(req.path, a, any)) {
+                std::shared_ptr<Slot> slot;
+                {
+                    std::lock_guard<std::mutex> lk(S.mapMutex);
+                    const auto it = S.games.find(a[1].str());
+                    if (it != S.games.end()) slot = it->second;
+                }
+                if (slot) {
+                    std::lock_guard<std::mutex> lk(slot->m);
+                    if (slot->game) { slot->modeBefore = std::string(ToString(slot->game->GetMode())); slot->locBefore = slot->game->LocationId(); }
+                }
+            }
+        }
+        return httplib::Server::HandlerResponse::Unhandled;
+    });
+
     // Any successful POST to a game's own routes changes its state, so the session file follows.
     svr.set_post_routing_handler([&](const httplib::Request& req, httplib::Response& res) {
         if (req.method != "POST" || res.status >= 300 || S.sessionsDir.empty()) return;
@@ -262,6 +324,19 @@ int main(int argc, char** argv) {
         }
         std::lock_guard<std::mutex> lk(slot->m);
         persist(m[1].str(), *slot);
+        // telemetry and the rewind point (a rest is the checkpoint)
+        const std::string id = m[1].str(), modeNow = std::string(ToString(slot->game->GetMode())), locNow = slot->game->LocationId();
+        if (modeNow != slot->modeBefore) {
+            if (modeNow == "defeated") {
+                Json party = Json::array();
+                for (const auto& pm : slot->game->View(0)["party"]) party.push_back(Json{{"name", pm.value("name", "")}, {"hp", pm.value("hp", 0)}, {"dead", pm.value("dead", false)}});
+                telemetry("defeat", id, *slot->game, Json{{"party", party}});
+            }
+            else if (modeNow == "complete") telemetry("complete", id, *slot->game, Json::object());
+            else if (modeNow == "combat") telemetry("combat", id, *slot->game, Json::object());
+        }
+        if (locNow != slot->modeBefore && locNow != slot->locBefore && !slot->locBefore.empty()) telemetry("arrive", id, *slot->game, Json{{"from", slot->locBefore}});
+        if (sub == "/rest" && slot->game->GetMode() == Mode::Exploring) slot->rewind = slot->game->Save();
     });
 
     svr.Get("/api/health", [](const httplib::Request&, httplib::Response& res) { Reply(res, 200, {{"ok", true}}); });
@@ -344,6 +419,7 @@ int main(int argc, char** argv) {
         slot->agents = table;
         if (!histDir.empty()) slot->game->SetHistoryDir((std::filesystem::path(histDir) / id).string());
         persist(id, *slot);
+        telemetry("start", id, *slot->game, Json{{"hero", slot->game->Hero()}});
         Reply(res, 201, {{"id", id}, {"name", slot->name}, {"view", slot->game->View(0)}});
     }));
 
@@ -484,6 +560,60 @@ int main(int argc, char** argv) {
         auto slot = find(req);
         std::lock_guard<std::mutex> lk(slot->m);
         Reply(res, 200, slot->game->Hist().Pair(req.path_params.at("x"), req.path_params.at("y"), sinceOf(req), limitOf(req)));
+    }));
+
+    // Take back the player's last action (the game goes back to just before it; the dice go back with it, so repeating the same action repeats the result).
+    svr.Post("/api/games/:id/undo", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        if (!slot->undo) throw HttpError{409, "nothing to undo"};
+        const Json save = *slot->undo;
+        slot->undo.reset();
+        restoreTo(req.path_params.at("id"), *slot, save);
+        Reply(res, 200, {{"ok", true}, {"view", slot->game->View(0)}});
+    }));
+    // Go back to the last rest.
+    svr.Post("/api/games/:id/rewind", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        if (!slot->rewind) throw HttpError{409, "no rest to go back to yet"};
+        const Json save = *slot->rewind;
+        slot->undo.reset();
+        restoreTo(req.path_params.at("id"), *slot, save);
+        Reply(res, 200, {{"ok", true}, {"view", slot->game->View(0)}});
+    }));
+    svr.Get("/api/games/:id/journal", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->m);
+        Json j = slot->game->Journal();
+        j["canUndo"] = slot->undo.has_value();
+        j["canRewind"] = slot->rewind.has_value();
+        Reply(res, 200, j);
+    }));
+    // Where people start, arrive, fight, fall and finish, from telemetry.jsonl: {games, events, byModule: {module: {defeats: {place: n}, completes, combats: {place: n}, arrivals: {place: n}}}}
+    svr.Get("/api/telemetry", guarded([&](const httplib::Request&, httplib::Response& res) {
+        Json out{{"enabled", !S.sessionsDir.empty()}, {"events", 0}, {"byModule", Json::object()}};
+        if (S.sessionsDir.empty()) { Reply(res, 200, out); return; }
+        auto bump = [](Json& m, const char* k, const std::string& place) { Json& o = m[k]; if (o.is_null()) o = Json::object(); o[place] = o.value(place, 0) + 1; };
+        std::set<std::string> games;
+        std::ifstream f(std::filesystem::path(S.sessionsDir) / "telemetry.jsonl");
+        std::string line;
+        int events = 0;
+        while (std::getline(f, line)) {
+            const Json j = Json::parse(line, nullptr, false);
+            if (j.is_discarded() || !j.is_object()) continue;
+            ++events;
+            games.insert(j.value("game", ""));
+            Json& m = out["byModule"][j.value("module", "")];
+            if (m.is_null()) m = Json::object();
+            const std::string e = j.value("event", ""), place = j.value("location", "");
+            if (e == "complete") m["completes"] = m.value("completes", 0) + 1;
+            else if (e == "defeat") bump(m, "defeats", place);
+            else if (e == "combat") bump(m, "combats", place);
+            else if (e == "arrive") bump(m, "arrivals", place);
+        }
+        out["events"] = events; out["games"] = games.size();
+        Reply(res, 200, out);
     }));
 
     svr.Post("/api/games/:id/role", guarded([&](const httplib::Request& req, httplib::Response& res) {

@@ -699,3 +699,60 @@ TEST(NpcMemory, ExploringTheShipFindsShipRooms) {
     }
     EXPECT_TRUE(found);
 }
+
+// ---- what the player sees before committing: the chance to hit and the expected damage of each attack on each foe
+TEST(CombatPreview, EachAttackAgainstEachFoeIsPriced) {
+    GameConfig cfg;
+    cfg.party = {"thorin", "elara", "aldric", "finn"};
+    cfg.rooms = 1; cfg.difficulty = "easy"; cfg.seed = 12; cfg.role = Role::Player; cfg.hero = "thorin";
+    Game g(cfg);
+    ASSERT_EQ(g.GetMode(), Mode::Combat);
+    for (int guard = 0; guard < 200 && g.GetMode() == Mode::Combat; ++guard)
+        if (g.AdvanceCombat() == StepStatus::AwaitingInput) break;
+    const Json v = g.View(0);
+    ASSERT_TRUE(v["combat"].contains("options"));
+    const Json opts = v["combat"]["options"];
+    ASSERT_TRUE(opts.contains("preview"));
+    const Json attacks = opts["attacks"], preview = opts["preview"];
+    ASSERT_EQ(preview.size(), attacks.size());
+    ASSERT_GT(preview.size(), 0u);
+    int legal = 0;
+    const Json row = preview[0];
+    ASSERT_GT(row.size(), 0u);
+    for (std::size_t i = 0; i < row.size(); ++i) {
+        const Json e = row[i];
+        ASSERT_TRUE(e.contains("target") && e.contains("legal") && e.contains("distanceFt"));
+        if (e["legal"].get<bool>()) {
+            ++legal;
+            EXPECT_GE(e["hitPct"].get<int>(), 5);
+            EXPECT_LE(e["hitPct"].get<int>(), 100);
+            EXPECT_GT(e["expected"].get<double>(), 0.0);
+            EXPECT_LE(e["critPct"].get<int>(), e["hitPct"].get<int>());
+        } else {
+            EXPECT_FALSE(e.value("whyNot", "").empty());
+        }
+    }
+    (void)legal;
+}
+
+TEST(Journal, ListsWhoYouHaveMetAndTheLastThingSaid) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor"; cfg.seed = 5; cfg.role = Role::Player; cfg.party = {"thorin", "elara", "aldric", "finn"};
+    Game g(cfg);
+    EXPECT_EQ(g.Journal()["npcs"].size(), 0u);          // nobody met in the places visited so far
+    EXPECT_EQ(g.Journal()["places"].size(), 1u);
+    ASSERT_TRUE(g.Travel("greywick").ok);
+    ASSERT_TRUE(g.Talk("marta", "rumours").ok);
+    const Json j = g.Journal();
+    const Json npcs = j["npcs"];
+    ASSERT_EQ(npcs.size(), 1u);
+    const Json marta = npcs[0];
+    EXPECT_EQ(marta["id"], "marta");
+    EXPECT_TRUE(marta["met"].get<bool>());
+    EXPECT_GE(marta["dealings"].get<int>(), 1);
+    EXPECT_EQ(marta["topicsHeard"], 1);
+    EXPECT_GT(marta["topicsTotal"].get<int>(), 1);
+    ASSERT_TRUE(marta.contains("last"));
+    EXPECT_EQ(marta["last"]["speaker"], "Marta Hollin");
+    EXPECT_EQ(j["places"].size(), 2u);
+}

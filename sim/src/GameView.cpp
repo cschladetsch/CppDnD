@@ -43,6 +43,39 @@ Json PartyJson(const PartyMember& pm) {
 
 }  // namespace
 
+Json Game::Journal() const {
+    Json npcs = Json::array(), places = Json::array();
+    std::set<std::string> seen;
+    for (const auto& l : module_.locations) {
+        if (!visited_.count(l.id) && l.id != location_) continue;
+        places.push_back(Json{{"id", l.id}, {"name", l.name}, {"current", l.id == location_}});
+        for (const auto& n : l.npcs) {
+            if (!seen.insert(n.id).second) continue;
+            std::size_t dealings = 0;
+            bool met = false;
+            Json last;
+            int lastSeq = -1;
+            for (const auto& pm : party_) {
+                dealings += history_.Count(n.name, pm.sheet.name);
+                for (const auto& k : fired_)
+                    if (k.compare(0, 4 + n.id.size() + 1, "met:" + n.id + "/") == 0 && k.find("/" + pm.sheet.name + "/") != std::string::npos) met = true;
+                const Json pair = history_.Pair(n.name, pm.sheet.name, 0, 1);
+                if (pair.contains("entries") && pair["entries"].is_array() && !pair["entries"].empty()) {
+                    const Json e = pair["entries"].back();
+                    if (e.value("seq", 0) > lastSeq) { lastSeq = e.value("seq", 0); last = e; }
+                }
+            }
+            int heard = 0;
+            for (const auto& t : n.topics) heard += fired_.count("topic:" + n.id + "/" + t.id) ? 1 : 0;
+            Json row{{"id", n.id}, {"name", n.name}, {"type", n.type}, {"place", l.name}, {"placeId", l.id}, {"met", met || dealings > 0}, {"dealings", dealings},
+                     {"topicsHeard", heard}, {"topicsTotal", n.topics.size()}};
+            if (lastSeq >= 0) row["last"] = Json{{"speaker", last.value("speaker", "")}, {"text", last.value("text", "")}, {"day", last.value("day", 0)}};
+            npcs.push_back(row);
+        }
+    }
+    return Json{{"npcs", npcs}, {"places", places}};
+}
+
 Json Game::View(int sinceSeq) const {
     FlushHistory();
     Json v;
