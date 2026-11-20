@@ -1,21 +1,25 @@
+#!/usr/bin/env pwsh
 # Check every dependency, set up what is missing, start what is not running, build, serve, open the browser.
-#   .\web.ps1                          everything: http://127.0.0.1:8088/
-#   .\web.ps1 -Yes                     do not ask before installing or downloading anything
-#   .\web.ps1 -Port 9000
-#   .\web.ps1 -Model llama3.1          use this Ollama model for the plain-English prompt (default: the model in data\agents.json)
-#   .\web.ps1 -NoLlm                   no Ollama at all (no plain-English prompt, no AI table)
+# PowerShell 7 on Windows, Linux or macOS (or Windows PowerShell 5.1). Installs use winget, apt/dnf/pacman/zypper or Homebrew.
+#   ./web.ps1                          everything: http://127.0.0.1:8088/
+#   ./web.ps1 -Yes                     do not ask before installing or downloading anything
+#   ./web.ps1 -Port 9000
+#   ./web.ps1 -Model llama3.1          use this Ollama model for the plain-English prompt (default: the model in data/agents.json)
+#   ./web.ps1 -NoLlm                   no Ollama at all (no plain-English prompt, no AI table)
 #                                      (with DND_LLM_URL set and no -Model, the server there is used and Ollama is left alone)
-#   .\web.ps1 -Mature                  adult content: no refusals, all characters adults; uses content.model from agents.json
+#   ./web.ps1 -Mature                  adult content: no refusals, all characters adults; uses content.model from agents.json
 #                                      (an uncensored model such as dolphin-llama3:8b) unless -Model is given
-#                                      pictures too: the "mature" block of sim\data\images.json (its checkpoint, words, size)
-#                                      is used, and Stable Diffusion is started with that checkpoint (sd.ps1 -Mature)
+#                                      pictures too: the "mature" block of sim/data/images.json (its checkpoint, words, size)
+#                                      is used, and Stable Diffusion is started with that checkpoint (sd.ps1 -Mature); the shipped
+#                                      one (Realistic Vision 5.1, 2.1 GB) is offered for download the first time. Pictures follow
+#                                      the story: a camera shot draws the latest narration, and every person drawn is an adult
 #                                      with "llama" in the content block of agents.json, a llama.cpp server (llama-server) is started on that
 #                                      GGUF model instead, kept in the model store (-NoLlama skips this and uses Ollama)
-#   .\web.ps1 -NoArt                   no Stable Diffusion (no generated pictures)
-#   .\web.ps1 -Rebuild -NoBrowser
-#   .\web.ps1 --data .\my-content      unrecognised options go to dnd_server
+#   ./web.ps1 -NoArt                   no Stable Diffusion (no generated pictures)
+#   ./web.ps1 -Rebuild -NoBrowser
+#   ./web.ps1 --data ./my-content      unrecognised options go to dnd_server
 # What it checks, in order, and what it does about each:
-#   cmake, ninja, clang++      missing: offers to install with winget
+#   cmake, ninja, C++ compiler missing: offers to install with the package manager (clang++ on Windows)
 #   llama.cpp                  mature mode only: offers to install it, downloads the GGUF into the model store, starts llama-server
 #   Ollama                     missing: offers to install; installed but not running: starts it
 #   Ollama models              the prompt model and the models in agents.json; missing: offers to pull them
@@ -54,51 +58,43 @@ function Ask($question) {
     try { $answer = Read-Host "$question [y/N]" } catch {}
     return ($answer -match '^(y|yes)$')
 }
-function Have($name) { return [bool](Get-Command $name -ErrorAction SilentlyContinue) }
-function Refresh-Path {
-    $env:Path = [Environment]::GetEnvironmentVariable('Path', 'Machine') + ';' + [Environment]::GetEnvironmentVariable('Path', 'User')
+. (Join-Path (Join-Path $PSScriptRoot 'scripts') 'common.ps1')   # Have, PathOf, Exe, Install-Package, Stop-Tree, ...
+function Offer-Install($what, $pkg) {
+    $n = Get-PackageName $pkg
+    if (-not $n) { return }
+    if (Ask "$what is not installed. Install it ($(Get-InstallHint $pkg))?") { Install-Package $pkg | Out-Null }
 }
-function Add-PathIfThere($dir) {
-    if ($dir -and (Test-Path $dir) -and (($env:Path -split ';') -notcontains $dir)) { $env:Path = "$env:Path;$dir" }
-}
-function Read-JsonFile($file) {
-    return ((Get-Content $file -Raw) -replace '(?s)/\*.*?\*/', '' -replace '(?m)^\s*//.*$', '') | ConvertFrom-Json
-}
-function Stop-Tree($id) { & taskkill.exe /PID $id /T /F 2>&1 | Out-Null }
 
-$src   = Join-Path $PSScriptRoot 'sim'
-$build = Join-Path $src 'build'
+$src   = PathOf $PSScriptRoot 'sim'
+$build = PathOf $src 'build'
 $url   = "http://127.0.0.1:$Port/"
 
-if (-not (Test-Path (Join-Path $src 'web\index.html'))) { Fail "sim\web\index.html is missing" }
+if (-not (Test-Path (PathOf $src 'web' 'index.html'))) { Fail 'sim/web/index.html is missing' }
 if ($Port -lt 1 -or $Port -gt 65535) { Fail "invalid port $Port" }
 
 # ---- 1. build tools
 Head 'Build tools'
+$pf = if ($OnWindows) { $env:ProgramFiles } else { '' }
+$cxx = if ($OnWindows) { 'clang++' } elseif ($env:CXX) { $env:CXX } else { 'c++' }
 $tools = @(
-    @{ Name = 'cmake';   Id = 'Kitware.CMake';     Dir = (Join-Path $env:ProgramFiles 'CMake\bin') },
-    @{ Name = 'ninja';   Id = 'Ninja-build.Ninja'; Dir = '' },
-    @{ Name = 'clang++'; Id = 'LLVM.LLVM';         Dir = (Join-Path $env:ProgramFiles 'LLVM\bin') }
+    @{ Name = 'cmake'; Dir = $(if ($pf) { PathOf $pf 'CMake' 'bin' });
+       Pkg = @{ winget = 'Kitware.CMake'; apt = 'cmake'; dnf = 'cmake'; pacman = 'cmake'; zypper = 'cmake'; brew = 'cmake' } },
+    @{ Name = 'ninja'; Dir = '';
+       Pkg = @{ winget = 'Ninja-build.Ninja'; apt = 'ninja-build'; dnf = 'ninja-build'; pacman = 'ninja'; zypper = 'ninja'; brew = 'ninja' } },
+    @{ Name = $cxx; Dir = $(if ($pf) { PathOf $pf 'LLVM' 'bin' });   # macOS: the Xcode command line tools (xcode-select --install)
+       Pkg = @{ winget = 'LLVM.LLVM'; apt = 'g++'; dnf = 'gcc-c++'; pacman = 'gcc'; zypper = 'gcc-c++' } }
 )
 foreach ($t in $tools) {
     if (-not (Have $t.Name)) { Add-PathIfThere $t.Dir }
-    if (-not (Have $t.Name) -and (Have 'winget')) {
-        if (Ask "$($t.Name) is not installed. Install it with winget ($($t.Id))?") {
-            winget install -e --id $t.Id --silent --accept-package-agreements --accept-source-agreements
-            Refresh-Path
-            Add-PathIfThere $t.Dir
-        }
-    }
+    if (-not (Have $t.Name)) { Offer-Install $t.Name $t.Pkg; Add-PathIfThere $t.Dir }
     if (Have $t.Name) { Ok "$($t.Name)  $((Get-Command $t.Name).Source)" }
-    else { Fail "'$($t.Name)' is not available. Install it (winget install $($t.Id)), open a new terminal and run this again." }
+    elseif ($OnMac -and $t.Name -eq $cxx) { Fail "'$cxx' is not available. Run: xcode-select --install, then run this again." }
+    else { Fail "'$($t.Name)' is not available. Install it ($(Get-InstallHint $t.Pkg)), open a new terminal and run this again." }
 }
 
 # ---- 2. the port
-try {
-    $probe = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Loopback, $Port)
-    $probe.Start(); $probe.Stop()
-    Ok "port $Port is free"
-} catch {
+if (Test-PortFree $Port) { Ok "port $Port is free" }
+else {
     $running = $null
     try { $running = Invoke-RestMethod -Uri "${url}api/llm" -TimeoutSec 2 } catch {}
     if ($running) { Fail "port $Port already has a dnd_server running; open $url or pick another -Port" }
@@ -108,7 +104,7 @@ try {
 # ---- 2b. llama.cpp: a GGUF model from the model store (content.llama in agents.json, mature mode)
 $llamaProc = $null
 if (-not $NoLlm -and -not $NoLlama -and -not $env:DND_LLM_URL) {
-    $agentsFile0 = if ($env:DND_AGENTS) { $env:DND_AGENTS } else { Join-Path $src 'data\agents.json' }
+    $agentsFile0 = if ($env:DND_AGENTS) { $env:DND_AGENTS } else { PathOf $src 'data' 'agents.json' }
     $llamaSpec = ''; $llamaLayers = 30; $llamaPort = 8081; $llamaCtx = 8192
     if (Test-Path $agentsFile0) {
         try {
@@ -124,18 +120,15 @@ if (-not $NoLlm -and -not $NoLlama -and -not $env:DND_LLM_URL) {
     }
     if ($llamaSpec) {
         Head 'llama.cpp'
-        if (-not (Have 'llama-server') -and (Have 'winget')) {
-            if (Ask 'llama-server is not installed. Install llama.cpp with winget (ggml.llamacpp)?') {
-                winget install -e --id ggml.llamacpp --silent --accept-package-agreements --accept-source-agreements
-                Refresh-Path
-            }
+        $llamaPkg = @{ winget = 'ggml.llamacpp'; brew = 'llama.cpp' }   # elsewhere: a release build from github.com/ggml-org/llama.cpp on PATH
+        if (-not (Have 'llama-server')) { Offer-Install 'llama-server (llama.cpp)' $llamaPkg }
+        if (-not (Have 'llama-server')) {
+            $how = if (Get-PackageName $llamaPkg) { Get-InstallHint $llamaPkg } else { 'put llama-server from a github.com/ggml-org/llama.cpp release on PATH' }
+            Warn "llama-server is not available ($how, then open a new terminal); using Ollama instead"
         }
-        if (-not (Have 'llama-server')) { Warn 'llama-server is not available (winget install ggml.llamacpp, then open a new terminal); using Ollama instead' }
         else {
             $llamaUrl = "http://127.0.0.1:$llamaPort"
-            $modelHome = $env:DEEPSEEK_MODEL_HOME
-            if (-not $modelHome) { $modelHome = Join-Path $env:USERPROFILE '.local\share\deepseek\models' }
-            $llamaDir = Join-Path $modelHome (($llamaSpec -split '[/:]')[1])
+            $llamaDir = PathOf (Get-ModelHome) (($llamaSpec -split '[/:]')[1])
             function Test-Llama { try { Invoke-RestMethod -Uri "$llamaUrl/health" -TimeoutSec 2 | Out-Null; return $true } catch { return $false } }
             if (Test-Llama) { Ok "llama-server already answering at $llamaUrl"; $env:DND_LLM_URL = $llamaUrl }
             else {
@@ -143,10 +136,10 @@ if (-not $NoLlm -and -not $NoLlama -and -not $env:DND_LLM_URL) {
                 $cached = @(Get-ChildItem $llamaDir -Filter *.gguf -ErrorAction SilentlyContinue).Count -gt 0
                 if ($cached -or (Ask "Download $llamaSpec into $llamaDir (about 7 GB for a 12B model)?")) {
                     $env:LLAMA_CACHE = $llamaDir
-                    $llamaLog = Join-Path $llamaDir 'llama-server.log'
+                    $llamaLog = PathOf $llamaDir 'llama-server.log'
                     Info "starting llama-server on $llamaSpec (log: $llamaLog)"
-                    $llamaProc = Start-Process -FilePath (Get-Command 'llama-server').Source -ArgumentList @('-hf', $llamaSpec, '--port', "$llamaPort", '-ngl', "$llamaLayers", '-c', "$llamaCtx") `
-                        -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $llamaDir 'llama-server.out.log') -RedirectStandardError $llamaLog
+                    $llamaProc = Start-Background -FilePath (Get-Command 'llama-server').Source -ArgumentList @('-hf', $llamaSpec, '--port', "$llamaPort", '-ngl', "$llamaLayers", '-c', "$llamaCtx") `
+                        -Log (PathOf $llamaDir 'llama-server.out.log') -ErrLog $llamaLog
                     $up = $false
                     for ($i = 0; $i -lt 1800 -and -not $up -and -not $llamaProc.HasExited; $i++) {
                         Start-Sleep -Seconds 2
@@ -175,7 +168,7 @@ elseif ($env:DND_LLM_URL -and -not $Model) {
 else {
     Head 'Ollama'
     $ollamaUrl = 'http://127.0.0.1:11434'
-    $agentsFile = if ($env:DND_AGENTS) { $env:DND_AGENTS } else { Join-Path $src 'data\agents.json' }
+    $agentsFile = if ($env:DND_AGENTS) { $env:DND_AGENTS } else { PathOf $src 'data' 'agents.json' }
     $wanted = @()
     $defaultModel = 'qwen2.5:7b'
     if (Test-Path $agentsFile) {
@@ -200,17 +193,21 @@ else {
     function Get-OllamaTags { try { return (Invoke-RestMethod -Uri "$ollamaUrl/api/tags" -TimeoutSec 3) } catch { return $null } }
     $tags = Get-OllamaTags
     if (-not $tags) {
-        Add-PathIfThere (Join-Path $env:LOCALAPPDATA 'Programs\Ollama')
-        if (-not (Have 'ollama') -and (Have 'winget')) {
-            if (Ask 'Ollama is not installed. Install it with winget (Ollama.Ollama)?') {
-                winget install -e --id Ollama.Ollama --silent --accept-package-agreements --accept-source-agreements
-                Refresh-Path
-                Add-PathIfThere (Join-Path $env:LOCALAPPDATA 'Programs\Ollama')
+        $ollamaDir = if ($OnWindows) { PathOf $env:LOCALAPPDATA 'Programs' 'Ollama' } elseif ($OnMac) { '/Applications/Ollama.app/Contents/Resources' } else { '' }
+        Add-PathIfThere $ollamaDir
+        if (-not (Have 'ollama')) {
+            # Linux has no distribution package; ollama.com's install script is the supported way (it also sets up a service)
+            $ollamaPkg = @{ winget = 'Ollama.Ollama'; brew = 'ollama' }
+            if (Get-PackageName $ollamaPkg) { Offer-Install 'Ollama' $ollamaPkg }
+            elseif ($OnLinux -and (Have 'curl') -and (Ask 'Ollama is not installed. Install it with the script from ollama.com (curl -fsSL https://ollama.com/install.sh | sh, uses sudo)?')) {
+                & sh -c 'curl -fsSL https://ollama.com/install.sh | sh'
             }
+            Refresh-Path
+            Add-PathIfThere $ollamaDir
         }
         if (Have 'ollama') {
             Info 'Ollama is not running; starting "ollama serve"'
-            $ollamaProc = Start-Process -FilePath (Get-Command 'ollama').Source -ArgumentList 'serve' -WindowStyle Hidden -PassThru
+            $ollamaProc = Start-Background -FilePath (Get-Command 'ollama').Source -ArgumentList @('serve')
             for ($i = 0; $i -lt 60 -and -not $tags; $i++) {
                 Start-Sleep -Milliseconds 500
                 $tags = Get-OllamaTags
@@ -252,21 +249,21 @@ else {
 $imgUrl = 'http://127.0.0.1:7860'
 $matureCkpt = ''
 $sdMature = [bool]$Mature
-$imgFile = Join-Path $src 'data\images.json'
+$imgFile = PathOf $src 'data' 'images.json'
 if (Test-Path $imgFile) {
     try { $ij = Read-JsonFile $imgFile; if ($ij.url) { $imgUrl = $ij.url }; if ($ij.mature -and $ij.mature.checkpoint) { $matureCkpt = "$($ij.mature.checkpoint)" }; if ($ij.mature -and $ij.mature.enabled) { $sdMature = $true } }
-    catch { Warn "could not read sim\data\images.json: $($_.Exception.Message)" }
+    catch { Warn "could not read sim/data/images.json: $($_.Exception.Message)" }
 }
 $sdWeStarted = $false
 $sdFailed = $false
-$sdScript = Join-Path $PSScriptRoot 'sd.ps1'
+$sdScript = PathOf $PSScriptRoot 'sd.ps1'
 if (-not $NoArt) {
     Head 'Stable Diffusion'
     $sdUp = $false
     try { Invoke-RestMethod -Uri "$imgUrl/sdapi/v1/options" -TimeoutSec 2 | Out-Null; $sdUp = $true } catch {}
     if ($sdUp) {
         Ok "already running at $imgUrl"
-        if ($sdMature -and $matureCkpt) { Info "for the mature checkpoint '$matureCkpt' it must have been started with .\sd.ps1 -Start -Mature (else: .\sd.ps1 -Stop, then run this again)" }
+        if ($sdMature -and $matureCkpt) { Info "for the mature checkpoint '$matureCkpt' it must have been started with ./sd.ps1 -Start -Mature (else: ./sd.ps1 -Stop, then run this again)" }
     }
     elseif (-not (Test-Path $sdScript)) { Warn 'sd.ps1 is missing; continuing without pictures'; $sdFailed = $true }
     else {
@@ -280,11 +277,15 @@ if (-not $NoArt) {
                 & $sdScript -Install -Yes -Port $sdPort
                 if ($LASTEXITCODE) { Warn 'the Stable Diffusion install did not finish (see above); continuing without pictures'; $sdFailed = $true }
                 else { $sdReady = $true }
-            } else { Info 'skipped. .\sd.ps1 -Install sets it up later; -NoArt stops this question' }
+            } else { Info 'skipped. ./sd.ps1 -Install sets it up later; -NoArt stops this question' }
         }
         if ($sdReady) {
-            if ($sdMature -and $matureCkpt) { & $sdScript -Start -NoWait -Port $sdPort -Mature -MatureModel $matureCkpt }
-            else { & $sdScript -Start -NoWait -Port $sdPort }
+            # -Mature: sd.ps1 loads the mature checkpoint, offering to download the shipped default (sim/data/images.json) when it is
+            # missing, and falls back to the base model if you say no; the game still draws adults only either way
+            $sdArgs = @{ Start = $true; NoWait = $true; Port = $sdPort }
+            if ($Yes) { $sdArgs.Yes = $true }
+            if ($sdMature -and $matureCkpt) { $sdArgs.Mature = $true; $sdArgs.MatureModel = $matureCkpt }
+            & $sdScript @sdArgs
             if ($LASTEXITCODE) { Warn 'Stable Diffusion did not start (see above); continuing without pictures'; $sdFailed = $true }
             else { $sdWeStarted = $true }
         }
@@ -294,13 +295,10 @@ if (-not $NoArt) {
 # ---- 5. build
 Head 'Build'
 if ($Rebuild -and (Test-Path $build)) { Remove-Item -Recurse -Force $build }
-if (-not (Test-Path (Join-Path $build 'build.ninja'))) {
-    cmake -S $src -B $build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
-    if ($LASTEXITCODE) { Fail "cmake configure failed" }
-}
+if (Invoke-Configure $src) { Fail 'cmake configure failed' }
 cmake --build $build --target dnd_server
 if ($LASTEXITCODE) { Fail "build failed" }
-$exe = Join-Path $build 'dnd_server.exe'
+$exe = PathOf $build (Exe 'dnd_server')
 if (-not (Test-Path $exe)) { Fail "$exe was not produced" }
 
 # ---- 6. serve
@@ -308,7 +306,7 @@ $argList = @('--port', "$Port")
 if ($Model) { $argList += @('--ollama', $Model) }
 if ($Mature) { $argList += @('--mature'); if ($Model) { $argList += @('--mature-model', $Model) } }
 if ($ServerArgs) { $argList += ($ServerArgs | Where-Object { $_ -ne '--' }) }
-$proc = Start-Process -FilePath $exe -ArgumentList $argList -NoNewWindow -PassThru
+$proc = Start-Process -FilePath $exe -ArgumentList @($argList | ForEach-Object { Quote-Arg $_ }) -NoNewWindow -PassThru
 try {
     $ready = $false
     for ($i = 0; $i -lt 120 -and -not $proc.HasExited; $i++) {
@@ -333,14 +331,15 @@ try {
         if (-not $img.enabled) { Write-Host "  Pictures: off ($($img.error))" -ForegroundColor DarkGray }
         elseif ($img.problem) { Write-Host "  Pictures: $($img.problem)" -ForegroundColor Yellow }
         elseif ($img.reachable) { Write-Host "  Pictures: image server ready at $($img.url), model '$($img.checkpoint)'$(if ($img.mature) { ', mature (adults only)' })" -ForegroundColor Green }
-        elseif ($sdFailed) { Write-Host '  Pictures: Stable Diffusion is not running (the reason is above; .\sd.ps1 -Check lists what is missing)' -ForegroundColor Red }
-        elseif ($sdWeStarted) { Write-Host "  Pictures: Stable Diffusion is starting at $($img.url) (the first start takes 10-20 minutes; progress is in sd.log under $env:LOCALAPPDATA\CppDnD\sd); the Pictures panel works once it answers" -ForegroundColor Yellow }
+        elseif ($sdFailed) { Write-Host '  Pictures: Stable Diffusion is not running (the reason is above; ./sd.ps1 -Check lists what is missing)' -ForegroundColor Red }
+        elseif ($sdWeStarted) { Write-Host "  Pictures: Stable Diffusion is starting at $($img.url) (the first start takes 10-20 minutes; progress is in sd.log; ./sd.ps1 -Check shows where); the Pictures panel works once it answers" -ForegroundColor Yellow }
         else { Write-Host "  Pictures: no image server at $($img.url) (skipped, or -NoArt)" -ForegroundColor DarkGray }
+        if ($img.note) { Write-Host "  Pictures: $($img.note)" -ForegroundColor Yellow }
     } catch {}
-    if (-not $NoBrowser) { Start-Process $url }
+    if (-not $NoBrowser) { Open-Url $url }
     $proc.WaitForExit()
 } finally {
-    if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
+    if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     if ($sdWeStarted) { & $sdScript -Stop | Out-Null }
     if ($ollamaProc -and -not $ollamaProc.HasExited) { Stop-Tree $ollamaProc.Id }
     if ($llamaProc -and -not $llamaProc.HasExited) { Stop-Tree $llamaProc.Id }

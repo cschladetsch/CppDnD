@@ -108,6 +108,8 @@ public:
     // Table talk. Empty `to`: said to the whole table (shown in the log, kept in group history). Otherwise a
     // private line to one actor, kept only in that pair's histories.
     void Say(const std::string& who, const std::string& text, const std::string& to = "");
+    // Put a line of story into the event log (what a free-form action led to), so later camera pictures and saved games see it.
+    void Narrate(const std::string& text);
     // ---- history (see History.hpp)
     History& Hist() { return history_; }
     const History& Hist() const { return history_; }

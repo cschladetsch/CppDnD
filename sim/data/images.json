@@ -6,15 +6,18 @@
   "backend": "a1111",
   "url": "http://127.0.0.1:7860",
 
-  // The model. sd15 is what .\sd.ps1 -Install puts in the store. A folder name in the CppLmmModelStore (DEEPSEEK_MODEL_HOME) holding a .safetensors or .ckpt is resolved to
+  // The model. sd15 is what ./sd.ps1 -Install puts in the store. A folder name in the CppLmmModelStore (DEEPSEEK_MODEL_HOME) holding a .safetensors or .ckpt is resolved to
   // that file; any other name is passed to the image server as it is. Empty: whatever the server has loaded.
   "checkpoint": "sd15",
   // true: refuse to draw unless "checkpoint" exists in the model store.
   "requireStore": false,
 
-  // Adult pictures. enabled: true (or .\sd.ps1 -Start -Mature, or .\web.ps1 -Mature) uses the adult words and sizes below. With no "checkpoint" the base model above draws them.
-  // To use a fine-tune instead, add "checkpoint": "<folder>": a folder in the CppLmmModelStore (see DEEPSEEK_MODEL_HOME) holding the .safetensors or .ckpt of an SD 1.5 or SDXL model.
-  "mature": { "enabled": false },
+  // Adult pictures, on with ./web.ps1 -Mature (or enabled: true, or ./sd.ps1 -Start -Mature). Every person drawn is an adult; that guard cannot be turned off.
+  // "checkpoint": a folder in the CppLmmModelStore (see DEEPSEEK_MODEL_HOME) holding the .safetensors or .ckpt of an SD 1.5 or SDXL fine-tune
+  // that can draw nudity. realistic-vision-5.1 is Realistic Vision 5.1 (SD 1.5, fp16, 2.1 GB, fine on an 8 GB card); ./web.ps1 -Mature offers to
+  // download it when the folder is missing, and until it is there the base model above draws. There is deliberately no "prefix" here:
+  // pictures follow the story, so people are dressed unless the narration says otherwise (camera pictures carry the latest narration).
+  "mature": { "enabled": false, "checkpoint": "realistic-vision-5.1" },
 
   "timeoutSec": 600
 }

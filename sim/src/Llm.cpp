@@ -41,7 +41,7 @@ ModelInfo LocateModel(const std::string& name) {
     m.path = deepseek::ModelStore::ResolveModelPath(name);
     m.exists = !name.empty() && deepseek::ModelStore::ModelExists(name);
 #else
-    const std::string home = Env("DEEPSEEK_MODEL_HOME", Env("HOME", ".") + "/.local/share/deepseek/models");
+    const std::string home = Env("DEEPSEEK_MODEL_HOME", Env("HOME", Env("USERPROFILE", ".")) + "/.local/share/deepseek/models");
     m.home = home;
     m.path = home + "/" + name;
     std::error_code ec;
@@ -800,6 +800,8 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
     }
     if (out.steps.empty() && out.ok && reply.empty()) reply = "Nothing happens.";
     if (acted && reply.empty()) reply = "You do it. (The model gave no narration.)";
+    // what a free-form action led to is story: log it, so the next camera picture (which draws the latest narration) shows it
+    if (acted && out.ok && !reply.empty()) game.Narrate(reply);
     out.message = reply;
     return out;
 }

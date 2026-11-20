@@ -521,3 +521,28 @@ TEST(Llm, SayNarratesStepsTheEngineHasNoCommandFor) {
     EXPECT_NE(br.message.find("oops"), std::string::npos);
     EXPECT_NE(RunExplorationStep(g, Json::object()).message.find("no command"), std::string::npos);
 }
+
+// "<hero> takes off her top", then a camera shot: the narrated outcome is logged, so the camera's prompt carries it, first
+TEST(Llm, ActNarrationReachesTheNextCameraShot) {
+    GameConfig cfg; cfg.moduleId = "ravenmoor"; cfg.seed = 11;
+    Game g(cfg);
+    const std::string hero = g.Hero();
+    MockLlmClient m([&](const std::string&, const std::string&, bool json) {
+        LlmReply r; r.ok = true;
+        if (json) r.content = R"({"steps":[{"cmd":"act","what":"takes off her top"}],"reply":""})";
+        else r.content = hero + " takes off her top and drops it by the fire.";
+        return r;
+    });
+    const SayResult sr = Say(m, g, hero + " takes off her top");
+    ASSERT_TRUE(sr.ok);
+    const Json view = g.View(0);
+    const std::string told = RecentNarration(view);
+    EXPECT_NE(told.find("takes off her top"), std::string::npos) << told;
+    // only once in the log, so the client shows it once
+    int logged = 0;
+    for (const auto& e : view["events"]) if (e.value("text", "") == sr.message) ++logged;
+    EXPECT_EQ(logged, 1);
+    // a later rules-free line does not push it out: the newest few narrated lines are kept
+    g.Say(hero, "Better.");
+    EXPECT_NE(RecentNarration(g.View(0)).find("takes off her top"), std::string::npos);
+}
