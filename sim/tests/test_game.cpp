@@ -756,3 +756,20 @@ TEST(Journal, ListsWhoYouHaveMetAndTheLastThingSaid) {
     EXPECT_EQ(marta["last"]["speaker"], "Marta Hollin");
     EXPECT_EQ(j["places"].size(), 2u);
 }
+
+TEST(Game, SavesFromBeforeGenderGetItFromTheCharacterData) {
+    GameConfig cfg;
+    cfg.moduleId = "ravenmoor";
+    cfg.seed = 5;
+    cfg.role = Role::Spectator;
+    Game a(cfg);
+    Json save = a.Save();
+    for (auto& p : save.at("party")) p.at("sheet").erase("gender");
+    auto b = Game::Load(save);
+    for (const auto& pm : b->Party()) {
+        const CharacterDef* d = Content::FindCharacter(pm.charId);
+        ASSERT_NE(d, nullptr);
+        EXPECT_EQ(pm.sheet.gender, d->gender) << pm.charId;
+        EXPECT_FALSE(pm.sheet.gender.empty()) << pm.charId;
+    }
+}

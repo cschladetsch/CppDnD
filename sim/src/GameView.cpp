@@ -261,6 +261,8 @@ std::unique_ptr<Game> Game::Load(const Json& j) {
         PartyMember pm;
         pm.charId = p.value("charId", "");
         pm.sheet = SheetFromJson(p.at("sheet"));
+        if (pm.sheet.gender.empty())  // saves from before characters had a gender
+            if (const CharacterDef* d = Content::FindCharacter(pm.charId)) pm.sheet.gender = d->gender;
         pm.xp = p.value("xp", 0);
         pm.dead = p.value("dead", false);
         g->party_.push_back(std::move(pm));
