@@ -51,7 +51,11 @@ function Head($msg) { Write-Host "`n$msg" -ForegroundColor Cyan }
 function Ok($msg)   { Write-Host "  [ ok ] $msg" -ForegroundColor Green }
 function Warn($msg) { Write-Host "  [warn] $msg" -ForegroundColor Yellow }
 function Info($msg) { Write-Host "         $msg" -ForegroundColor DarkGray }
-function Fail($msg) { Restore-Cnf; Write-Host "  [FAIL] $msg" -ForegroundColor Red; exit 1 }
+function Fail($msg) {
+    # a failure after a model server was started must not leave it running (it holds gigabytes)
+    if ($llamaProc -and -not $llamaProc.HasExited) { Stop-Tree $llamaProc.Id }
+    if ($ollamaProc -and -not $ollamaProc.HasExited) { Stop-Tree $ollamaProc.Id }
+    Restore-Cnf; Write-Host "  [FAIL] $msg" -ForegroundColor Red; exit 1 }
 function Ask($question) {
     if ($Yes) { return $true }
     $answer = ''
