@@ -7,6 +7,8 @@
 #                                      (with DND_LLM_URL set and no -Model, the server there is used and Ollama is left alone)
 #   .\web.ps1 -Mature                  adult content: no refusals, all characters adults; uses content.model from agents.json
 #                                      (an uncensored model such as dolphin-llama3:8b) unless -Model is given
+#                                      pictures too: the "mature" block of sim\data\images.json (its checkpoint, words, size)
+#                                      is used, and Stable Diffusion is started with that checkpoint (sd.ps1 -Mature)
 #   .\web.ps1 -NoArt                   no Stable Diffusion (no generated pictures)
 #   .\web.ps1 -Rebuild -NoBrowser
 #   .\web.ps1 --data .\my-content      unrecognised options go to dnd_server
@@ -184,9 +186,11 @@ else {
 
 # ---- 4. Stable Diffusion
 $imgUrl = 'http://127.0.0.1:7860'
+$matureCkpt = ''
+$sdMature = [bool]$Mature
 $imgFile = Join-Path $src 'data\images.json'
 if (Test-Path $imgFile) {
-    try { $ij = Read-JsonFile $imgFile; if ($ij.url) { $imgUrl = $ij.url } }
+    try { $ij = Read-JsonFile $imgFile; if ($ij.url) { $imgUrl = $ij.url }; if ($ij.mature -and $ij.mature.checkpoint) { $matureCkpt = "$($ij.mature.checkpoint)" }; if ($ij.mature -and $ij.mature.enabled) { $sdMature = $true } }
     catch { Warn "could not read sim\data\images.json: $($_.Exception.Message)" }
 }
 $sdWeStarted = $false
@@ -196,7 +200,10 @@ if (-not $NoArt) {
     Head 'Stable Diffusion'
     $sdUp = $false
     try { Invoke-RestMethod -Uri "$imgUrl/sdapi/v1/options" -TimeoutSec 2 | Out-Null; $sdUp = $true } catch {}
-    if ($sdUp) { Ok "already running at $imgUrl" }
+    if ($sdUp) {
+        Ok "already running at $imgUrl"
+        if ($sdMature -and $matureCkpt) { Info "for the mature checkpoint '$matureCkpt' it must have been started with .\sd.ps1 -Start -Mature (else: .\sd.ps1 -Stop, then run this again)" }
+    }
     elseif (-not (Test-Path $sdScript)) { Warn 'sd.ps1 is missing; continuing without pictures'; $sdFailed = $true }
     else {
         $sdPort = ([uri]$imgUrl).Port
@@ -212,7 +219,8 @@ if (-not $NoArt) {
             } else { Info 'skipped. .\sd.ps1 -Install sets it up later; -NoArt stops this question' }
         }
         if ($sdReady) {
-            & $sdScript -Start -NoWait -Port $sdPort
+            if ($sdMature -and $matureCkpt) { & $sdScript -Start -NoWait -Port $sdPort -Mature -MatureModel $matureCkpt }
+            else { & $sdScript -Start -NoWait -Port $sdPort }
             if ($LASTEXITCODE) { Warn 'Stable Diffusion did not start (see above); continuing without pictures'; $sdFailed = $true }
             else { $sdWeStarted = $true }
         }
@@ -259,7 +267,7 @@ try {
         $img = Invoke-RestMethod -Uri "${url}api/images" -TimeoutSec 5
         if (-not $img.enabled) { Write-Host "  Pictures: off ($($img.error))" -ForegroundColor DarkGray }
         elseif ($img.problem) { Write-Host "  Pictures: $($img.problem)" -ForegroundColor Yellow }
-        elseif ($img.reachable) { Write-Host "  Pictures: image server ready at $($img.url), model '$($img.checkpoint)'" -ForegroundColor Green }
+        elseif ($img.reachable) { Write-Host "  Pictures: image server ready at $($img.url), model '$($img.checkpoint)'$(if ($img.mature) { ', mature (adults only)' })" -ForegroundColor Green }
         elseif ($sdFailed) { Write-Host '  Pictures: Stable Diffusion is not running (the reason is above; .\sd.ps1 -Check lists what is missing)' -ForegroundColor Red }
         elseif ($sdWeStarted) { Write-Host "  Pictures: Stable Diffusion is starting at $($img.url) (the first start takes 10-20 minutes; progress is in sd.log under $env:LOCALAPPDATA\CppDnD\sd); the Pictures panel works once it answers" -ForegroundColor Yellow }
         else { Write-Host "  Pictures: no image server at $($img.url) (skipped, or -NoArt)" -ForegroundColor DarkGray }

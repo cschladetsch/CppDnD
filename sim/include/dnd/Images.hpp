@@ -37,6 +37,29 @@ struct ImageStyle {
         {"modules", "sweeping panoramic establishing shot, low angle, no people"}};
 };
 
+// Mature mode for pictures: on with the same switch as the language model (--mature, DND_MATURE, content.mature in the
+// agents file) or with "mature": {"enabled": true} in images.json. Everything here is optional and holds no words of its
+// own: it is where the user puts the checkpoint and the words for their mature pictures. Empty or 0: the normal setting.
+struct MatureImageStyle {
+    std::string checkpoint;  // a model-store folder or a name the image server knows; usually a fine-tuned SD1.5 or SDXL build
+    std::string prefix, suffix;  // replace the normal (and the module's) prefix and suffix
+    std::string negative;        // added after the normal negative prompt
+    std::map<std::string, std::string> framing;  // per kind, replaces the normal framing
+    int steps = 0;
+    double cfg = 0;
+    std::string sampler;
+    int portraitW = 0, portraitH = 0, wideW = 0, wideH = 0;  // SDXL wants about 1024 px
+    bool narration = true;  // pictures drawn from a camera also say what the story last narrated
+};
+
+// The adults-only guard. In mature mode it is always applied, and nothing in any settings file can turn it off or
+// override it: every picture of people says they are adults, this negative prompt comes after every other one, and a
+// picture whose words mention a minor is refused rather than drawn.
+const std::string& AdultsOnlyNegative();
+bool MentionsMinor(const std::string& text);
+// "adult woman", "adult man" or "adult" for a free-text gender ("female", "male", anything else or empty).
+std::string AdultWords(const std::string& gender);
+
 // Where pictures come from. Two kinds of server are understood:
 //   "a1111"  AUTOMATIC1111, Forge, SD.Next (started with --api): POST /sdapi/v1/txt2img
 //   "openai" anything serving POST /v1/images/generations with b64_json (LocalAI, and others)
@@ -52,6 +75,9 @@ struct ImageConfig {
     int timeoutSec = 600;
     ImageStyle style;
     std::map<std::string, std::string> prompts;  // "characters/thorin" -> replacement for the generated subject
+    bool mature = false;    // off by default; see MatureImageStyle
+    MatureImageStyle matureStyle;
+    const std::string& ActiveCheckpoint() const { return mature && !matureStyle.checkpoint.empty() ? matureStyle.checkpoint : checkpoint; }
 
     // images.json (data/images.json, --images, DND_IMAGES), then the style file (art/style.json), then art/prompts.json.
     // Any of them may be missing; a malformed one is an error.
@@ -67,6 +93,8 @@ struct ArtSubject {
     bool wide = false;
     bool custom = false;  // the subject came from prompts.json and is used as written, with no framing added
     std::string module;   // the module whose art style (ModuleDef::art) words this picture; empty: the global style
+    std::string gender;   // characters and NPCs: the free-text gender from the data, for the adults-only words
+    bool person = false;  // shows a person (characters, NPCs, camera views)
 };
 // Everything in the loaded content that can have a picture.
 std::vector<ArtSubject> ArtSubjects(const std::map<std::string, std::string>& overrides = {});
@@ -120,6 +148,7 @@ struct ViewJob {
     int width = 768, height = 432;
     std::uint32_t seed = 0;   // 0: derived from the id
     std::string module;       // the game's module, for its art style
+    std::string narration;    // mature mode only: what the story last narrated, added to the subject
 };
 
 // ---------------------------------------------------------------- the art service
@@ -137,7 +166,10 @@ public:
 
     // {enabled, backend, url, reachable, error, checkpoint, effectiveCheckpoint, store: {...}, models: {store: [...], server: [...]}, problem}
     Json Status();
-    bool SetCheckpoint(const std::string& model, bool fromStore, std::string& err);
+    bool SetCheckpoint(const std::string& model, bool fromStore, std::string& err);  // in mature mode, sets the mature checkpoint
+    bool Mature() const;
+    // The words, size and settings a picture is drawn with. False (and err) when the adults-only guard refuses it.
+    bool BuildRequest(const ArtSubject& s, const std::string& promptOverride, const ViewJob* view, ImageRequest& r, std::string& err) const;
 
     // Queue pictures. Request: {"missing": true, "kinds": [...]} or {"kind": "characters", "id": "thorin"} or
     // {"ids": ["characters/thorin", "monsters/zombie"]}; optional "force" (redo existing) and, for one id, "prompt".

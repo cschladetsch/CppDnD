@@ -6,6 +6,7 @@
 #include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <regex>
 #include <set>
 
 #include "dnd/Content.hpp"
@@ -209,6 +210,43 @@ private:
 
 }  // namespace
 
+// ---------------------------------------------------------------- the adults-only guard
+
+const std::string& AdultsOnlyNegative() {
+    static const std::string s =
+        "child, children, kid, minor, underage, teen, teenager, adolescent, young girl, young boy, little girl, little boy, "
+        "childlike, child body, childlike face, baby face, loli, shota, school uniform";
+    return s;
+}
+
+bool MentionsMinor(const std::string& text) {
+    static const std::set<std::string> words = {
+        "child", "children", "childs", "kid", "kids", "kiddie", "toddler", "toddlers", "infant", "infants", "baby", "babies",
+        "minor", "minors", "underage", "teen", "teens", "teenage", "teenaged", "teenager", "teenagers", "preteen", "preteens",
+        "tween", "adolescent", "adolescents", "pubescent", "prepubescent", "juvenile", "youngster", "youngsters", "boy", "boys",
+        "girl", "girls", "schoolgirl", "schoolgirls", "schoolboy", "schoolboys", "loli", "lolita", "lolicon", "shota", "shotacon",
+        "childlike", "1girl", "1boy", "2girls", "2boys"};
+    const std::string low = LowerCase(text);
+    std::string w;
+    auto hit = [&] { return !w.empty() && words.count(w) > 0; };
+    for (char c : low) {
+        if (std::isalnum(static_cast<unsigned char>(c))) { w.push_back(c); continue; }
+        if (hit()) return true;
+        w.clear();
+    }
+    if (hit()) return true;
+    // an age under 18: "16 years old", "16-year-old", "16yo", "age 15", "aged 12"
+    static const std::regex age(R"(\b([0-9]|1[0-7])\s*-?\s*(yo|y/o|(years?|yrs?)[\s-]+old)\b|\bage[ds]?\s+([0-9]|1[0-7])\b)");
+    return std::regex_search(low, age);
+}
+
+std::string AdultWords(const std::string& gender) {
+    const std::string g = LowerCase(gender);
+    if (g == "female" || g == "woman" || g == "f") return "adult woman";
+    if (g == "male" || g == "man" || g == "m") return "adult man";
+    return "adult";
+}
+
 // ---------------------------------------------------------------- configuration
 
 std::optional<ImageConfig> ImageConfig::Load(const std::string& imagesFile, const std::string& styleFile, const std::string& promptsFile, std::string& err) {
@@ -226,6 +264,28 @@ std::optional<ImageConfig> ImageConfig::Load(const std::string& imagesFile, cons
             c.checkpoint = j.value("checkpoint", c.checkpoint);
             c.requireStore = j.value("requireStore", c.requireStore);
             c.timeoutSec = std::max(5, j.value("timeoutSec", c.timeoutSec));
+            if (j.contains("mature")) {
+                const Json& m = j["mature"];
+                if (!m.is_object()) { err = imagesFile + ": \"mature\" must be an object"; return std::nullopt; }
+                MatureImageStyle& ms = c.matureStyle;
+                c.mature = m.value("enabled", false);
+                ms.checkpoint = m.value("checkpoint", ms.checkpoint);
+                ms.prefix = m.value("prefix", ms.prefix);
+                ms.suffix = m.value("suffix", ms.suffix);
+                ms.negative = m.value("negative", ms.negative);
+                ms.sampler = m.value("sampler", ms.sampler);
+                ms.steps = std::clamp(m.value("steps", 0), 0, 150);
+                ms.cfg = m.value("cfg", 0.0);
+                ms.narration = m.value("narration", ms.narration);
+                if (m.contains("framing") && m["framing"].is_object())
+                    for (auto it = m["framing"].begin(); it != m["framing"].end(); ++it)
+                        if (it.value().is_string()) ms.framing[it.key()] = it.value().get<std::string>();
+                auto size = [&](const char* k, int& w, int& h) {
+                    if (m.contains(k) && m[k].is_array() && m[k].size() == 2) { w = std::clamp(m[k][0].get<int>(), 64, 2048); h = std::clamp(m[k][1].get<int>(), 64, 2048); }
+                };
+                size("portrait", ms.portraitW, ms.portraitH);
+                size("wide", ms.wideW, ms.wideH);
+            }
         } else if (!e.empty()) { err = e; return std::nullopt; }
         if (c.backend != "a1111" && c.backend != "openai") { err = "images backend must be \"a1111\" or \"openai\", not \"" + c.backend + "\""; return std::nullopt; }
 
@@ -280,11 +340,11 @@ std::vector<ArtSubject> ArtSubjects(const std::map<std::string, std::string>& ov
     static const std::set<std::string> creatureTypes = {"humanoid", "undead", "beast", "giant", "fiend", "celestial", "construct", "dragon", "elemental", "fey", "monstrosity", "ooze", "plant", "aberration"};
     std::vector<ArtSubject> out;
     std::set<std::string> seen;
-    auto add = [&](const std::string& kind, const std::string& id, std::string subject, bool wide, const std::string& module = "") {
+    auto add = [&](const std::string& kind, const std::string& id, std::string subject, bool wide, const std::string& module = "", const std::string& gender = "") {
         if (id.empty() || !seen.insert(kind + "/" + id).second) return;
         bool custom = false;
         if (auto it = overrides.find(kind + "/" + id); it != overrides.end()) { subject = it->second; custom = true; }
-        out.push_back(ArtSubject{kind, id, std::move(subject), wide, custom, module});
+        out.push_back(ArtSubject{kind, id, std::move(subject), wide, custom, module, gender, kind == "characters" || kind == "npcs"});
     };
     // a monster that only one module fields takes that module's look
     std::map<std::string, std::string> monsterModule;
@@ -300,7 +360,7 @@ std::vector<ArtSubject> ArtSubjects(const std::map<std::string, std::string>& ov
         std::vector<std::string> race;
         for (const auto& t : c.tags) if (!creatureTypes.count(t)) race.push_back(t);
         if (race.empty()) race = {"human"};
-        add("characters", c.id, Cat(c.name.empty() ? c.id : c.name, ", ", Article(Join(race)), " ", Join(race), " ", c.classId.empty() ? "adventurer" : c.classId, ", adventurer"), false, c.module);
+        add("characters", c.id, Cat(c.name.empty() ? c.id : c.name, ", ", Article(Join(race)), " ", Join(race), " ", c.classId.empty() ? "adventurer" : c.classId, ", adventurer"), false, c.module, c.gender);
     }
     for (const auto& id : Content::WeaponIds()) add("items", id, Cat("a fantasy ", id, ", a medieval weapon"), false);
     add("items", "potion", "a glass flask of glowing red healing potion with a cork stopper", false);
@@ -316,7 +376,7 @@ std::vector<ArtSubject> ArtSubjects(const std::map<std::string, std::string>& ov
         for (const auto& loc : mod.locations) {
             add("locations", loc.id, Cat(loc.name.empty() ? loc.id : loc.name, ", ", loc.kind, ", ", loc.description), true, mod.id);
             for (const auto& n : loc.npcs)
-                add("npcs", n.id, Cat(n.name.empty() ? n.id : n.name, ", ", Article(n.type), " ", n.type, ". ", n.description), false, mod.id);
+                add("npcs", n.id, Cat(n.name.empty() ? n.id : n.name, ", ", Article(n.type), " ", n.type, ". ", n.description), false, mod.id, n.gender);
         }
     }
     return out;
@@ -358,15 +418,16 @@ std::string ArtService::FindWeights(const std::string& dir) {
 // The name the image server is told to load. A model in the store resolves to its weights file's name.
 std::string ArtService::EffectiveCheckpoint(std::string& problem) const {
     problem.clear();
-    if (cfg_.checkpoint.empty()) return "";
-    const ModelInfo mi = LocateModel(cfg_.checkpoint);
+    const std::string ck = cfg_.ActiveCheckpoint();
+    if (ck.empty()) return "";
+    const ModelInfo mi = LocateModel(ck);
     if (mi.exists) {
         const std::string w = FindWeights(mi.path);
-        if (w.empty()) { problem = Cat("model '", cfg_.checkpoint, "' is in the model store (", mi.path, ") but holds no .safetensors, .ckpt or .gguf file"); return ""; }
-        return cfg_.backend == "a1111" ? fs::path(w).filename().string() : cfg_.checkpoint;
+        if (w.empty()) { problem = Cat("model '", ck, "' is in the model store (", mi.path, ") but holds no .safetensors, .ckpt or .gguf file"); return ""; }
+        return cfg_.backend == "a1111" ? fs::path(w).filename().string() : ck;
     }
-    if (cfg_.requireStore) { problem = Cat("model '", cfg_.checkpoint, "' is not in the model store (", mi.path, ")"); return ""; }
-    return cfg_.checkpoint;  // a name the image server knows by itself
+    if (cfg_.requireStore) { problem = Cat("model '", ck, "' is not in the model store (", mi.path, ")"); return ""; }
+    return ck;  // a name the image server knows by itself
 }
 
 Json ArtService::Status() {
@@ -392,12 +453,18 @@ Json ArtService::Status() {
     Json storeModels = Json::array();
     for (const auto& m : ListModels())
         if (!FindWeights(m.path).empty()) storeModels.push_back(m.name);
-    const ModelInfo mi = LocateModel(cfg.checkpoint);
+    const ModelInfo mi = LocateModel(cfg.ActiveCheckpoint());
     Json s{{"enabled", cfg.enabled}, {"backend", cfg.backend}, {"url", cfg.url}, {"describe", client_->Describe()},
-           {"reachable", probe.value("reachable", false)}, {"checkpoint", cfg.checkpoint}, {"effectiveCheckpoint", eff},
+           {"reachable", probe.value("reachable", false)}, {"checkpoint", cfg.ActiveCheckpoint()}, {"effectiveCheckpoint", eff},
+           {"mature", cfg.mature}, {"normalCheckpoint", cfg.checkpoint},
            {"requireStore", cfg.requireStore}, {"store", Json{{"home", mi.home}, {"path", mi.path}, {"exists", mi.exists}}},
            {"models", Json{{"store", storeModels}, {"server", probe.contains("models") ? probe["models"] : Json::array()}}}};
     if (probe.contains("error")) s["error"] = probe["error"];
+    if (problem.empty() && !eff.empty() && mi.exists && cfg.backend == "a1111" && probe.value("reachable", false) && probe.contains("models") && probe["models"].is_array() && !probe["models"].empty()) {
+        bool listed = false;
+        for (const auto& m : probe["models"]) listed = listed || (m.is_string() && m.get<std::string>() == eff);
+        if (!listed) problem = Cat("the image server does not list '", eff, "'", cfg.mature ? "; start it with .\\sd.ps1 -Start -Mature" : "; is its --ckpt-dir the model store folder?");
+    }
     if (!problem.empty()) s["problem"] = problem;
     s["jobs"] = Jobs();
     return s;
@@ -410,8 +477,13 @@ bool ArtService::SetCheckpoint(const std::string& model, bool fromStore, std::st
         if (FindWeights(mi.path).empty()) { err = Cat("model '", model, "' holds no .safetensors, .ckpt or .gguf file in ", mi.path); return false; }
     }
     std::lock_guard<std::mutex> lk(m_);
-    cfg_.checkpoint = model;
+    (cfg_.mature ? cfg_.matureStyle.checkpoint : cfg_.checkpoint) = model;
     return true;
+}
+
+bool ArtService::Mature() const {
+    std::lock_guard<std::mutex> lk(m_);
+    return cfg_.mature;
 }
 
 std::string ArtService::Existing(const std::string& kind, const std::string& id) const {
@@ -545,50 +617,14 @@ void ArtService::Worker() {
 }
 
 bool ArtService::Do(const Item& it, std::string& err) {
-    ImageConfig cfg;
-    {
-        std::lock_guard<std::mutex> lk(m_);
-        cfg = cfg_;
-    }
     if (!it.view && !it.force && !Existing(it.s.kind, it.s.id).empty()) return true;
     std::string problem;
     const std::string eff = EffectiveCheckpoint(problem);
     if (!problem.empty()) { err = problem; return false; }
 
     ImageRequest r;
-    const ImageStyle& st = cfg.style;
-    const std::string subject = it.view ? it.view->subject : it.promptOverride.empty() ? it.s.subject : it.promptOverride;
-    std::string framing;
-    // the module's own look (art in its JSON) replaces the global words
-    const std::string moduleId = it.view ? it.view->module : it.s.module;
-    const ModuleDef* mod = moduleId.empty() ? nullptr : Content::FindModule(moduleId);
-    const ArtStyleDef* art = mod ? &mod->art : nullptr;
-    const std::string prefix = art && !art->prefix.empty() ? art->prefix : st.prefix;
-    const std::string suffix = art && !art->suffix.empty() ? art->suffix : st.suffix;
-    if (!it.view && !it.s.custom && it.promptOverride.empty()) {
-        if (art) if (auto f = art->framing.find(it.s.kind); f != art->framing.end()) framing = f->second;
-        if (framing.empty()) if (auto f = st.framing.find(it.s.kind); f != st.framing.end()) framing = f->second;
-    }
-    for (const std::string& part : {prefix, subject, framing, suffix}) {  // comma-separated phrases, as Stable Diffusion likes them
-        if (part.empty()) continue;
-        if (!r.prompt.empty()) r.prompt += (r.prompt.back() == ',' || r.prompt.back() == '.') ? " " : ", ";
-        r.prompt += part;
-    }
-    r.negative = art && !art->negative.empty() ? art->negative : st.negative;
-    r.sampler = st.sampler;
-    r.steps = st.steps;
-    r.cfg = st.cfg;
-    r.width = it.s.wide ? st.wideW : st.portraitW;
-    r.height = it.s.wide ? st.wideH : st.portraitH;
-    r.seed = Crc32(it.s.id) & 0x7FFFFFFFu;
+    if (!BuildRequest(it.s, it.promptOverride, it.view.get(), r, err)) return false;
     r.checkpoint = eff;
-    if (it.view) {
-        r.width = it.view->width;
-        r.height = it.view->height;
-        if (it.view->seed) r.seed = it.view->seed & 0x7FFFFFFFu;
-        r.initB64 = it.view->initB64;
-        r.denoise = it.view->strength;
-    }
 
     const ImageResult res = client_->Generate(r);
     if (!res.ok) { err = (res.unreachable ? "unreachable: " : "") + res.error; return false; }
@@ -624,6 +660,62 @@ bool ArtService::Do(const Item& it, std::string& err) {
     return true;
 }
 
+bool ArtService::BuildRequest(const ArtSubject& s, const std::string& promptOverride, const ViewJob* view, ImageRequest& r, std::string& err) const {
+    ImageConfig cfg;
+    {
+        std::lock_guard<std::mutex> lk(m_);
+        cfg = cfg_;
+    }
+    const bool mature = cfg.mature;
+    const MatureImageStyle& ms = cfg.matureStyle;
+    const ImageStyle& st = cfg.style;
+    std::string subject = view ? view->subject : promptOverride.empty() ? s.subject : promptOverride;
+    if (mature && view && ms.narration && !view->narration.empty()) subject += (subject.empty() ? "" : ", ") + view->narration;
+    std::string framing;
+    // the module's own look (art in its JSON) replaces the global words; mature words replace both
+    const std::string moduleId = view ? view->module : s.module;
+    const ModuleDef* mod = moduleId.empty() ? nullptr : Content::FindModule(moduleId);
+    const ArtStyleDef* art = mod ? &mod->art : nullptr;
+    std::string prefix = art && !art->prefix.empty() ? art->prefix : st.prefix;
+    std::string suffix = art && !art->suffix.empty() ? art->suffix : st.suffix;
+    if (mature && !ms.prefix.empty()) prefix = ms.prefix;
+    if (mature && !ms.suffix.empty()) suffix = ms.suffix;
+    if (!view && !s.custom && promptOverride.empty()) {
+        if (mature) if (auto f = ms.framing.find(s.kind); f != ms.framing.end()) framing = f->second;
+        if (framing.empty() && art) if (auto f = art->framing.find(s.kind); f != art->framing.end()) framing = f->second;
+        if (framing.empty()) if (auto f = st.framing.find(s.kind); f != st.framing.end()) framing = f->second;
+    }
+    // adults only: a person is said to be an adult right after what they are, where the model gives it the most weight
+    const std::string adult = mature && (s.person || view) ? (view ? std::string("every person shown is an adult") : AdultWords(s.gender)) : "";
+    r.prompt.clear();
+    for (const std::string& part : {prefix, subject, adult, framing, suffix}) {  // comma-separated phrases, as Stable Diffusion likes them
+        if (part.empty()) continue;
+        if (!r.prompt.empty()) r.prompt += (r.prompt.back() == ',' || r.prompt.back() == '.') ? " " : ", ";
+        r.prompt += part;
+    }
+    r.negative = art && !art->negative.empty() ? art->negative : st.negative;
+    if (mature) {
+        if (MentionsMinor(r.prompt)) { err = "not drawn: mature mode only draws adults, and this picture's words mention a minor"; return false; }
+        for (const std::string& extra : {ms.negative, AdultsOnlyNegative()})  // the guard always comes last
+            if (!extra.empty()) r.negative += (r.negative.empty() ? "" : ", ") + extra;
+    }
+    r.sampler = mature && !ms.sampler.empty() ? ms.sampler : st.sampler;
+    r.steps = mature && ms.steps > 0 ? ms.steps : st.steps;
+    r.cfg = mature && ms.cfg > 0 ? ms.cfg : st.cfg;
+    const bool msize = mature && (s.wide ? ms.wideW > 0 : ms.portraitW > 0);
+    r.width = s.wide ? (msize ? ms.wideW : st.wideW) : (msize ? ms.portraitW : st.portraitW);
+    r.height = s.wide ? (msize ? ms.wideH : st.wideH) : (msize ? ms.portraitH : st.portraitH);
+    r.seed = Crc32(s.id) & 0x7FFFFFFFu;
+    if (view) {
+        r.width = view->width;
+        r.height = view->height;
+        if (view->seed) r.seed = view->seed & 0x7FFFFFFFu;
+        r.initB64 = view->initB64;
+        r.denoise = view->strength;
+    }
+    return true;
+}
+
 Json ArtService::EnqueueView(const ViewJob& job, std::string& err) {
     if (job.id.empty() || job.id.size() > 80 || !std::all_of(job.id.begin(), job.id.end(), [](unsigned char c) { return std::isalnum(c) || c == '-' || c == '_'; })) { err = "bad view id"; return Json(); }
     if (job.subject.empty()) { err = "nothing to draw"; return Json(); }
@@ -633,7 +725,7 @@ Json ArtService::EnqueueView(const ViewJob& job, std::string& err) {
     v->height = snap(v->height);
     v->strength = std::clamp(v->strength, 0.05, 1.0);
     Item it;
-    it.s = ArtSubject{"views", job.id, job.subject, true, true};
+    it.s = ArtSubject{"views", job.id, job.subject, true, true, job.module, "", true};
     it.force = true;
     it.view = v;
     {
