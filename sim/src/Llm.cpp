@@ -582,6 +582,7 @@ CmdResult RunExplorationStep(Game& game, const Json& st) {
     if (cmd == "wait") return game.Wait(st.value("hours", 1));
     if (cmd == "pace") return game.SetPace(st.value("pace", "normal"));
     if (cmd == "act") return CmdResult{true, ""};  // no rules effect; the reply narrates it
+    if (cmd.empty()) return CmdResult{false, "the step has no command: " + st.dump()};
     return CmdResult{false, "unknown command '" + cmd + "'"};
 }
 
@@ -683,6 +684,29 @@ SayResult SayOffline(Game& game, const std::string& text) {
     return out;
 }
 
+namespace {
+// A step the rules engine knows: an exploration command or a combat action. Anything else the model sends
+// (an "act", an empty or invented cmd, a step with neither cmd nor type) is a free-form action to narrate.
+bool IsRulesStep(const Json& st) {
+    static const std::set<std::string> cmds{"travel", "search", "talk", "rest", "wait", "pace"};
+    static const std::set<std::string> types{"move", "attack", "cast", "dash", "dodge", "potion", "feature", "end_turn"};
+    if (st.contains("type") && st["type"].is_string() && types.count(st["type"].get<std::string>())) return true;
+    return st.contains("cmd") && st["cmd"].is_string() && cmds.count(st["cmd"].get<std::string>());
+}
+
+// Prose for free-form actions when the model's JSON reply left "reply" empty. Empty on failure.
+std::string NarrateActs(ILlmClient& client, const Game& game, const std::string& text, const std::string& what) {
+    const std::string sys = Cat("You are the narrator of a tabletop roleplaying game. The setting is: ", game.Module().setting, ". "
+                                "The player has their character do something the rules have no command for. Narrate what happens and how "
+                                "anyone involved reacts, in character, in two to four sentences of present-tense prose. Never mention dice, "
+                                "numbers or rules. Reply with the prose only.");
+    std::string user = "State:\n" + ObserveWorld(game).dump() + "\n\nPlayer says: " + text;
+    if (!what.empty()) user += "\nWhat they do: " + what;
+    const LlmReply r = client.Chat(sys, user, false);
+    return r.ok ? CleanLine(StripThink(r.content), 900) : std::string{};
+}
+}  // namespace
+
 SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
     SayResult out;
     if (Trim(text).empty()) { out.message = "Say something first."; return out; }
@@ -710,13 +734,29 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
     if (!r.ok) { out.message = "The model did not answer: " + r.error; return out; }
     const std::string obj = ExtractJsonObject(r.content);
     const auto j = obj.empty() ? nlohmann::json() : nlohmann::json::parse(obj, nullptr, false);
-    if (!j.is_object()) { out.message = "I could not understand the model's reply."; return out; }
+    if (!j.is_object()) {
+        const std::string raw = StripThink(r.content);
+        if (!raw.empty() && raw.find('{') == std::string::npos) {  // plain prose instead of JSON: show it as the narration
+            out.ok = true;
+            out.message = CleanLine(raw, 900);
+            return out;
+        }
+        out.message = "The model's reply was not the JSON the game expects: " + (raw.empty() ? std::string("(empty)") : CleanLine(raw, 200));
+        return out;
+    }
     std::string reply = j.value("reply", "");
     out.ok = true;
     int n = 0;
+    std::string acts;  // what the free-form steps said they do, for narration when the reply is empty
     if (j.contains("steps") && j["steps"].is_array()) {
         for (const auto& st : j["steps"]) {
             if (!st.is_object() || ++n > 6) break;
+            if (!IsRulesStep(st)) {  // act, or anything the engine has no command for: narrated, no rules effect
+                out.steps.push_back("act");
+                for (const char* k : {"what", "action", "description", "text"})
+                    if (st.contains(k) && st[k].is_string()) { acts += (acts.empty() ? "" : "; ") + st[k].get<std::string>(); break; }
+                continue;
+            }
             const int awaitingBefore = game.GetCombat() ? game.GetCombat()->AwaitingActor() : -1;
             if (st.contains("type")) {
                 if (game.GetMode() != Mode::Combat) {
@@ -743,7 +783,6 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
                 continue;
             }
             const std::string cmd = st.value("cmd", "");
-            if (cmd == "act") { out.steps.push_back(cmd); continue; }  // narrated by the reply, no rules effect
             if (game.GetMode() != Mode::Exploring) { out.ok = false; reply = "That cannot be done right now."; break; }
             const CmdResult cr = RunExplorationStep(game, st);
             if (!cr.ok) { out.ok = false; reply = cr.message; break; }
@@ -751,7 +790,10 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
             if (game.GetMode() != Mode::Exploring) break;  // a fight broke out; stop here
         }
     }
+    const bool acted = std::find(out.steps.begin(), out.steps.end(), "act") != out.steps.end();
+    if (acted && Trim(reply).empty()) reply = NarrateActs(client, game, text, acts);
     if (out.steps.empty() && out.ok && reply.empty()) reply = "Nothing happens.";
+    if (acted && reply.empty()) reply = "You do it. (The model gave no narration.)";
     out.message = reply;
     return out;
 }
