@@ -9,21 +9,25 @@
 #                                      (an uncensored model such as dolphin-llama3:8b) unless -Model is given
 #                                      pictures too: the "mature" block of sim\data\images.json (its checkpoint, words, size)
 #                                      is used, and Stable Diffusion is started with that checkpoint (sd.ps1 -Mature)
+#                                      with "llama" in the content block of agents.json, a llama.cpp server (llama-server) is started on that
+#                                      GGUF model instead, kept in the model store (-NoLlama skips this and uses Ollama)
 #   .\web.ps1 -NoArt                   no Stable Diffusion (no generated pictures)
 #   .\web.ps1 -Rebuild -NoBrowser
 #   .\web.ps1 --data .\my-content      unrecognised options go to dnd_server
 # What it checks, in order, and what it does about each:
 #   cmake, ninja, clang++      missing: offers to install with winget
+#   llama.cpp                  mature mode only: offers to install it, downloads the GGUF into the model store, starts llama-server
 #   Ollama                     missing: offers to install; installed but not running: starts it
 #   Ollama models              the prompt model and the models in agents.json; missing: offers to pull them
 #   Stable Diffusion           not set up: offers to run sd.ps1 -Install; set up: starts it in the background
 #   dnd_server                 builds it if needed, starts it, waits until it answers, opens the browser
-# Anything this script started (Ollama, Stable Diffusion, the server) is stopped again on Ctrl-C.
+# Anything this script started (llama-server, Ollama, Stable Diffusion, the server) is stopped again on Ctrl-C.
 # -Art is accepted and does nothing (Stable Diffusion is on by default).
 param(
     [int]$Port = 8088,
     [string]$Model = '',
     [switch]$NoLlm,
+    [switch]$NoLlama,
     [switch]$Mature,
     [switch]$NoArt,
     [switch]$Art,
@@ -99,6 +103,66 @@ try {
     try { $running = Invoke-RestMethod -Uri "${url}api/llm" -TimeoutSec 2 } catch {}
     if ($running) { Fail "port $Port already has a dnd_server running; open $url or pick another -Port" }
     Fail "port $Port is in use by another program; pick another -Port"
+}
+
+# ---- 2b. llama.cpp: a GGUF model from the model store (content.llama in agents.json, mature mode)
+$llamaProc = $null
+if (-not $NoLlm -and -not $NoLlama -and -not $env:DND_LLM_URL) {
+    $agentsFile0 = if ($env:DND_AGENTS) { $env:DND_AGENTS } else { Join-Path $src 'data\agents.json' }
+    $llamaSpec = ''; $llamaLayers = 30; $llamaPort = 8081; $llamaCtx = 8192
+    if (Test-Path $agentsFile0) {
+        try {
+            $ag0 = Read-JsonFile $agentsFile0
+            if ($ag0.content -and $ag0.content.mature) { $Mature = $true }
+            if ($Mature -and $ag0.content -and $ag0.content.llama) {
+                $llamaSpec = "$($ag0.content.llama)"
+                if ($ag0.content.llamaLayers -ne $null) { $llamaLayers = [int]$ag0.content.llamaLayers }
+                if ($ag0.content.llamaPort) { $llamaPort = [int]$ag0.content.llamaPort }
+                if ($ag0.content.llamaContext) { $llamaCtx = [int]$ag0.content.llamaContext }
+            }
+        } catch { Warn "could not read $agentsFile0 ($($_.Exception.Message))" }
+    }
+    if ($llamaSpec) {
+        Head 'llama.cpp'
+        if (-not (Have 'llama-server') -and (Have 'winget')) {
+            if (Ask 'llama-server is not installed. Install llama.cpp with winget (ggml.llamacpp)?') {
+                winget install -e --id ggml.llamacpp --silent --accept-package-agreements --accept-source-agreements
+                Refresh-Path
+            }
+        }
+        if (-not (Have 'llama-server')) { Warn 'llama-server is not available (winget install ggml.llamacpp, then open a new terminal); using Ollama instead' }
+        else {
+            $llamaUrl = "http://127.0.0.1:$llamaPort"
+            $modelHome = $env:DEEPSEEK_MODEL_HOME
+            if (-not $modelHome) { $modelHome = Join-Path $env:USERPROFILE '.local\share\deepseek\models' }
+            $llamaDir = Join-Path $modelHome (($llamaSpec -split '[/:]')[1])
+            function Test-Llama { try { Invoke-RestMethod -Uri "$llamaUrl/health" -TimeoutSec 2 | Out-Null; return $true } catch { return $false } }
+            if (Test-Llama) { Ok "llama-server already answering at $llamaUrl"; $env:DND_LLM_URL = $llamaUrl }
+            else {
+                New-Item -ItemType Directory -Force $llamaDir | Out-Null
+                $cached = @(Get-ChildItem $llamaDir -Filter *.gguf -ErrorAction SilentlyContinue).Count -gt 0
+                if ($cached -or (Ask "Download $llamaSpec into $llamaDir (about 7 GB for a 12B model)?")) {
+                    $env:LLAMA_CACHE = $llamaDir
+                    $llamaLog = Join-Path $llamaDir 'llama-server.log'
+                    Info "starting llama-server on $llamaSpec (log: $llamaLog)"
+                    $llamaProc = Start-Process -FilePath (Get-Command 'llama-server').Source -ArgumentList @('-hf', $llamaSpec, '--port', "$llamaPort", '-ngl', "$llamaLayers", '-c', "$llamaCtx") `
+                        -WindowStyle Hidden -PassThru -RedirectStandardOutput (Join-Path $llamaDir 'llama-server.out.log') -RedirectStandardError $llamaLog
+                    $up = $false
+                    for ($i = 0; $i -lt 1800 -and -not $up -and -not $llamaProc.HasExited; $i++) {
+                        Start-Sleep -Seconds 2
+                        $up = Test-Llama
+                        if ($i % 15 -eq 14 -and -not $up) { $tail = (Get-Content $llamaLog -Tail 1 -ErrorAction SilentlyContinue); Info "still starting (a first run downloads the model): $tail" }
+                    }
+                    if ($up) { Ok "llama-server ready at $llamaUrl"; $env:DND_LLM_URL = $llamaUrl }
+                    else {
+                        Warn "llama-server did not come up (see $llamaLog); using Ollama instead"
+                        if (-not $llamaProc.HasExited) { Stop-Tree $llamaProc.Id }
+                        $llamaProc = $null
+                    }
+                } else { Warn 'not downloading; using Ollama instead' }
+            }
+        }
+    }
 }
 
 # ---- 3. Ollama and its models
@@ -257,6 +321,7 @@ try {
     Head 'Ready'
     Write-Host "  $url   (Ctrl-C to stop)" -ForegroundColor Green
     if ($Model) { Write-Host "  Prompt: plain English through Ollama, model $Model" -ForegroundColor Green }
+    elseif ($env:DND_LLM_URL) { Write-Host "  Prompt: plain English through the language model server at $env:DND_LLM_URL" -ForegroundColor Green }
     else { Write-Host '  Prompt: off (no Ollama model)' -ForegroundColor DarkGray }
     try {
         $llm = Invoke-RestMethod -Uri "${url}api/llm" -TimeoutSec 5
@@ -278,5 +343,6 @@ try {
     if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force }
     if ($sdWeStarted) { & $sdScript -Stop | Out-Null }
     if ($ollamaProc -and -not $ollamaProc.HasExited) { Stop-Tree $ollamaProc.Id }
+    if ($llamaProc -and -not $llamaProc.HasExited) { Stop-Tree $llamaProc.Id }
     Restore-Cnf
 }

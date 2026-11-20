@@ -107,3 +107,5 @@ Each entry may set `backend`, `model`, `persona`, `temperature`, `maxTokens`, `e
 The file is found at `--agents <file>`, else `DND_AGENTS`, else `agents.json` in the data folder. A model can also be switched while a game runs: `POST /api/games/:id/agents/model`.
 
 Local models: running different models for many actors means Ollama loads and unloads them. Set `OLLAMA_MAX_LOADED_MODELS` (and mind your VRAM) or give several actors the same model, otherwise each turn pays a load. A dead or slow model never stalls a game: after repeated failures that actor is skipped for a while and the built-in AI plays.
+
+The `content` block of `agents.json` holds `mature`, `model` (the Ollama model for mature mode) and, for `web.ps1`, `llama` (a Hugging Face GGUF as `repo:quant`, served with llama.cpp from the model store), `llamaLayers` (GPU layers, default 30), `llamaPort` (default 8081) and `llamaContext` (default 8192).
