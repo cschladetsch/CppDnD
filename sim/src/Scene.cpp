@@ -289,4 +289,36 @@ std::string DescribeView(const Json& scene, const Camera& cam, double aspect) {
     return out;
 }
 
+std::string RecentNarration(const Json& view, std::size_t cap) {
+    if (!view.contains("events") || !view["events"].is_array()) return "";
+    const Json& ev = view["events"];
+    std::string told;
+    for (auto it = ev.rbegin(); it != ev.rend() && told.empty(); ++it) {
+        if (!it->is_object()) continue;
+        told = Str(*it, "flavour");
+        const std::string type = Str(*it, "type");
+        if (told.empty() && (type == "narration" || type == "scene")) told = Str(*it, "text");
+    }
+    std::string out;
+    bool space = false;
+    for (char c : told) {  // one line, no quotes or brackets (A1111 reads brackets as weights)
+        if (c == '"' || c == '(' || c == ')' || c == '[' || c == ']' || c == '{' || c == '}' || c == '<' || c == '>') continue;
+        if (std::isspace(static_cast<unsigned char>(c))) { space = !out.empty(); continue; }
+        if (space) out.push_back(' ');
+        space = false;
+        out.push_back(c);
+    }
+    if (out.size() <= cap) return out;
+    // cut at the last sentence end inside cap, else the last space
+    std::size_t cut = std::string::npos;
+    for (std::size_t i = 0; i < cap; ++i)
+        if ((out[i] == '.' || out[i] == '!' || out[i] == '?') && i + 1 < out.size() && out[i + 1] == ' ') cut = i + 1;
+    if (cut == std::string::npos || cut < cap / 3) {
+        cut = out.rfind(' ', cap);
+        if (cut == std::string::npos) cut = cap;
+    }
+    out.resize(cut);
+    return out;
+}
+
 }  // namespace dnd

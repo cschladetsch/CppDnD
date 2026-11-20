@@ -239,3 +239,159 @@ TEST(Images, ModuleArtStyleReplacesTheGlobalWords) {
     }
     fs::remove_all(root);
 }
+
+// ---------------------------------------------------------------- mature mode
+
+namespace {
+ImageResult FakePng(const ImageRequest&) {
+    ImageResult out;
+    out.ok = true;
+    out.bytes = std::string("\x89PNG\r\n\x1a\n", 8) + "fakepixels";
+    return out;
+}
+const ArtSubject& SubjectOf(const std::vector<ArtSubject>& all, const std::string& kind, const std::string& id) {
+    for (const auto& s : all) if (s.kind == kind && s.id == id) return s;
+    throw std::runtime_error("no subject " + kind + "/" + id);
+}
+}  // namespace
+
+TEST(MatureImages, MinorWordsAreFound) {
+    for (const char* t : {"a child", "Two KIDS play", "teenager", "a 16 year old", "16-year-old", "15yo", "aged 12", "schoolgirl", "loli", "1girl, solo", "a young boy"})
+        EXPECT_TRUE(MentionsMinor(t)) << t;
+    for (const char* t : {"Elara, an adult woman, an elf wizard", "a 30 years old knight", "kidney stones", "minority", "he lived here 3 years",
+                          "a 117 year old elf", "childhood memories", "a young man", "a ruined chapel"})
+        EXPECT_FALSE(MentionsMinor(t)) << t;
+    EXPECT_EQ(AdultWords("female"), "adult woman");
+    EXPECT_EQ(AdultWords("Male"), "adult man");
+    EXPECT_EQ(AdultWords(""), "adult");
+    EXPECT_EQ(AdultWords("nonbinary"), "adult");
+}
+
+TEST(MatureImages, ConfigLoadsAndIsOffByDefault) {
+    namespace fs = std::filesystem;
+    const fs::path root = fs::temp_directory_path() / "dnd_mature_images_cfg";
+    fs::remove_all(root);
+    fs::create_directories(root);
+    std::string err;
+    auto none = ImageConfig::Load("", "", "", err);
+    ASSERT_TRUE(none);
+    EXPECT_FALSE(none->mature);
+    std::ofstream(root / "images.json") << R"({"checkpoint": "sd15", "mature": {"checkpoint": "grown", "negative": "NEG", "steps": 30, "portrait": [832, 1216], "framing": {"characters": "FULL"}}})";
+    auto c = ImageConfig::Load((root / "images.json").string(), "", "", err);
+    ASSERT_TRUE(c) << err;
+    EXPECT_FALSE(c->mature);  // the block alone does not turn it on
+    EXPECT_EQ(c->ActiveCheckpoint(), "sd15");
+    c->mature = true;
+    EXPECT_EQ(c->ActiveCheckpoint(), "grown");
+    EXPECT_TRUE(c->matureStyle.negative == "NEG" && c->matureStyle.steps == 30 && c->matureStyle.portraitW == 832 && c->matureStyle.framing.at("characters") == "FULL");
+    std::ofstream(root / "on.json") << R"({"mature": {"enabled": true}})";
+    auto on = ImageConfig::Load((root / "on.json").string(), "", "", err);
+    EXPECT_TRUE(on && on->mature && on->ActiveCheckpoint().empty());
+    std::ofstream(root / "bad.json") << R"({"mature": true})";
+    EXPECT_FALSE(ImageConfig::Load((root / "bad.json").string(), "", "", err));
+}
+
+TEST(MatureImages, OffChangesNothing) {
+    ImageConfig cfg;
+    cfg.matureStyle.prefix = "MATURE";
+    cfg.matureStyle.negative = "MNEG";
+    ArtService svc(cfg, "", std::make_shared<MockImageClient>(FakePng));
+    const auto all = ArtSubjects();
+    ImageRequest r;
+    std::string err;
+    ASSERT_TRUE(svc.BuildRequest(SubjectOf(all, "characters", "elara"), "", nullptr, r, err));
+    EXPECT_EQ(r.prompt.find("MATURE"), std::string::npos);
+    EXPECT_EQ(r.prompt.find("adult"), std::string::npos);
+    EXPECT_EQ(r.negative, cfg.style.negative);
+    ASSERT_TRUE(svc.BuildRequest(SubjectOf(all, "characters", "elara"), "a child", nullptr, r, err));  // the guard is a mature-mode guard
+}
+
+TEST(MatureImages, WordsChecksAndTheGuard) {
+    ImageConfig cfg;
+    cfg.mature = true;
+    cfg.checkpoint = "sd15";
+    cfg.matureStyle.checkpoint = "grown";
+    cfg.matureStyle.prefix = "MPRE";
+    cfg.matureStyle.negative = "MNEG";
+    cfg.matureStyle.framing["characters"] = "MFRAME";
+    cfg.matureStyle.portraitW = 832;
+    cfg.matureStyle.portraitH = 1216;
+    ArtService svc(cfg, "", std::make_shared<MockImageClient>(FakePng));
+    EXPECT_TRUE(svc.Mature());
+    const auto all = ArtSubjects();
+    ImageRequest r;
+    std::string err;
+
+    ASSERT_TRUE(svc.BuildRequest(SubjectOf(all, "characters", "elara"), "", nullptr, r, err)) << err;
+    EXPECT_EQ(r.prompt.rfind("MPRE", 0), 0u);
+    EXPECT_NE(r.prompt.find("Elara"), std::string::npos);
+    EXPECT_NE(r.prompt.find("adult woman"), std::string::npos);
+    EXPECT_NE(r.prompt.find("MFRAME"), std::string::npos);
+    EXPECT_TRUE(r.width == 832 && r.height == 1216);
+    // the guard's negative comes last, after the normal and the mature negatives
+    EXPECT_EQ(r.negative.rfind(cfg.style.negative, 0), 0u);
+    EXPECT_NE(r.negative.find("MNEG"), std::string::npos);
+    EXPECT_EQ(r.negative.substr(r.negative.size() - AdultsOnlyNegative().size()), AdultsOnlyNegative());
+    ASSERT_TRUE(svc.BuildRequest(SubjectOf(all, "characters", "thorin"), "", nullptr, r, err));
+    EXPECT_NE(r.prompt.find("adult man"), std::string::npos);
+
+    // a minor anywhere in the words, from the data, an override or the settings, is refused
+    EXPECT_FALSE(svc.BuildRequest(SubjectOf(all, "characters", "elara"), "Elara as a teenager", nullptr, r, err));
+    EXPECT_NE(err.find("adults"), std::string::npos);
+    ArtSubject custom = SubjectOf(all, "npcs", "marta");
+    custom.subject = "a little girl";
+    custom.custom = true;
+    EXPECT_FALSE(svc.BuildRequest(custom, "", nullptr, r, err));
+    ImageConfig bad = cfg;
+    bad.matureStyle.suffix = "1girl";
+    ArtService svc2(bad, "", std::make_shared<MockImageClient>(FakePng));
+    EXPECT_FALSE(svc2.BuildRequest(SubjectOf(all, "characters", "elara"), "", nullptr, r, err));
+
+    // a camera view says everyone is an adult and carries the narration
+    ViewJob v;
+    v.id = "v1";
+    v.subject = "eye level shot, The Hall";
+    v.narration = "Elara leans close to Aldric by the fire.";
+    v.width = 768;
+    v.height = 432;
+    ArtSubject vs{"views", "v1", v.subject, true, true, "", "", true};
+    ASSERT_TRUE(svc.BuildRequest(vs, "", &v, r, err)) << err;
+    EXPECT_NE(r.prompt.find("leans close"), std::string::npos);
+    EXPECT_NE(r.prompt.find("every person shown is an adult"), std::string::npos);
+    v.narration = "A child watches from the doorway.";
+    EXPECT_FALSE(svc.BuildRequest(vs, "", &v, r, err));
+
+    // the checkpoint switch, also by the API
+    EXPECT_EQ(svc.Status()["checkpoint"], "grown");
+    EXPECT_EQ(svc.Status()["normalCheckpoint"], "sd15");
+    EXPECT_TRUE(svc.Status()["mature"].get<bool>());
+    ASSERT_TRUE(svc.SetCheckpoint("other", false, err));
+    EXPECT_EQ(svc.Status()["checkpoint"], "other");
+    EXPECT_EQ(svc.Status()["normalCheckpoint"], "sd15");
+}
+
+TEST(MatureImages, RecentNarration) {
+    EXPECT_EQ(RecentNarration(Json::object()), "");
+    Json view{{"events", Json::array({Json{{"type", "narration"}, {"text", "Old words."}, {"flavour", ""}},
+                                      Json{{"type", "attack"}, {"text", "Thorin hits"}, {"flavour", "Steel rings (loudly) in the \"hall\".\n  Sparks fly."}},
+                                      Json{{"type", "move"}, {"text", "Finn moves"}, {"flavour", ""}}})}};
+    EXPECT_EQ(RecentNarration(view), "Steel rings loudly in the hall. Sparks fly.");
+    EXPECT_EQ(RecentNarration(view, 40), "Steel rings loudly in the hall.");
+    Json plain{{"events", Json::array({Json{{"type", "scene"}, {"text", "The tavern is warm."}}, Json{{"type", "move"}, {"text", "Finn moves"}}})}};
+    EXPECT_EQ(RecentNarration(plain), "The tavern is warm.");
+}
+
+TEST(MatureImages, TheBundledPartyIsDrawable) {
+    ImageConfig cfg;
+    cfg.mature = true;
+    ArtService svc(cfg, "", std::make_shared<MockImageClient>(FakePng));
+    ImageRequest r;
+    std::string err;
+    int refused = 0;
+    for (const auto& s : ArtSubjects()) {
+        const bool ok = svc.BuildRequest(s, "", nullptr, r, err);
+        if (s.kind == "characters") EXPECT_TRUE(ok) << s.id << ": " << err;
+        if (!ok) { ++refused; std::cout << "  mature mode refuses " << s.kind << "/" << s.id << "\n"; }
+    }
+    std::cout << "  " << refused << " picture(s) refused in mature mode\n";
+}

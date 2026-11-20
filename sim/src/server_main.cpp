@@ -710,7 +710,10 @@ int main(int argc, char** argv) {
         namespace fs = std::filesystem;
         imagesFile = !imagesPath.empty() ? imagesPath : (std::getenv("DND_IMAGES") && *std::getenv("DND_IMAGES") ? std::getenv("DND_IMAGES") : (fs::path(dataDir) / "images.json").string());
         auto icfg = ImageConfig::Load(imagesFile, (fs::path(artDir) / "style.json").string(), (fs::path(artDir) / "prompts.json").string(), imagesError);
-        if (icfg) art = std::make_shared<ArtService>(*icfg, artDir);
+        if (icfg) {
+            icfg->mature = icfg->mature || S.llmCfg.mature;  // one switch for words and pictures: --mature, DND_MATURE, content.mature
+            art = std::make_shared<ArtService>(*icfg, artDir);
+        }
         else std::cerr << "warning: image generation is off: " << imagesError << "\n";
     }
     auto needArt = [&]() -> ArtService& {
@@ -756,16 +759,20 @@ int main(int argc, char** argv) {
         auto slot = find(req);
         const Json b = Body(req);
         Json scene;
-        std::string moduleOfGame;
+        std::string moduleOfGame, narration;
+        const bool mature = needArt().Mature();
         {
             std::lock_guard<std::mutex> lk(slot->m);
-            scene = BuildScene(slot->game->View(0));
+            const Json view = slot->game->View(0);
+            scene = BuildScene(view);
+            if (mature) narration = RecentNarration(view);
             moduleOfGame = slot->game->Config().moduleId;
         }
         const Camera dflt = Camera::FromJson(scene["camera"]);
         const Camera cam = b.contains("camera") && b["camera"].is_object() ? Camera::FromJson(b["camera"], dflt) : dflt;
         ViewJob job;
         job.module = moduleOfGame;
+        job.narration = narration;
         auto numOf = [&](const char* k, double d) { return b.contains(k) && b[k].is_number() ? b[k].get<double>() : d; };
         job.width = static_cast<int>(numOf("width", 768));
         job.height = static_cast<int>(numOf("height", 432));
@@ -783,7 +790,7 @@ int main(int argc, char** argv) {
         std::string err;
         needArt().EnqueueView(job, err);
         if (!err.empty()) throw HttpError{422, err};
-        Reply(res, 202, {{"id", job.id}, {"subject", job.subject}, {"camera", cam.ToJson()}, {"state", "queued"}, {"hero", scene["hero"]}});
+        Reply(res, 202, {{"id", job.id}, {"subject", job.subject}, {"narration", job.narration}, {"camera", cam.ToJson()}, {"state", "queued"}, {"hero", scene["hero"]}});
     }));
     svr.Get("/api/images/view/:id", guarded([&](const httplib::Request& req, httplib::Response& res) {
         Reply(res, 200, needArt().View(req.path_params.at("id")));

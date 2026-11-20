@@ -13,6 +13,9 @@
 #   -Port 7860               API port (must match "url" in sim\data\images.json)
 #   -SdHome DIR              where AUTOMATIC1111 lives (default %LOCALAPPDATA%\CppDnD\sd, or $env:DND_SD_HOME)
 #   -ModelName sd15          the model-store folder that holds the checkpoint (matches "checkpoint" in images.json)
+#   -Mature                  with -Start: also load the mature checkpoint (-MatureModel, else "mature"."checkpoint" in images.json)
+#   -MatureModel NAME        a model-store folder holding a .safetensors or .ckpt (an SD1.5 or SDXL fine-tune you downloaded);
+#                            AUTOMATIC1111 lists it beside sd15 and starts with it loaded. Nothing is downloaded for you.
 #   -Cpu                     no NVIDIA GPU: run on the CPU (works, but a picture takes minutes)
 #   -Tune auto|none|medvram|alloc   memory tuning for the GPU: auto (default) and medvram use --medvram on cards under 9 GB; none uses no tuning;
 #                            alloc sets PYTORCH_CUDA_ALLOC_CONF (garbage_collection_threshold, max_split_size_mb), which crashed the server on one machine
@@ -28,6 +31,8 @@ param(
     [switch]$Cpu,
     [switch]$NoWait,
     [switch]$Installed,
+    [switch]$Mature,
+    [string]$MatureModel = '',
     [ValidateSet('auto', 'none', 'medvram', 'alloc')][string]$Tune = 'auto',
     [int]$Port = 7860,
     [string]$SdHome = '',
@@ -261,6 +266,21 @@ function Start-Sd {
     if ($Cpu -or -not $gpu) { $args_ += @('--use-cpu', 'all', '--no-half', '--skip-torch-cuda-test') }
     elseif ($gpu.MiB -lt 4000) { $args_ += '--lowvram' }
     elseif ($gpu.MiB -lt 9000 -and $Tune -in 'auto', 'medvram') { $args_ += '--medvram' }   # 8 GB cards run out of memory at 768 px wide pictures without it
+    if ($Mature) {
+        $name = $MatureModel
+        if (-not $name) {
+            $ij = Join-Path $PSScriptRoot 'sim\data\images.json'
+            try { $j = ((Get-Content -Raw $ij) -replace '(?s)/\*.*?\*/', '' -replace '(?m)^\s*//.*$', '') | ConvertFrom-Json; if ($j.mature -and $j.mature.checkpoint) { $name = "$($j.mature.checkpoint)" } } catch {}
+        }
+        if (-not $name) { Warn 'mature: no checkpoint named (-MatureModel, or "mature": {"checkpoint": ...} in sim\data\images.json); using sd15' }
+        else {
+            $dir = Join-Path $modelHome $name
+            $w = if (Test-Path $dir) { Get-ChildItem -Path $dir -Recurse -File -Include '*.safetensors', '*.ckpt' -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $null }
+            if (-not $w) { Bad "mature: no .safetensors or .ckpt in $dir (put the checkpoint file in that folder of the model store)"; return }
+            $args_ += @('--ckpt', ('"' + $w.FullName.Replace('\', '/') + '"'))
+            Ok "mature checkpoint  $($w.FullName)"
+        }
+    }
     if ($env:DND_SD_ARGS) { $args_ += $env:DND_SD_ARGS }
 
     # A previous start that hung (webui.bat waits for a key after an error) would still be holding the pid file.
