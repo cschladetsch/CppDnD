@@ -427,7 +427,26 @@ std::string ArtService::EffectiveCheckpoint(std::string& problem) const {
         return cfg_.backend == "a1111" ? fs::path(w).filename().string() : ck;
     }
     if (cfg_.requireStore) { problem = Cat("model '", ck, "' is not in the model store (", mi.path, ")"); return ""; }
+    if (MatureFallback()) {  // the mature checkpoint is not installed: the base checkpoint draws (still adults only)
+        ImageConfig base = cfg_;
+        base.mature = false;
+        if (base.checkpoint.empty()) return "";
+        const ModelInfo bm = LocateModel(base.checkpoint);
+        const std::string w = bm.exists ? FindWeights(bm.path) : "";
+        return !w.empty() && cfg_.backend == "a1111" ? fs::path(w).filename().string() : base.checkpoint;
+    }
     return ck;  // a name the image server knows by itself
+}
+
+// Mature mode names a checkpoint that is neither in the model store nor listed by the image server (the last probe):
+// typically the shipped default before ./web.ps1 -Mature has downloaded it. Drawing then falls back to the base checkpoint.
+bool ArtService::MatureFallback() const {
+    if (!cfg_.mature || cfg_.matureStyle.checkpoint.empty() || cfg_.matureStyle.checkpoint == cfg_.checkpoint) return false;
+    if (LocateModel(cfg_.matureStyle.checkpoint).exists) return false;
+    if (!probe_.contains("models") || !probe_["models"].is_array() || probe_["models"].empty()) return false;
+    for (const auto& m : probe_["models"])
+        if (m.is_string() && (m.get<std::string>() == cfg_.matureStyle.checkpoint || fs::path(m.get<std::string>()).stem().string() == cfg_.matureStyle.checkpoint)) return false;
+    return true;
 }
 
 Json ArtService::Status() {
@@ -463,9 +482,10 @@ Json ArtService::Status() {
     if (problem.empty() && !eff.empty() && mi.exists && cfg.backend == "a1111" && probe.value("reachable", false) && probe.contains("models") && probe["models"].is_array() && !probe["models"].empty()) {
         bool listed = false;
         for (const auto& m : probe["models"]) listed = listed || (m.is_string() && m.get<std::string>() == eff);
-        if (!listed) problem = Cat("the image server does not list '", eff, "'", cfg.mature ? "; start it with .\\sd.ps1 -Start -Mature" : "; is its --ckpt-dir the model store folder?");
+        if (!listed) problem = Cat("the image server does not list '", eff, "'", cfg.mature ? "; start it with ./sd.ps1 -Start -Mature" : "; is its --ckpt-dir the model store folder?");
     }
     if (!problem.empty()) s["problem"] = problem;
+    if (MatureFallback()) s["note"] = Cat("the mature checkpoint '", cfg.matureStyle.checkpoint, "' is not installed, so '", cfg.checkpoint, "' draws instead (./web.ps1 -Mature offers to download it)");
     s["jobs"] = Jobs();
     return s;
 }
@@ -670,7 +690,9 @@ bool ArtService::BuildRequest(const ArtSubject& s, const std::string& promptOver
     const MatureImageStyle& ms = cfg.matureStyle;
     const ImageStyle& st = cfg.style;
     std::string subject = view ? view->subject : promptOverride.empty() ? s.subject : promptOverride;
-    if (mature && view && ms.narration && !view->narration.empty()) subject += (subject.empty() ? "" : ", ") + view->narration;
+    // the story leads: what was last narrated (who is doing what, and what they wear or do not) goes before the camera and
+    // place words, so Stable Diffusion, which weighs early words most, follows the narrative rather than a stock look
+    if (mature && view && ms.narration && !view->narration.empty()) subject = view->narration + (subject.empty() ? "" : ", " + subject);
     std::string framing;
     // the module's own look (art in its JSON) replaces the global words; mature words replace both
     const std::string moduleId = view ? view->module : s.module;

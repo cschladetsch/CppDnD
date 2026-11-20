@@ -36,6 +36,6 @@ std::string DescribeView(const Json& scene, const Camera& cam, double aspect = 1
 
 // What the story last told, from Game::View()'s events: the newest narrator prose (an event's flavour, or a narration or
 // scene event's text), its first sentences up to cap characters, as plain words for a picture. Empty if nothing was told.
-std::string RecentNarration(const Json& view, std::size_t cap = 220);
+std::string RecentNarration(const Json& view, std::size_t cap = 320);
 
 }  // namespace dnd

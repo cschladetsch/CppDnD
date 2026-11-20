@@ -137,6 +137,10 @@ void Game::Say(const std::string& who, const std::string& text, const std::strin
     history_.Group(who, "say", text, Now());
 }
 
+void Game::Narrate(const std::string& text) {
+    if (!text.empty()) Emit(EventType::Narration, text);
+}
+
 bool Game::SetHero(const std::string& who, std::string& err) {
     const std::string want = Lower(who);
     const PartyMember* found = nullptr;

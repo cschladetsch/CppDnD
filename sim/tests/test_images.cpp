@@ -172,6 +172,28 @@ TEST(Images, ServiceAndConfig) {
         EXPECT_TRUE(!svc.SetCheckpoint("nope", true, err) && err.find("model store") != std::string::npos);
         EXPECT_TRUE(!svc.SetCheckpoint("empty", true, err) && err.find("holds no") != std::string::npos);
         EXPECT_TRUE(svc.SetCheckpoint("sd15", true, err));
+        // mature mode naming a checkpoint that is neither in the store nor on the server (the shipped default before it is
+        // downloaded) draws with the base checkpoint and says so; once the server lists it, it is used as it is
+        {
+            struct Listing : MockImageClient {
+                Json models;
+                using MockImageClient::MockImageClient;
+                Json Probe() override { return Json{{"reachable", true}, {"models", models}}; }
+            };
+            auto lc = std::make_shared<Listing>([&](const ImageRequest& r) { sent = r.checkpoint; ImageResult o; o.ok = true; o.bytes = png; return o; });
+            lc->models = Json::array({"v1-5-pruned.safetensors"});
+            ImageConfig mc;
+            mc.checkpoint = "sd15";
+            mc.mature = true;
+            mc.matureStyle.checkpoint = "realistic-vision-5.1";
+            ArtService ms(mc, (root / "art5m").string(), lc);
+            Json mst = ms.Status();
+            EXPECT_EQ(mst["effectiveCheckpoint"], "v1-5-pruned.safetensors");
+            EXPECT_NE(mst.value("note", "").find("realistic-vision-5.1"), std::string::npos);
+            lc->models = Json::array({"v1-5-pruned.safetensors", "realistic-vision-5.1"});
+            ArtService ms2(mc, (root / "art5n").string(), lc);
+            EXPECT_EQ(ms2.Status()["effectiveCheckpoint"], "realistic-vision-5.1");
+        }
         // requireStore refuses an unknown model before anything is drawn
         ImageConfig strict;
         strict.checkpoint = "not-in-store";
@@ -357,6 +379,7 @@ TEST(MatureImages, WordsChecksAndTheGuard) {
     ArtSubject vs{"views", "v1", v.subject, true, true, "", "", true};
     ASSERT_TRUE(svc.BuildRequest(vs, "", &v, r, err)) << err;
     EXPECT_NE(r.prompt.find("leans close"), std::string::npos);
+    EXPECT_LT(r.prompt.find("leans close"), r.prompt.find("eye level shot"));   // the narration leads the camera words
     EXPECT_NE(r.prompt.find("every person shown is an adult"), std::string::npos);
     v.narration = "A child watches from the doorway.";
     EXPECT_FALSE(svc.BuildRequest(vs, "", &v, r, err));
@@ -375,7 +398,7 @@ TEST(MatureImages, RecentNarration) {
     Json view{{"events", Json::array({Json{{"type", "narration"}, {"text", "Old words."}, {"flavour", ""}},
                                       Json{{"type", "attack"}, {"text", "Thorin hits"}, {"flavour", "Steel rings (loudly) in the \"hall\".\n  Sparks fly."}},
                                       Json{{"type", "move"}, {"text", "Finn moves"}, {"flavour", ""}}})}};
-    EXPECT_EQ(RecentNarration(view), "Steel rings loudly in the hall. Sparks fly.");
+    EXPECT_EQ(RecentNarration(view), "Steel rings loudly in the hall. Sparks fly. Old words.");   // newest first
     EXPECT_EQ(RecentNarration(view, 40), "Steel rings loudly in the hall.");
     Json plain{{"events", Json::array({Json{{"type", "scene"}, {"text", "The tavern is warm."}}, Json{{"type", "move"}, {"text", "Finn moves"}}})}};
     EXPECT_EQ(RecentNarration(plain), "The tavern is warm.");

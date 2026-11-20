@@ -195,6 +195,7 @@ private:
     bool Do(const Item& it, std::string& err);
     std::string Existing(const std::string& kind, const std::string& id) const;
     std::string EffectiveCheckpoint(std::string& problem) const;
+    bool MatureFallback() const;
 
     ImageConfig cfg_;
     std::string artDir_;

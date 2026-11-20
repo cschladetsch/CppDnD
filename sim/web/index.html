@@ -267,7 +267,8 @@ function sayBox() {
     const { data } = await api("POST", `/api/games/${gid}/say?since=${lastSeq}`, { text });
     busy = false; btn.disabled = input.disabled = false; btn.textContent = "Send"; input.value = ""; input.focus();
     if (data.view) apply(data.view);
-    if (data.message) logLine("narration", data.message);
+    // a free-form action's narration also arrives as a logged event; show it once
+    if (data.message && !((data.view && data.view.events) || []).some(ev => ev.text === data.message)) logLine("narration", data.message);
     else if (data.error) toast(data.error);
   };
   return form;

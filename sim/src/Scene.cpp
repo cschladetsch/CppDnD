@@ -292,12 +292,18 @@ std::string DescribeView(const Json& scene, const Camera& cam, double aspect) {
 std::string RecentNarration(const Json& view, std::size_t cap) {
     if (!view.contains("events") || !view["events"].is_array()) return "";
     const Json& ev = view["events"];
+    // the newest few narrated lines, newest first: what someone is wearing (or has taken off) is often said a turn or two
+    // before the picture is asked for, and the newest line wins when they disagree because it comes first
     std::string told;
-    for (auto it = ev.rbegin(); it != ev.rend() && told.empty(); ++it) {
+    int lines = 0;
+    for (auto it = ev.rbegin(); it != ev.rend() && lines < 3 && told.size() < cap; ++it) {
         if (!it->is_object()) continue;
-        told = Str(*it, "flavour");
+        std::string line = Str(*it, "flavour");
         const std::string type = Str(*it, "type");
-        if (told.empty() && (type == "narration" || type == "scene")) told = Str(*it, "text");
+        if (line.empty() && (type == "narration" || type == "scene")) line = Str(*it, "text");
+        if (line.empty()) continue;
+        told += (told.empty() ? "" : " ") + line;
+        ++lines;
     }
     std::string out;
     bool space = false;

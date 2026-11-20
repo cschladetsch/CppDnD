@@ -1,24 +1,24 @@
-# Build (if needed) and run the simulator.
-#   .\run.ps1 --module ravenmoor --role player --hero elara     terminal client
-#   .\run.ps1 -Server --port 8088                               HTTP server
-#   .\run.ps1 -Rebuild                                          force a clean configure
+#!/usr/bin/env pwsh
+# Build (if needed) and run the simulator. PowerShell 7 on Windows, Linux or macOS (or Windows PowerShell 5.1).
+#   ./run.ps1 --module ravenmoor --role player --hero elara     terminal client
+#   ./run.ps1 -Server --port 8088                               HTTP server
+#   ./run.ps1 -Rebuild                                          force a clean configure
 param(
     [switch]$Server,
     [switch]$Rebuild,
     [Parameter(ValueFromRemainingArguments = $true)] [string[]]$AppArgs
 )
 $ErrorActionPreference = 'Stop'
-$src   = Join-Path $PSScriptRoot 'sim'
-$build = Join-Path $src 'build'
+. (Join-Path (Join-Path $PSScriptRoot 'scripts') 'common.ps1')
+$src   = PathOf $PSScriptRoot 'sim'
+$build = PathOf $src 'build'
 
 if ($Rebuild -and (Test-Path $build)) { Remove-Item -Recurse -Force $build }
-if (-not (Test-Path (Join-Path $build 'build.ninja'))) {
-    cmake -S $src -B $build -G Ninja -DCMAKE_BUILD_TYPE=Release -DCMAKE_CXX_COMPILER=clang++
-    if ($LASTEXITCODE) { exit $LASTEXITCODE }
-}
+$rc = Invoke-Configure $src
+if ($rc) { exit $rc }
 cmake --build $build
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
-$exe = Join-Path $build ($(if ($Server) { 'dnd_server' } else { 'dnd_sim' }) + '.exe')
+$exe = PathOf $build (Exe $(if ($Server) { 'dnd_server' } else { 'dnd_sim' }))
 & $exe @AppArgs
 exit $LASTEXITCODE
