@@ -9,7 +9,7 @@ Rules reference for the mechanics implemented here: the [D&D 5e SRD](https://5th
 | Method and path | Body | Result |
 |---|---|---|
 | `GET /api/health` | | `{"ok":true}` |
-| `GET /api/content` | | modules, characters, monsters, spells, classes |
+| `GET /api/content` | | modules, characters, monsters, spells, classes; each character carries `module` (empty for the classic four plus Gruk and Sylva), `tags` and `default` (true when a new game of that module starts with them) |
 | `GET /api/llm` | | LLM client status and the model's location in the model store |
 | `POST /api/games` | see below; optional `name` | `201 {"id", "name", "view"}` |
 | `GET /api/games` | | `{"games":[ids], "sessions":[{id, name, module, moduleName, hero, role, mode, location, day, created, updated}], "persistent"}`, newest first |

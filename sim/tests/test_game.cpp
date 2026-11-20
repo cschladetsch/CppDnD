@@ -182,6 +182,7 @@ TEST(Game, HeroSwitchShowsTheNewHeroOptionsAtOnce) {
 
 TEST(Game, HeroSwitch) {
     GameConfig cfg;
+    cfg.party = {"thorin", "elara", "aldric", "finn"};
     cfg.rooms = 1; cfg.difficulty = "easy"; cfg.seed = 12; cfg.role = Role::Player; cfg.hero = "elara";
     Game g(cfg);
     EXPECT_TRUE(g.GetMode() == Mode::Combat && g.Hero() == "Elara");
@@ -208,7 +209,7 @@ TEST(Game, HeroSwitch) {
 
     // a spectator or DM who picks a hero becomes a player; the dead cannot be controlled
     GameConfig sc;
-    sc.moduleId = "ravenmoor"; sc.seed = 2; sc.role = Role::Spectator;
+    sc.moduleId = "ravenmoor"; sc.seed = 2; sc.role = Role::Spectator; sc.party = {"thorin", "elara", "aldric", "finn"};
     Game sg(sc);
     EXPECT_TRUE(sg.SetHero("finn", err) && sg.GetRole() == Role::Player && sg.Hero() == "Finn");
     EXPECT_EQ(Game::Load(sg.Save())->Hero(), "Finn");
@@ -295,6 +296,7 @@ std::vector<std::string> WeaponsOf(const Json& view, const std::string& id) {
 
 TEST(Equipment, WeaponsAndPotionsMoveBetweenCharactersWhileExploring) {
     GameConfig cfg;
+    cfg.party = {"thorin", "elara", "aldric", "finn"};
     cfg.moduleId = "ravenmoor";
     cfg.seed = 3;
     cfg.role = Role::Spectator;
@@ -526,6 +528,7 @@ TEST(Explore, TheLlmRoomWriterParsesAndRejectsBadReplies) {
 
 TEST(Stash, ItemsGoInAndOutOfTheCommonSpace) {
     GameConfig cfg;
+    cfg.party = {"thorin", "elara", "aldric", "finn"};
     cfg.moduleId = "ravenmoor";
     cfg.seed = 3;
     cfg.role = Role::Spectator;
@@ -562,6 +565,7 @@ TEST(Stash, ItemsGoInAndOutOfTheCommonSpace) {
 
 TEST(Stash, PotionsPassThroughToo) {
     GameConfig cfg;
+    cfg.party = {"thorin", "elara", "aldric", "finn"};
     cfg.moduleId = "ravenmoor";
     cfg.role = Role::Spectator;
     Game g(cfg);

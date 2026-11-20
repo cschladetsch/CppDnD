@@ -39,6 +39,7 @@ struct CharacterDef {
     int speed = 30;
     std::vector<std::string> tags, weapons, spells;
     int potions = 0;
+    std::string module;  // the module whose cast this character belongs to (data/modules/<id>/characters.json); empty: the classic party
 };
 
 struct MonsterDef {
@@ -140,6 +141,7 @@ struct ModuleDef {
     std::vector<QuestDef> quests;
     std::vector<LocationDef> locations;
     std::vector<std::string> endWhen;
+    std::vector<std::string> party;      // optional: the default party, by character id; empty: the first four of the module's own cast
     std::vector<RoomSeedDef> roomSeeds;  // rooms for Explore to find when no model writes them; empty means the general ones
 
     const LocationDef* FindLocation(std::string_view id) const;
@@ -163,6 +165,10 @@ const ClassDef* FindClass(std::string_view id);
 const std::vector<ClassDef>& Classes();
 const std::vector<CharacterDef>& Characters();
 const CharacterDef* FindCharacter(std::string_view id);
+// The characters written for one module (data/modules/<id>/characters.json), in file order; empty for the classic party.
+std::vector<const CharacterDef*> CastOf(std::string_view moduleId);
+// Who a new game of this module starts with when none are named: the module's `party`, else the first four of its cast, else the classic four.
+std::vector<std::string> DefaultParty(std::string_view moduleId);
 const std::vector<ModuleDef>& Modules();
 const ModuleDef* FindModule(std::string_view id);
 

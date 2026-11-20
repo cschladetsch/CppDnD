@@ -1,0 +1,16 @@
+[
+  { "id": "sister_marguerite", "name": "Sister Marguerite", "class": "cleric", "level": 5, "tags": ["humanoid","human","pilgrim"],
+    "scores": [12,10,14,12,17,13], "ac": 18, "speed": 30, "weapons": ["mace"],
+    "spells": ["sacred_flame","cure_wounds","healing_word","guiding_bolt","shield_of_faith","hold_person"] },
+  { "id": "brother_anselm", "name": "Brother Anselm", "class": "fighter", "level": 5, "tags": ["humanoid","human","lay-brother"],
+    "scores": [16,10,16,10,13,10], "ac": 18, "speed": 30, "weapons": ["mace","handaxe"], "potions": 1 },
+  { "id": "ilse_candlewick", "name": "Ilse Candlewick", "class": "wizard", "level": 5, "tags": ["humanoid","human","scribe"],
+    "scores": [8,14,13,17,14,10], "ac": 12, "speed": 30, "weapons": ["dagger"],
+    "spells": ["fire_bolt","magic_missile","shatter","hold_person","fireball"] },
+  { "id": "toby_gaunt", "name": "Toby Gaunt", "class": "rogue", "level": 5, "tags": ["humanoid","halfling","grave-robber"],
+    "scores": [8,18,13,12,12,12], "ac": 15, "speed": 25, "weapons": ["shortsword","shortbow"], "potions": 1 },
+  { "id": "odette_fell", "name": "Odette Fell", "class": "ranger", "level": 5, "tags": ["humanoid","human","hunter"],
+    "scores": [12,16,14,10,15,9], "ac": 14, "speed": 30, "weapons": ["longbow","shortsword"], "spells": ["cure_wounds"] },
+  { "id": "ulf_stonebreaker", "name": "Ulf Stonebreaker", "class": "barbarian", "level": 5, "tags": ["humanoid","dwarf","quarryman"],
+    "scores": [17,12,17,8,11,8], "ac": 15, "speed": 25, "weapons": ["greataxe","handaxe"] }
+]

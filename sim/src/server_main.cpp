@@ -272,7 +272,11 @@ int main(int argc, char** argv) {
         for (const auto& m : Content::Modules())
             j["modules"].push_back({{"id", m.id}, {"name", m.name}, {"setting", m.setting}, {"intro", m.intro}, {"recommendedLevel", m.recommendedLevel}, {"locations", m.locations.size()}});
         j["characters"] = Json::array();
-        for (const auto& c : Content::Characters()) j["characters"].push_back({{"id", c.id}, {"name", c.name}, {"class", c.classId}, {"level", c.level}});
+        for (const auto& c : Content::Characters()) {
+            const auto def = Content::DefaultParty(c.module);
+            j["characters"].push_back({{"id", c.id}, {"name", c.name}, {"class", c.classId}, {"level", c.level}, {"module", c.module}, {"tags", c.tags},
+                                       {"default", std::find(def.begin(), def.end(), c.id) != def.end()}});
+        }
         j["monsters"] = Json::array();
         for (const auto& m : Content::Monsters()) j["monsters"].push_back({{"id", m.id}, {"name", m.name}, {"cr", m.cr}, {"xp", m.xp}, {"hp", m.sheet.maxHp}, {"ac", m.sheet.armorClass}});
         j["spells"] = Json::array();

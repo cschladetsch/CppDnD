@@ -8,7 +8,8 @@ Everything the engine knows about the game lives here as JSON. Files may contain
 | `weapons.json` | `id`, `name`, `damage`, `type`, optional `range: [normal, long]`, `ability`, `finesse` |
 | `spells.json` | `id`, `name`, `level`, `range`, `kind` (`attack`, `saveNegates`, `saveHalf`, `autoHit`, ...), `dice`, `damageType`, plus `save`, `projectiles`, `concentration` and similar |
 | `monsters.json` | SRD stat blocks: `cr`, `xp`, `ac`, `hp`, `speed`, `scores` (STR to CHA), `tags`, `attacks`, optional `resist`, `immune`, `vulnerable`, `resistNonmagical` |
-| `characters.json` | party members: `class`, `level`, `scores`, `ac`, `speed`, `weapons`, `spells`, `potions` |
+| `characters.json` | the classic party (used by the procedural delve): `class`, `level`, `scores`, `ac`, `speed`, `weapons`, `spells`, `potions` |
+| `modules/<id>/characters.json` | that module's own cast, same schema, ids unique across all files. A new game of the module starts with its `party` (optional list of ids in the module file) or else the first four of its cast; choosing another cast member as hero swaps them into the last seat |
 | `agents.json` | which model thinks for which actor (see "agents.json" below) |
 | `modules/*.json` | one file per module (see below) |
 

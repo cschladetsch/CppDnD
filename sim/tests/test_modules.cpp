@@ -510,3 +510,44 @@ TEST(Meridian, TheKeycardAndTheCarrierAreEachDrawnFromTwoPlaces) {
     EXPECT_EQ(cards, (std::set<std::string>{"medbay", "officers"}));
     EXPECT_EQ(hosts, (std::set<std::string>{"pip", "teo"}));
 }
+
+// ---- each module brings its own cast (data/modules/<id>/characters.json)
+TEST(ModuleCasts, EveryModuleHasItsOwnCastAndStartsWithIt) {
+    for (const auto& m : Content::Modules()) {
+        const auto cast = Content::CastOf(m.id);
+        ASSERT_GE(cast.size(), 5u) << m.id;
+        std::set<std::string> classes;
+        for (const CharacterDef* c : cast) {
+            EXPECT_EQ(c->module, m.id);
+            EXPECT_TRUE(Content::FindClass(c->classId) != nullptr) << c->id;
+            for (const auto& w : c->weapons) EXPECT_TRUE(Content::FindWeapon(w) != nullptr) << c->id << " " << w;
+            for (const auto& s : c->spells) EXPECT_TRUE(Content::FindSpell(s) != nullptr) << c->id << " " << s;
+            classes.insert(c->classId);
+        }
+        EXPECT_GE(classes.size(), 4u) << m.id;
+        const auto party = Content::DefaultParty(m.id);
+        ASSERT_EQ(party.size(), 4u);
+        for (const auto& id : party) { const CharacterDef* c = Content::FindCharacter(id); ASSERT_TRUE(c != nullptr); EXPECT_EQ(c->module, m.id); }
+        GameConfig cfg; cfg.moduleId = m.id; cfg.seed = 3;
+        Game g(cfg);
+        EXPECT_EQ(g.View(0)["party"].size(), 4u) << m.id;
+        EXPECT_TRUE(g.Hero().find("Thorin") == std::string::npos) << m.id;
+    }
+    // the others stay out of it: no module cast shares a character with another
+    std::set<std::string> ids;
+    for (const auto& c : Content::Characters()) EXPECT_TRUE(ids.insert(c.id).second) << c.id;
+}
+
+TEST(ModuleCasts, ACastMemberOutsideTheDefaultFourTakesASeatWhenChosen) {
+    const auto cast = Content::CastOf("meridian");
+    const auto def = Content::DefaultParty("meridian");
+    const CharacterDef* extra = nullptr;
+    for (const CharacterDef* c : cast) if (std::find(def.begin(), def.end(), c->id) == def.end()) extra = c;
+    ASSERT_TRUE(extra != nullptr);
+    GameConfig cfg; cfg.moduleId = "meridian"; cfg.hero = extra->id; cfg.seed = 3;
+    Game g(cfg);
+    EXPECT_EQ(g.Hero(), extra->name);
+    EXPECT_EQ(g.View(0)["party"].size(), 4u);
+    GameConfig classic; classic.seed = 3;  // the procedural delve keeps the classic four
+    EXPECT_EQ(Game(classic).Hero(), "Thorin");
+}

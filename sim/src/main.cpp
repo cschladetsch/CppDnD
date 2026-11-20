@@ -24,7 +24,7 @@ void Usage() {
         "  --role player|dm|auto     who you are (default: auto = watch the AI play)\n"
         "  --interactive, -i         play it yourself (same as --role player unless --role is given)\n"
         "  --hero <id|name>          hero to control in player mode\n"
-        "  --party a,b,c             character ids (default: thorin,elara,aldric,finn)\n"
+        "  --party a,b,c             character ids (default: the module's own cast, else thorin,elara,aldric,finn)\n"
         "  --level <n>               override starting level\n"
         "  --pace slow|normal|fast   travel pace\n"
         "  --seed <n>                reproducible run\n"
@@ -187,7 +187,7 @@ int main(int argc, char** argv) {
             std::cout << "modules:\n";
             for (const auto& m : Content::Modules()) std::cout << "  " << m.id << "  " << m.name << " (level " << m.recommendedLevel << ", " << m.locations.size() << " locations)\n";
             std::cout << "characters:\n";
-            for (const auto& c : Content::Characters()) std::cout << "  " << c.id << "  " << c.name << " (" << c.classId << ")\n";
+            for (const auto& c : Content::Characters()) std::cout << "  " << c.id << "  " << c.name << " (" << c.classId << ")" << (c.module.empty() ? "" : "  [" + c.module + "]") << "\n";
             std::cout << "monsters:\n";
             for (const auto& m : Content::Monsters()) std::cout << "  " << m.id << "  CR " << m.cr << "\n";
             return 0;

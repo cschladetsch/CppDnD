@@ -1,0 +1,16 @@
+[
+  { "id": "ser_aldwin", "name": "Ser Aldwin Vale", "class": "fighter", "level": 5, "tags": ["humanoid","human","knight"],
+    "scores": [17,10,16,10,12,13], "ac": 19, "speed": 30, "weapons": ["warhammer","javelin"], "potions": 1 },
+  { "id": "lady_isolde", "name": "Lady Isolde Marrow", "class": "wizard", "level": 5, "tags": ["humanoid","elf","court"],
+    "scores": [8,14,12,17,13,14], "ac": 12, "speed": 30, "weapons": ["dagger"],
+    "spells": ["fire_bolt","magic_missile","shatter","hold_person","fireball"] },
+  { "id": "mother_perpetua", "name": "Mother Perpetua", "class": "cleric", "level": 5, "tags": ["humanoid","human","priest"],
+    "scores": [12,10,14,12,17,14], "ac": 18, "speed": 30, "weapons": ["mace"],
+    "spells": ["sacred_flame","cure_wounds","healing_word","guiding_bolt","shield_of_faith","hold_person"] },
+  { "id": "jory_sparrow", "name": "Jory Sparrow", "class": "rogue", "level": 5, "tags": ["humanoid","human","spy"],
+    "scores": [8,17,12,13,12,15], "ac": 15, "speed": 30, "weapons": ["shortsword","shortbow"], "potions": 1 },
+  { "id": "kestrel_wood", "name": "Kestrel of the Wood", "class": "ranger", "level": 5, "tags": ["humanoid","elf","forester"],
+    "scores": [12,17,13,10,15,10], "ac": 15, "speed": 30, "weapons": ["longbow","shortsword"], "spells": ["cure_wounds"] },
+  { "id": "grimm_ironhide", "name": "Grimm Ironhide", "class": "barbarian", "level": 5, "tags": ["humanoid","half-orc","mercenary"],
+    "scores": [18,13,16,8,10,8], "ac": 15, "speed": 30, "weapons": ["greataxe","handaxe"] }
+]

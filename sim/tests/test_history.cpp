@@ -58,7 +58,7 @@ TEST(History, PairsAndGroup) {
     // ---- a conversation with an NPC lands in both private files and writes real files
     {
         GameConfig mc;
-        mc.moduleId = "ravenmoor"; mc.seed = 5; mc.role = Role::Player;
+        mc.moduleId = "ravenmoor"; mc.seed = 5; mc.role = Role::Player; mc.party = {"thorin", "elara", "aldric", "finn"};
         Game g(mc);
         g.SetHistoryDir(dir.string());
         EXPECT_TRUE(g.Travel("greywick").ok && g.Talk("marta", "rumours").ok);
@@ -119,7 +119,7 @@ TEST(History, PairsAndGroup) {
             });
         };
         GameConfig mc;
-        mc.moduleId = "ravenmoor"; mc.seed = 5; mc.role = Role::Spectator; mc.agents = true;
+        mc.moduleId = "ravenmoor"; mc.seed = 5; mc.role = Role::Spectator; mc.agents = true; mc.party = {"thorin", "elara", "aldric", "finn"};
         Game g(mc);
         auto table = std::make_shared<AgentTable>(*cfg, factory);
         AgentTable::Attach(table, g);

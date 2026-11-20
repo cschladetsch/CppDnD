@@ -57,7 +57,13 @@ void Game::Init(bool restore) {
     DiceRoller::Scope scope(rng_);
     const int level = cfg_.level > 0 ? cfg_.level : (cfg_.moduleId.empty() ? 3 : module_.recommendedLevel);
     std::vector<std::string> ids = cfg_.party;
-    if (ids.empty()) ids = {"thorin", "elara", "aldric", "finn"};
+    if (ids.empty()) {
+        ids = Content::DefaultParty(cfg_.moduleId);
+        // a hero from the module's cast who is not in the default four takes the last seat
+        if (const CharacterDef* h = Content::FindCharacter(cfg_.hero); h && !cfg_.hero.empty() && h->module == cfg_.moduleId && !h->module.empty() &&
+                                                                       std::find(ids.begin(), ids.end(), h->id) == ids.end())
+            ids.back() = h->id;
+    }
     for (const auto& id : ids) {
         const CharacterDef* def = Content::FindCharacter(id);
         if (!def) throw std::runtime_error("unknown character '" + id + "'");

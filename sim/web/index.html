@@ -116,7 +116,14 @@ async function showStart() {
   for (const m of content.modules || []) mods.append(el("option", { value: m.id, textContent: `${m.name} (level ${m.recommendedLevel})` }));
   mods.value = (content.modules || [])[0]?.id || "";
   const role = el("select", { id: "role" }, ...[["player", "Player (one hero)"], ["dm", "Dungeon Master (all monsters)"], ["spectator", "Spectator (AI plays)"]].map(([v, t]) => el("option", { value: v, textContent: t })));
-  const hero = el("select", { id: "hero" }, ...(content.characters || []).filter(c => ["thorin", "elara", "aldric", "finn"].includes(c.id)).map(c => el("option", { value: c.id, textContent: `${c.name} (${c.class})` })));
+  const hero = el("select", { id: "hero" });
+  // each module has its own cast (data/modules/<id>/characters.json); the procedural delve uses the classic four
+  const fillHero = () => {
+    const cast = (content.characters || []).filter(c => mods.value ? c.module === mods.value : ["thorin", "elara", "aldric", "finn"].includes(c.id));
+    hero.replaceChildren(...cast.map(c => el("option", { value: c.id, textContent: `${c.name} (${c.class})` })));
+  };
+  mods.onchange = fillHero;
+  fillHero();
   const diff = el("select", { id: "diff" }, ...[["easy", "Easy"], ["medium", "Medium"], ["hard", "Hard"], ["deadly", "Deadly"]].map(([v, t]) => el("option", { value: v, textContent: t })));
   diff.value = "hard";
   const agentsBox = el("input", { type: "checkbox", id: "agents", disabled: !agentsOn });

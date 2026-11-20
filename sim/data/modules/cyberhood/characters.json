@@ -1,0 +1,172 @@
+[
+ {
+  "id": "kade_riot",
+  "name": "Kade Riot",
+  "class": "fighter",
+  "level": 5,
+  "tags": [
+   "humanoid",
+   "human",
+   "augmented"
+  ],
+  "scores": [
+   16,
+   14,
+   16,
+   10,
+   12,
+   8
+  ],
+  "ac": 18,
+  "speed": 30,
+  "weapons": [
+   "mace",
+   "handaxe"
+  ],
+  "potions": 2
+ },
+ {
+  "id": "nyx_cipher",
+  "name": "Nyx Cipher",
+  "class": "wizard",
+  "level": 5,
+  "tags": [
+   "humanoid",
+   "human",
+   "netrunner"
+  ],
+  "scores": [
+   8,
+   14,
+   12,
+   17,
+   13,
+   12
+  ],
+  "ac": 12,
+  "speed": 30,
+  "weapons": [
+   "dagger"
+  ],
+  "spells": [
+   "fire_bolt",
+   "magic_missile",
+   "shatter",
+   "hold_person",
+   "fireball"
+  ]
+ },
+ {
+  "id": "doc_vasquez",
+  "name": "Doc Vasquez",
+  "class": "cleric",
+  "level": 5,
+  "tags": [
+   "humanoid",
+   "human",
+   "ripperdoc"
+  ],
+  "scores": [
+   12,
+   12,
+   14,
+   12,
+   16,
+   12
+  ],
+  "ac": 18,
+  "speed": 30,
+  "weapons": [
+   "mace"
+  ],
+  "spells": [
+   "sacred_flame",
+   "cure_wounds",
+   "healing_word",
+   "guiding_bolt",
+   "shield_of_faith",
+   "hold_person"
+  ],
+  "potions": 2
+ },
+ {
+  "id": "slip_marlowe",
+  "name": "Slip Marlowe",
+  "class": "rogue",
+  "level": 5,
+  "tags": [
+   "humanoid",
+   "human",
+   "street"
+  ],
+  "scores": [
+   8,
+   18,
+   13,
+   12,
+   12,
+   14
+  ],
+  "ac": 16,
+  "speed": 30,
+  "weapons": [
+   "shortsword",
+   "shortbow"
+  ],
+  "potions": 1
+ },
+ {
+  "id": "juno_vance",
+  "name": "Juno Vance",
+  "class": "ranger",
+  "level": 5,
+  "tags": [
+   "humanoid",
+   "human",
+   "courier"
+  ],
+  "scores": [
+   12,
+   17,
+   13,
+   10,
+   14,
+   10
+  ],
+  "ac": 15,
+  "speed": 35,
+  "weapons": [
+   "longbow",
+   "shortsword"
+  ],
+  "spells": [
+   "cure_wounds"
+  ]
+ },
+ {
+  "id": "tank_okafor",
+  "name": "Tank Okafor",
+  "class": "barbarian",
+  "level": 5,
+  "tags": [
+   "humanoid",
+   "human",
+   "augmented"
+  ],
+  "scores": [
+   18,
+   12,
+   17,
+   8,
+   10,
+   8
+  ],
+  "ac": 16,
+  "speed": 30,
+  "weapons": [
+   "greataxe",
+   "javelin"
+  ],
+  "potions": 1
+ }
+]

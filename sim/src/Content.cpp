@@ -232,6 +232,7 @@ ModuleDef ParseModule(const json& j, const std::string& file) {
         m.nightStart = j.at("clock").value("nightStart", 19);
         m.nightEnd = j.at("clock").value("nightEnd", 6);
     }
+    m.party = Strs(j, "party");
     if (j.contains("roomSeeds"))
         for (const auto& r : j.at("roomSeeds")) m.roomSeeds.push_back(RoomSeedDef{r.at("name").get<std::string>(), r.at("text").get<std::string>()});
     m.start = j.at("start").get<std::string>();
@@ -416,10 +417,12 @@ void Load(const std::string& dir) {
         for (const auto& sp : lib.monsters.back().sheet.spells)
             if (!spellExists(sp)) Bad("monsters.json[" + lib.monsters.back().id + "]", "unknown spell '" + sp + "'");
     }
-    for (const auto& c : ReadFile(d / "characters.json")) {
+    auto addCharacter = [&](const json& c, const std::string& file, const std::string& moduleId) {
         CharacterDef cd;
         cd.id = c.at("id").get<std::string>();
-        const std::string where = "characters.json[" + cd.id + "]";
+        cd.module = moduleId;
+        const std::string where = file + "[" + cd.id + "]";
+        if (std::any_of(lib.characters.begin(), lib.characters.end(), [&](const CharacterDef& x) { return x.id == cd.id; })) Bad(where, "duplicate character id");
         cd.name = c.value("name", cd.id);
         cd.classId = c.at("class").get<std::string>();
         if (!std::any_of(lib.classes.begin(), lib.classes.end(), [&](const ClassDef& x) { return x.id == cd.classId; })) Bad(where, "unknown class '" + cd.classId + "'");
@@ -435,7 +438,8 @@ void Load(const std::string& dir) {
             if (!std::any_of(lib.weapons.begin(), lib.weapons.end(), [&](const WeaponDef& x) { return x.id == w; })) Bad(where, "unknown weapon '" + w + "'");
         for (const auto& sp : cd.spells) if (!spellExists(sp)) Bad(where, "unknown spell '" + sp + "'");
         lib.characters.push_back(std::move(cd));
-    }
+    };
+    for (const auto& c : ReadFile(d / "characters.json")) addCharacter(c, "characters.json", "");
     if (fs::exists(d / "modules")) {
         std::vector<fs::path> files;
         for (const auto& e : fs::directory_iterator(d / "modules"))
@@ -443,6 +447,19 @@ void Load(const std::string& dir) {
         std::sort(files.begin(), files.end());
         for (const auto& f : files) lib.modules.push_back(ParseModule(ReadFile(f), f.filename().string()));
     }
+    // Each module may bring its own cast: data/modules/<module id>/characters.json
+    for (const auto& m : lib.modules) {
+        const fs::path f = d / "modules" / m.id / "characters.json";
+        if (fs::exists(f))
+            for (const auto& c : ReadFile(f)) addCharacter(c, "modules/" + m.id + "/characters.json", m.id);
+    }
+    if (fs::exists(d / "modules"))
+        for (const auto& e : fs::directory_iterator(d / "modules"))
+            if (e.is_directory() && !std::any_of(lib.modules.begin(), lib.modules.end(), [&](const ModuleDef& m) { return m.id == e.path().filename().string(); }))
+                Bad("modules/" + e.path().filename().string(), "a cast folder needs a module of the same name (" + e.path().filename().string() + ".json)");
+    for (auto& m : lib.modules)
+        for (const auto& id : m.party)
+            if (!std::any_of(lib.characters.begin(), lib.characters.end(), [&](const CharacterDef& x) { return x.id == id; })) Bad(m.id, "party names unknown character '" + id + "'");
     for (const auto& m : lib.modules) ValidateModule(m, lib);
 
     lib.loaded = true;
@@ -480,6 +497,22 @@ const ClassDef* FindClass(std::string_view id) {
     return nullptr;
 }
 const std::vector<CharacterDef>& Characters() { return Lib().characters; }
+std::vector<const CharacterDef*> CastOf(std::string_view moduleId) {
+    std::vector<const CharacterDef*> out;
+    if (moduleId.empty()) return out;
+    for (const auto& c : Lib().characters)
+        if (c.module == moduleId) out.push_back(&c);
+    return out;
+}
+std::vector<std::string> DefaultParty(std::string_view moduleId) {
+    if (const ModuleDef* m = FindModule(moduleId); m && !m->party.empty()) return m->party;
+    std::vector<std::string> ids;
+    for (const CharacterDef* c : CastOf(moduleId)) {
+        if (ids.size() == 4) break;
+        ids.push_back(c->id);
+    }
+    return ids.empty() ? std::vector<std::string>{"thorin", "elara", "aldric", "finn"} : ids;
+}
 const CharacterDef* FindCharacter(std::string_view id) {
     for (const auto& c : Lib().characters)
         if (c.id == id) return &c;
