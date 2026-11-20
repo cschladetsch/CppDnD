@@ -2,6 +2,7 @@
  {
   "id": "kade_riot",
   "name": "Kade Riot",
+  "gender": "male",
   "class": "fighter",
   "level": 5,
   "tags": [
@@ -28,6 +29,7 @@
  {
   "id": "nyx_cipher",
   "name": "Nyx Cipher",
+  "gender": "female",
   "class": "wizard",
   "level": 5,
   "tags": [
@@ -59,6 +61,7 @@
  {
   "id": "doc_vasquez",
   "name": "Doc Vasquez",
+  "gender": "female",
   "class": "cleric",
   "level": 5,
   "tags": [
@@ -92,6 +95,7 @@
  {
   "id": "slip_marlowe",
   "name": "Slip Marlowe",
+  "gender": "male",
   "class": "rogue",
   "level": 5,
   "tags": [
@@ -118,6 +122,7 @@
  {
   "id": "juno_vance",
   "name": "Juno Vance",
+  "gender": "female",
   "class": "ranger",
   "level": 5,
   "tags": [
@@ -146,6 +151,7 @@
  {
   "id": "tank_okafor",
   "name": "Tank Okafor",
+  "gender": "male",
   "class": "barbarian",
   "level": 5,
   "tags": [

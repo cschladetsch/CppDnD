@@ -141,6 +141,7 @@ struct CharacterSheet {
     std::string classId;                // empty for monsters
     std::string monsterId;              // monsters only: the id in monsters.json (agents.json can pick a model by it)
     std::vector<std::string> tags;      // creature type + race, e.g. "humanoid", "elf", "undead"
+    std::string gender;                 // free text from the character data; empty: unspecified (monsters)
     int level = 1;
     std::array<int, 6> scores{10, 10, 10, 10, 10, 10};
     std::array<bool, 6> saveProficient{};

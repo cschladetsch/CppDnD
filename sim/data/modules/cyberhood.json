@@ -187,6 +187,7 @@
     {
      "id": "ruiz",
      "name": "Constable Ruiz",
+     "gender": "female",
      "type": "guard",
      "description": "A tired transit cop in an armoured poncho, one eye replaced by a slow red lens.",
      "topics": [
@@ -239,6 +240,7 @@
     {
      "id": "kessler",
      "name": "Mama Kessler",
+     "gender": "female",
      "type": "fixer",
      "description": "Fixer, cook and the closest thing the Hood has to a mayor. Both arms are chrome to the shoulder.",
      "topics": [
@@ -311,6 +313,7 @@
     {
      "id": "juno",
      "name": "Juno",
+     "gender": "female",
      "type": "hacker",
      "description": "A bone-thin netrunner with a crown of antenna braids and a laugh she cannot turn off.",
      "topics": [
@@ -337,6 +340,7 @@
     {
      "id": "bao",
      "name": "Old Bao",
+     "gender": "male",
      "type": "merchant",
      "description": "Sells noodles, solder and secondhand courage from a cart with one working wheel.",
      "topics": [
@@ -487,6 +491,7 @@
     {
      "id": "vex",
      "name": "Doc Vex",
+     "gender": "male",
      "type": "doctor",
      "description": "A ripperdoc with six surgical fingers on the left hand and a chip on the right shoulder.",
      "topics": [

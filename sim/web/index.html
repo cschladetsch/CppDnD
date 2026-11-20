@@ -588,7 +588,7 @@ function renderScene() {
   rows.push(el("h2", { textContent: "Paths", style: "margin-top:12px" }), exits);
   for (const n of l.npcs) {
     const np = artUrl("npcs", n.id);
-    const r = el("div", { className: "row" }, ...(np ? [el("img", { src: np, className: "portrait", alt: "" })] : []), el("span", { className: "dim", textContent: n.name + ` (${n.type || "commoner"}):` }));
+    const r = el("div", { className: "row" }, ...(np ? [el("img", { src: np, className: "portrait", alt: "" })] : []), el("span", { className: "dim", textContent: n.name + ` (${n.gender ? n.gender + " " : ""}${n.type || "commoner"}):` }));
     for (const t of n.topics) r.append(el("button", { textContent: t.id + (t.heard ? " \u2713" : ""), disabled: !exploring, onclick: () => cmd("talk", { npc: n.id, topic: t.id }) }));
     r.append(el("button", { textContent: npcMem[n.id] ? "Hide memory" : "Memory", title: "What this person remembers of everyone they have dealt with", onclick: () => toggleMemory(n) }));
     rows.push(r);
@@ -713,7 +713,7 @@ function renderParty() {
     const isYou = mine && m.name === view.hero, picked = selChar === m.id;
     const row = el("div", { className: "member pick" + (m.dead ? " dead" : "") + (isYou ? " you" : "") + (picked ? " sel" : ""),
       title: `Click to see ${m.name}'s stats and equipment`, tabIndex: 0, role: "button" },
-      el("div", { className: "who" }, tok.nodeType === 1 && tok.tagName.toLowerCase() === "svg" ? (tok.style.width = "34px", tok.style.height = "34px", tok) : tok, el("span", {}, el("b", { textContent: m.name }), el("span", { className: "dim small", textContent: `  ${m.class} ${m.level}  AC ${m.ac}  HP ${m.hp}/${m.maxHp}` }))),
+      el("div", { className: "who" }, tok.nodeType === 1 && tok.tagName.toLowerCase() === "svg" ? (tok.style.width = "34px", tok.style.height = "34px", tok) : tok, el("span", {}, el("b", { textContent: m.name }), el("span", { className: "dim small", textContent: `  ${m.gender ? m.gender + " " : ""}${m.class} ${m.level}  AC ${m.ac}  HP ${m.hp}/${m.maxHp}` }))),
       el("div", { className: "bar" }, el("i", { style: `width:${pct}%` })),
       el("div", { className: "strip" }, ...m.attacks.map(w => itemIcon(w.id, 24, `${itemTitle(w.id)}  (${SIGNED(w.toHit)}, ${w.damage} ${w.type})`)), ...(m.potions ? [el("span", { className: "stripp" }, itemIcon("potion", 24), el("span", { className: "dim small", textContent: "x" + m.potions }))] : [])),
       el("div", { className: "dim small", textContent: `XP ${m.xp}${m.nextLevelXp ? "/" + m.nextLevelXp : ""}  potions ${m.potions}  dice ${m.hitDice}${m.exhaustion ? "  exhaustion " + m.exhaustion : ""}${slots ? "  " + slots : ""}` }));
@@ -738,7 +738,7 @@ function sheetPanel(m) {
   const you = view.role === "player" && m.name === view.hero;
   const box = el("div", { className: "sheet" });
   const kv = (k, v) => el("span", { className: "kv" }, el("span", { className: "dim", textContent: k + " " }), el("b", { textContent: String(v) }));
-  box.append(el("div", { className: "kvrow" }, kv("Level", m.level), kv("Class", m.class), kv("AC", m.ac), kv("HP", `${m.hp}/${m.maxHp}${m.tempHp ? " +" + m.tempHp : ""}`),
+  box.append(el("div", { className: "kvrow" }, kv("Level", m.level), kv("Class", m.class), ...(m.gender ? [kv("Gender", m.gender)] : []), kv("AC", m.ac), kv("HP", `${m.hp}/${m.maxHp}${m.tempHp ? " +" + m.tempHp : ""}`),
     kv("Speed", m.speed + " ft"), kv("Proficiency", SIGNED(m.proficiency)), kv("Hit dice", `${m.hitDice}d${m.hitDie}`), kv("Attacks/turn", m.attacksPerAction)));
   if (m.tags && m.tags.length) box.append(el("div", { className: "dim small", textContent: m.tags.join(", ") }));
   const ab = el("table", { className: "abil" }, el("tr", {}, ...["", "Score", "Mod", "Save"].map(h => el("th", { textContent: h }))));
@@ -1792,7 +1792,7 @@ async function showJournal() {
   kids.push(el("h3", { textContent: "People" }));
   const met = (data.npcs || []).filter(n => n.met);
   if (!met.length) kids.push(el("div", { className: "dim small", textContent: "You have not spoken to anyone yet." }));
-  for (const n of met) kids.push(el("div", { className: "jrow" }, el("b", { textContent: `${n.name} ` }), el("span", { className: "dim small", textContent: `${n.type || ""}, ${n.place || "somewhere"}; ${n.dealings} dealing(s), ${n.topicsHeard}/${n.topicsTotal} topics` }),
+  for (const n of met) kids.push(el("div", { className: "jrow" }, el("b", { textContent: `${n.name} ` }), el("span", { className: "dim small", textContent: `${n.gender ? n.gender + " " : ""}${n.type || ""}, ${n.place || "somewhere"}; ${n.dealings} dealing(s), ${n.topicsHeard}/${n.topicsTotal} topics` }),
     ...(n.last ? [el("div", { className: "small flavour", textContent: `${n.last.speaker}: ${n.last.text}` })] : [])));
   const unmet = (data.npcs || []).filter(n => !n.met).length; if (unmet) kids.push(el("div", { className: "dim small", textContent: `${unmet} more people are out there.` }));
   kids.push(el("h3", { textContent: "Places" }), el("div", { className: "small", textContent: (data.places || []).map(p => (p.current ? "▶ " : "") + p.name).join("  |  ") || "None." }));

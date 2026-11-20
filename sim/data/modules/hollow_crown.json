@@ -285,6 +285,7 @@
     {
      "id": "maud",
      "name": "Reeve Maud",
+     "gender": "female",
      "type": "official",
      "description": "The town's reeve, a broad woman in a mud-stiff cloak, who has run Thornwick for thirty winters and does not intend to lose it now.",
      "topics": [
@@ -314,6 +315,7 @@
     {
      "id": "perrin",
      "name": "Clerk Perrin",
+     "gender": "male",
      "type": "clerk",
      "description": "A thin, ink-stained man who keeps the town's accounts and everyone's secrets, in that order.",
      "topics": [
@@ -389,6 +391,7 @@
     {
      "id": "odo",
      "name": "Odo the Innkeeper",
+     "gender": "male",
      "type": "innkeeper",
      "description": "A cheerful, round man with forearms like hams and a rag permanently over one shoulder.",
      "topics": [
@@ -408,6 +411,7 @@
     {
      "id": "wren",
      "name": "Wren",
+     "gender": "male",
      "type": "bard",
      "description": "A travelling singer with a lute missing two strings, who has more verses than sense.",
      "topics": [
@@ -553,6 +557,7 @@
     {
      "id": "tamsin",
      "name": "Tamsin",
+     "gender": "female",
      "type": "woodsman",
      "description": "The eldest of the burners, a tiny woman with soot in every wrinkle and a hunting knife longer than her forearm.",
      "topics": [
@@ -908,6 +913,7 @@
     {
      "id": "eadric",
      "name": "Hermit Eadric",
+     "gender": "male",
      "type": "hermit",
      "description": "A bent old man with a prophet's beard and a drover's practicality. He has lived alone on the pass for fifty years, and has never once been lonely.",
      "topics": [
@@ -969,6 +975,7 @@
     {
      "id": "brannoc",
      "name": "Smith Brannoc",
+     "gender": "male",
      "type": "merchant",
      "description": "A heavy-set blacksmith with burn scars up both forearms, who sells what he makes and distrusts what he doesn't.",
      "topics": [
@@ -988,6 +995,7 @@
     {
      "id": "sefa",
      "name": "Archivist Sefa",
+     "gender": "female",
      "type": "scholar",
      "description": "A wiry, ink-stained woman, formerly of the abbey library, who now keeps what is left of it in a cellar behind the smithy.",
      "topics": [

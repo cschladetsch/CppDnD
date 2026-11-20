@@ -294,6 +294,7 @@
         {
           "id": "tamsin",
           "name": "Reeve Tamsin Vole",
+          "gender": "female",
           "type": "official",
           "description": "A lean, weathered woman of sixty with a reeve's chain and the stoop of someone who has been carrying a village for years.",
           "topics": [
@@ -323,6 +324,7 @@
         {
           "id": "pim",
           "name": "Gaffer Pim",
+          "gender": "male",
           "type": "commoner",
           "description": "A bent old man on a bench by the pump, whittling a candlestick he never finishes.",
           "topics": [
@@ -393,6 +395,7 @@
         {
           "id": "bess",
           "name": "Bess Harrow",
+          "gender": "female",
           "type": "innkeeper",
           "description": "A big, comfortable woman with a rag on her shoulder and a habit of counting the room's candles when she thinks nobody is looking.",
           "topics": [
@@ -457,6 +460,7 @@
         {
           "id": "tolliver",
           "name": "Tolliver Dunn",
+          "gender": "male",
           "type": "merchant",
           "description": "A small, neat man in a wax-spotted apron who handles every candle as if it might wake.",
           "topics": [
@@ -955,6 +959,7 @@
         {
           "id": "neve",
           "name": "Archivist Neve",
+          "gender": "female",
           "type": "scholar",
           "description": "A small, grey, ink-stained woman wearing three pairs of spectacles on a cord, who flinches at your lamp and then forgets you are there.",
           "topics": [
@@ -1177,6 +1182,7 @@
         {
           "id": "calder",
           "name": "Brother Calder",
+          "gender": "male",
           "type": "priest",
           "description": "A thin young priest with scorched hands, who has been hiding in the vestry for nine days and has begun to talk to the saints in the windows.",
           "topics": [
@@ -1485,6 +1491,7 @@
         {
           "id": "wick",
           "name": "Wick",
+          "gender": "male",
           "type": "goblin",
           "description": "A very small goblin with one ear, who has been tied to a post with a monk's belt and has the air of someone who has had a very bad week.",
           "topics": [
@@ -1905,6 +1912,7 @@
         {
           "id": "marguerite",
           "name": "Sister Marguerite",
+          "gender": "female",
           "type": "ghost",
           "description": "A pale nun who is half in the wall, and who looks at you as if you were something she had once expected and then stopped expecting.",
           "topics": [

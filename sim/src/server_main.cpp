@@ -359,7 +359,7 @@ int main(int argc, char** argv) {
         j["characters"] = Json::array();
         for (const auto& c : Content::Characters()) {
             const auto def = Content::DefaultParty(c.module);
-            j["characters"].push_back({{"id", c.id}, {"name", c.name}, {"class", c.classId}, {"level", c.level}, {"module", c.module}, {"tags", c.tags},
+            j["characters"].push_back({{"id", c.id}, {"name", c.name}, {"gender", c.gender}, {"class", c.classId}, {"level", c.level}, {"module", c.module}, {"tags", c.tags},
                                        {"default", std::find(def.begin(), def.end(), c.id) != def.end()}});
         }
         j["monsters"] = Json::array();

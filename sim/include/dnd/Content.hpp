@@ -33,6 +33,7 @@ struct WeaponDef {
 
 struct CharacterDef {
     std::string id, name, classId;
+    std::string gender;  // free text, e.g. "female", "male", "nonbinary"; empty: unspecified
     int level = 3;
     std::array<int, 6> scores{10, 10, 10, 10, 10, 10};
     int ac = 10;
@@ -79,6 +80,7 @@ struct TopicDef {
 struct NpcDef {
     std::string id, name, description;
     std::string type = "commoner";  // classifies the NPC; agents.json can pick a model per type
+    std::string gender;             // free text; empty: unspecified
     std::vector<TopicDef> topics;
     std::vector<std::string> chatter;  // lines it can say to another NPC when no model writes them
 };

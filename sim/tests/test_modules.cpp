@@ -551,3 +551,21 @@ TEST(ModuleCasts, ACastMemberOutsideTheDefaultFourTakesASeatWhenChosen) {
     GameConfig classic; classic.seed = 3;  // the procedural delve keeps the classic four
     EXPECT_EQ(Game(classic).Hero(), "Thorin");
 }
+
+TEST(Characters, EveryShippedCharacterHasAGenderThatReachesTheSheet) {
+    for (const auto& c : Content::Characters()) {
+        EXPECT_FALSE(c.gender.empty()) << c.id;
+        EXPECT_EQ(Content::BuildCharacter(c).gender, c.gender) << c.id;
+    }
+    EXPECT_EQ(Content::FindCharacter("elara")->gender, "female");
+}
+
+TEST(Characters, NpcGenderIsReadFromTheModule) {
+    const ModuleDef* m = Content::FindModule("ravenmoor");
+    ASSERT_NE(m, nullptr);
+    bool found = false;
+    for (const auto& l : m->locations)
+        for (const auto& n : l.npcs)
+            if (n.id == "marta") { EXPECT_EQ(n.gender, "female"); found = true; }
+    EXPECT_TRUE(found);
+}
