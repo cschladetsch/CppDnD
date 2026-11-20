@@ -638,6 +638,7 @@
         {
           "id": "tran",
           "name": "Quartermaster Bo Tran",
+          "gender": "female",
           "type": "quartermaster",
           "description": "A square, tired woman with a quartermaster's armband and a cargo hook she has clearly learned to use. She counts everything twice.",
           "topics": [
@@ -674,6 +675,7 @@
         {
           "id": "hob",
           "name": "Cook Hob Marsh",
+          "gender": "male",
           "type": "cook",
           "description": "A broad, bald man in a stained apron with soft hands and a hard stare. He stirs the pot even when the pot has stopped boiling.",
           "topics": [
@@ -959,6 +961,7 @@
         {
           "id": "sato",
           "name": "Medic Aveline Sato",
+          "gender": "female",
           "type": "medic",
           "description": "A small, severe woman with grey in her cropped hair and a smear of someone's blood on her cuff. Her hands never stop working.",
           "topics": [
@@ -998,6 +1001,7 @@
         {
           "id": "pip",
           "name": "Cadet Pip Okafor",
+          "gender": "male",
           "type": "cadet",
           "description": "A lanky boy of nineteen in a cadet's jumpsuit two sizes too big, who holds his arms across his chest as if he were cold.",
           "topics": [
@@ -1506,6 +1510,7 @@
         {
           "id": "calloway",
           "name": "Dr. Ruth Calloway",
+          "gender": "female",
           "type": "scientist",
           "description": "A tall, stooped woman with a lab coat she has not taken off in a week, and the stare of someone who knows exactly what she has done.",
           "topics": [
@@ -1541,6 +1546,7 @@
         {
           "id": "teo",
           "name": "Lab Assistant Teo Marlow",
+          "gender": "male",
           "type": "assistant",
           "description": "A young man with blistered hands and a worn lab coat, who keeps glancing at the vent in the ceiling and then looking away again.",
           "topics": [
@@ -1970,6 +1976,7 @@
         {
           "id": "vance",
           "name": "Chief Engineer Dara Vance",
+          "gender": "female",
           "type": "engineer",
           "description": "A broad, weather-beaten woman of fifty with grease to the elbows and a welding mask pushed up on her forehead. She speaks in short, practical sentences.",
           "topics": [
@@ -2009,6 +2016,7 @@
         {
           "id": "wen",
           "name": "Technician Wen Li",
+          "gender": "female",
           "type": "engineer",
           "description": "A wiry young technician with a tool belt, a scorched sleeve and the grin of someone who thinks she might live after all.",
           "topics": [
@@ -2488,6 +2496,7 @@
         {
           "id": "voss",
           "name": "Security Chief Marek Voss",
+          "gender": "male",
           "type": "guard",
           "description": "A huge, grey-bearded man with a security chief's jacket, a shotgun across his knees and a very quiet voice. His hands shake when he thinks nobody is watching.",
           "topics": [
@@ -2523,6 +2532,7 @@
         {
           "id": "brandt",
           "name": "Chaplain Ilse Brandt",
+          "gender": "female",
           "type": "priest",
           "description": "A calm, elderly woman in a plain grey robe, a single candle burning on the table at her elbow. She watches you the way a doctor watches a patient.",
           "topics": [
@@ -2717,6 +2727,7 @@
         {
           "id": "quinn",
           "name": "Captain Eliora Quinn",
+          "gender": "female",
           "type": "captain",
           "description": "A tall, gaunt woman of sixty, in a captain's coat gone grey at the seams, with an unwavering stare and a voice that carries without ever being raised.",
           "topics": [
@@ -2749,6 +2760,7 @@
         {
           "id": "aoyama",
           "name": "Navigator Yuki Aoyama",
+          "gender": "female",
           "type": "officer",
           "description": "A slight, composed woman in a navigator's jacket with a long plait of hair and a tablet she holds like a shield.",
           "topics": [

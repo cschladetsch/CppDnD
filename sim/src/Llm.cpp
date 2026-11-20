@@ -548,14 +548,14 @@ Json ObserveWorld(const Game& g) {
         for (const auto& n : l.value("npcs", J::array())) {
             J fresh = J::array(), heard = J::array();
             for (const auto& t : n.value("topics", J::array())) (t.value("heard", false) ? heard : fresh).push_back(t.value("id", ""));
-            npcs.push_back({{"id", n.value("id", "")}, {"name", n.value("name", "")}, {"type", n.value("type", "")}, {"topics", fresh}, {"alreadyHeard", heard}});
+            npcs.push_back({{"id", n.value("id", "")}, {"name", n.value("name", "")}, {"type", n.value("type", "")}, {"gender", n.value("gender", "")}, {"topics", fresh}, {"alreadyHeard", heard}});
         }
         c["location"] = {{"id", l.value("id", "")}, {"name", l.value("name", "")}, {"description", l.value("description", "")},
                          {"rest", l.value("rest", "")}, {"exits", exits}, {"npcs", npcs}};
     }
     J party = J::array();
     for (const auto& m : v.value("party", J::array()))
-        party.push_back({{"name", m.value("name", "")}, {"class", m.value("class", "")}, {"hp", m.value("hp", 0)}, {"maxHp", m.value("maxHp", 0)}, {"dead", m.value("dead", false)}});
+        party.push_back({{"name", m.value("name", "")}, {"gender", m.value("gender", "")}, {"class", m.value("class", "")}, {"hp", m.value("hp", 0)}, {"maxHp", m.value("maxHp", 0)}, {"dead", m.value("dead", false)}});
     c["party"] = party;
     J quests = J::array();
     for (const auto& q : v.value("quests", J::array())) quests.push_back({{"name", q.value("name", "")}, {"done", q.value("done", false)}});

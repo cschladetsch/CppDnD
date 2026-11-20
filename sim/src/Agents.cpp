@@ -356,7 +356,7 @@ Json ObserveTurn(const TurnContext& ctx) {
                                   {"available", x->level == 0 || s.LowestSlotAtLeast(x->level) > 0}});
     Json features = Json::array();
     for (const auto& [id, n] : s.featureUses) features.push_back(Json{{"id", id}, {"uses", n}});
-    o["you"] = Json{{"id", me.id}, {"name", me.Name()}, {"pos", Json::array({me.pos.x, me.pos.y})}, {"hp", s.hp}, {"maxHp", s.maxHp}, {"ac", me.EffectiveAc()},
+    o["you"] = Json{{"id", me.id}, {"name", me.Name()}, {"gender", s.gender}, {"pos", Json::array({me.pos.x, me.pos.y})}, {"hp", s.hp}, {"maxHp", s.maxHp}, {"ac", me.EffectiveAc()},
                     {"movementFt", s.economy.movementFt}, {"action", s.economy.action}, {"bonusAction", s.economy.bonusAction},
                     {"attacksLeft", s.economy.attacksLeft}, {"potions", s.potions}, {"attacks", atk}, {"spells", spells}, {"features", features}};
 
@@ -526,8 +526,9 @@ std::shared_ptr<Agent> AgentTable::Npc(const NpcDef& npc) {
     if (auto it = npcs_.find(key); it != npcs_.end()) return it->second;
     AgentDef def = cfg_.ForNpc(npc.id, npc.name, npc.type);
     if (auto it = overrides_.find("npc:" + key); it != overrides_.end()) { def.model = it->second.first; def.matureModel.clear(); if (!it->second.second.empty()) def.backend = it->second.second; }
-    if (def.persona.empty()) def.persona = Cat("A ", npc.type, ". ", npc.description);
-    else def.persona = Cat(def.persona, " (", npc.type, ". ", npc.description, ")");
+    const std::string who = npc.gender.empty() ? npc.type : Cat(npc.gender, " ", npc.type);
+    if (def.persona.empty()) def.persona = Cat("A ", who, ". ", npc.description);
+    else def.persona = Cat(def.persona, " (", who, ". ", npc.description, ")");
     auto a = Make(npc.name, "npc", def);
     npcs_[key] = a;
     npcOrder_.push_back(key);
@@ -539,8 +540,8 @@ std::string AgentTable::Speak(Game& g, const NpcDef& npc, const TopicDef& topic)
     if (!a) return {};
     Json party = Json::array();
     for (const auto& pm : g.Party())
-        if (!pm.dead) party.push_back(Json{{"name", pm.sheet.name}, {"class", pm.sheet.classId}});
-    const Json obs{{"npc", Json{{"name", npc.name}, {"type", npc.type}, {"description", npc.description}}},
+        if (!pm.dead) party.push_back(Json{{"name", pm.sheet.name}, {"gender", pm.sheet.gender}, {"class", pm.sheet.classId}});
+    const Json obs{{"npc", Json{{"name", npc.name}, {"type", npc.type}, {"gender", npc.gender}, {"description", npc.description}}},
                    {"location", g.Module().FindLocation(g.LocationId()) ? g.Module().FindLocation(g.LocationId())->name : g.LocationId()},
                    {"setting", g.Module().setting}, {"night", g.Module().IsNight(g.ClockHour())},
                    {"speaking_to", party}, {"topic", topic.id}, {"facts", topic.text}};

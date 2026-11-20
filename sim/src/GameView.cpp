@@ -35,7 +35,7 @@ Json PartyJson(const PartyMember& pm) {
                 {"speed", s.speedFt}, {"attacksPerAction", s.attacksPerAction}, {"sneakAttackDice", s.sneakAttackDice}, {"tempHp", s.tempHp},
                 {"spellAbility", s.spells.empty() ? std::string() : std::string(ToString(s.spellAbility))},
                 {"spellSaveDc", s.spells.empty() ? 0 : s.SpellSaveDc()}, {"spellAttack", s.spells.empty() ? 0 : s.SpellAttackBonus()},
-                {"id", pm.charId}, {"name", s.name}, {"class", s.classId}, {"level", s.level}, {"xp", pm.xp},
+                {"id", pm.charId}, {"name", s.name}, {"gender", s.gender}, {"class", s.classId}, {"level", s.level}, {"xp", pm.xp},
                 {"nextLevelXp", s.level >= 20 ? 0 : Content::XpForLevel(s.level + 1)}, {"hp", s.hp}, {"maxHp", s.maxHp},
                 {"ac", s.armorClass}, {"dead", pm.dead}, {"exhaustion", s.exhaustion}, {"hitDice", s.hitDiceLeft}, {"hitDie", s.hitDie},
                 {"potions", s.potions}, {"slots", s.slots}, {"slotsMax", s.slotsMax}, {"features", features}, {"spells", spells}};
@@ -67,7 +67,7 @@ Json Game::Journal() const {
             }
             int heard = 0;
             for (const auto& t : n.topics) heard += fired_.count("topic:" + n.id + "/" + t.id) ? 1 : 0;
-            Json row{{"id", n.id}, {"name", n.name}, {"type", n.type}, {"place", l.name}, {"placeId", l.id}, {"met", met || dealings > 0}, {"dealings", dealings},
+            Json row{{"id", n.id}, {"name", n.name}, {"type", n.type}, {"gender", n.gender}, {"place", l.name}, {"placeId", l.id}, {"met", met || dealings > 0}, {"dealings", dealings},
                      {"topicsHeard", heard}, {"topicsTotal", n.topics.size()}};
             if (lastSeq >= 0) row["last"] = Json{{"speaker", last.value("speaker", "")}, {"text", last.value("text", "")}, {"day", last.value("day", 0)}};
             npcs.push_back(row);
@@ -103,7 +103,7 @@ Json Game::View(int sinceSeq) const {
             Json topics = Json::array();
             for (const auto& t : n.topics)
                 if (Satisfied(t.needs)) topics.push_back(Json{{"id", t.id}, {"heard", fired_.count("topic:" + n.id + "/" + t.id) > 0}});
-            npcs.push_back(Json{{"id", n.id}, {"name", n.name}, {"type", n.type}, {"description", n.description}, {"topics", topics}});
+            npcs.push_back(Json{{"id", n.id}, {"name", n.name}, {"type", n.type}, {"gender", n.gender}, {"description", n.description}, {"topics", topics}});
         }
         v["location"] = Json{{"id", l->id}, {"name", l->name}, {"kind", l->kind}, {"description", DescriptionOf(*l)}, {"rest", l->rest},
                              {"exits", exits}, {"npcs", npcs}};

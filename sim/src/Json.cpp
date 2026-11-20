@@ -102,6 +102,7 @@ Json ToJson(const CharacterSheet& s) {
     j["name"] = s.name;
     j["classId"] = s.classId;
     j["tags"] = s.tags;
+    j["gender"] = s.gender;
     j["monsterId"] = s.monsterId;
     j["level"] = s.level;
     j["scores"] = s.scores;
@@ -157,6 +158,7 @@ CharacterSheet SheetFromJson(const Json& j) {
     s.name = j.value("name", "");
     s.classId = j.value("classId", "");
     s.tags = j.value("tags", std::vector<std::string>{});
+    s.gender = j.value("gender", "");
     s.monsterId = j.value("monsterId", "");
     s.level = j.value("level", 1);
     s.scores = j.value("scores", s.scores);
@@ -398,7 +400,7 @@ Json CombatView(const Combat& c) {
     Json actors = Json::array();
     static const char* life[] = {"alive", "unconscious", "stable", "dead"};
     for (const auto& a : c.Actors()) {
-        Json x{{"id", a->id}, {"name", a->Name()}, {"team", a->team == Team::Party ? "party" : "monsters"}, {"glyph", std::string(1, c.Glyph(*a))}, {"classId", a->sheet.classId}, {"monsterId", a->sheet.monsterId}, {"tags", a->sheet.tags},
+        Json x{{"id", a->id}, {"name", a->Name()}, {"team", a->team == Team::Party ? "party" : "monsters"}, {"glyph", std::string(1, c.Glyph(*a))}, {"classId", a->sheet.classId}, {"monsterId", a->sheet.monsterId}, {"tags", a->sheet.tags}, {"gender", a->sheet.gender},
                {"pos", {a->pos.x, a->pos.y}}, {"hp", a->sheet.hp}, {"maxHp", a->sheet.maxHp}, {"ac", a->EffectiveAc()},
                {"life", life[static_cast<int>(a->life)]}, {"concentrating", a->concentrating},
                {"controller", a->controller ? std::string(a->controller->Kind()) : std::string()}};

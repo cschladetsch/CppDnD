@@ -291,6 +291,7 @@ ModuleDef ParseModule(const json& j, const std::string& file) {
                 npc.name = n.value("name", npc.id);
                 npc.description = n.value("description", "");
                 npc.type = n.value("type", "commoner");
+                npc.gender = n.value("gender", "");
                 if (n.contains("topics"))
                     for (const auto& t : n.at("topics"))
                         npc.topics.push_back(TopicDef{t.at("id").get<std::string>(), t.value("text", ""), Strs(t, "requires"), Strs(t, "setsFlags"), t.value("potions", 0)});
@@ -441,6 +442,7 @@ void Load(const std::string& dir) {
         cd.ac = c.at("ac").get<int>();
         cd.speed = c.value("speed", 30);
         cd.tags = Strs(c, "tags");
+        cd.gender = c.value("gender", "");
         cd.weapons = Strs(c, "weapons");
         cd.spells = Strs(c, "spells");
         cd.potions = c.value("potions", 0);
@@ -561,6 +563,7 @@ CharacterSheet BuildCharacter(const CharacterDef& d, int levelOverride) {
     s.name = d.name;
     s.classId = d.classId;
     s.tags = d.tags;
+    s.gender = d.gender;
     s.level = level;
     s.scores = d.scores;
     s.proficiency = 2 + (level - 1) / 4;  // SRD proficiency bonus

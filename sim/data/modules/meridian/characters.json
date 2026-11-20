@@ -1,16 +1,16 @@
 [
-  { "id": "cmdr_reyes", "name": "Commander Reyes", "class": "fighter", "level": 5, "tags": ["humanoid","human","marine"],
+  { "id": "cmdr_reyes", "name": "Commander Reyes", "gender": "female", "class": "fighter", "level": 5, "tags": ["humanoid","human","marine"],
     "scores": [15,16,15,11,12,12], "ac": 18, "speed": 30, "weapons": ["mace","handaxe"], "potions": 1 },
-  { "id": "dr_halloran", "name": "Dr. Halloran", "class": "cleric", "level": 5, "tags": ["humanoid","human","medic"],
+  { "id": "dr_halloran", "name": "Dr. Halloran", "gender": "male", "class": "cleric", "level": 5, "tags": ["humanoid","human","medic"],
     "scores": [10,12,14,14,17,12], "ac": 16, "speed": 30, "weapons": ["mace"],
     "spells": ["sacred_flame","cure_wounds","healing_word","guiding_bolt","shield_of_faith","hold_person"], "potions": 2 },
-  { "id": "ensign_pike", "name": "Ensign Pike", "class": "rogue", "level": 5, "tags": ["humanoid","human","infiltrator"],
+  { "id": "ensign_pike", "name": "Ensign Pike", "gender": "male", "class": "rogue", "level": 5, "tags": ["humanoid","human","infiltrator"],
     "scores": [8,18,13,13,12,12], "ac": 15, "speed": 30, "weapons": ["shortsword","shortbow"], "potions": 1 },
-  { "id": "tech_ozawa", "name": "Tech Ozawa", "class": "wizard", "level": 5, "tags": ["humanoid","human","engineer"],
+  { "id": "tech_ozawa", "name": "Tech Ozawa", "gender": "female", "class": "wizard", "level": 5, "tags": ["humanoid","human","engineer"],
     "scores": [8,14,13,17,13,10], "ac": 12, "speed": 30, "weapons": ["dagger"],
     "spells": ["fire_bolt","magic_missile","shatter","hold_person","fireball"] },
-  { "id": "scout_kiri", "name": "Scout Kiri", "class": "ranger", "level": 5, "tags": ["humanoid","human","scout"],
+  { "id": "scout_kiri", "name": "Scout Kiri", "gender": "female", "class": "ranger", "level": 5, "tags": ["humanoid","human","scout"],
     "scores": [12,17,14,10,14,9], "ac": 15, "speed": 30, "weapons": ["longbow","shortsword"], "spells": ["cure_wounds"] },
-  { "id": "sgt_brakk", "name": "Sergeant Brakk", "class": "barbarian", "level": 5, "tags": ["humanoid","half-orc","marine"],
+  { "id": "sgt_brakk", "name": "Sergeant Brakk", "gender": "male", "class": "barbarian", "level": 5, "tags": ["humanoid","half-orc","marine"],
     "scores": [18,13,17,8,10,8], "ac": 15, "speed": 30, "weapons": ["greataxe","javelin"] }
 ]

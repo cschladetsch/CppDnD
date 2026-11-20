@@ -9,7 +9,7 @@ Rules reference for the mechanics implemented here: the [D&D 5e SRD](https://5th
 | Method and path | Body | Result |
 |---|---|---|
 | `GET /api/health` | | `{"ok":true}` |
-| `GET /api/content` | | modules, characters, monsters, spells, classes; each character carries `module` (empty for the classic four plus Gruk and Sylva), `tags` and `default` (true when a new game of that module starts with them) |
+| `GET /api/content` | | modules, characters, monsters, spells, classes; each character carries `module` (empty for the classic four plus Gruk and Sylva), `gender`, `tags` and `default` (true when a new game of that module starts with them) |
 | `GET /api/llm` | | LLM client status and the model's location in the model store |
 | `POST /api/games` | see below; optional `name` | `201 {"id", "name", "view"}` |
 | `GET /api/games` | | `{"games":[ids], "sessions":[{id, name, module, moduleName, hero, role, mode, location, day, created, updated}], "persistent"}`, newest first |
@@ -94,7 +94,7 @@ A refused action returns `422 {"ok":false,"reason":...}` and the same actor stay
 |---|---|
 | `POST /api/games/:id/undo` | puts the game back as it was before the player's last own action (travel, talk, attack, rest and so on; automatic `advance` steps do not count). The random stream is restored too, so repeating the action repeats the result. 200 `{ok, view}` with the whole history, or an error when there is nothing to undo |
 | `POST /api/games/:id/rewind` | returns to the state just after the last rest |
-| `GET /api/games/:id/journal` | `{canUndo, canRewind, npcs: [{id, name, type, place, placeId, met, dealings, topicsHeard, topicsTotal, last: {speaker, text, day}}], places: [{id, name, current}]}` |
+| `GET /api/games/:id/journal` | `{canUndo, canRewind, npcs: [{id, name, type, gender, place, placeId, met, dealings, topicsHeard, topicsTotal, last: {speaker, text, day}}], places: [{id, name, current}]}` |
 | `GET /api/telemetry` | `{games, events, byModule: {module: {defeats, completes, combats, arrivals}}}` from `<sessions>/telemetry.jsonl` (events: start, arrive, combat, defeat, complete), to see where players die or stop |
 
 In combat the `options` object also carries `preview`: for each weapon attack (by index) one entry per hostile, `{target, legal, distanceFt, whyNot}` or `{target, legal, distanceFt, hitPct, critPct, expected, cover, mode, sneak}`.
