@@ -294,7 +294,12 @@ if ((Test-Path (PathOf $build 'CMakeCache.txt')) -and -not (Test-Path (PathOf $b
     Remove-Item -Recurse -Force $build
 }
 $preset = if ($OnWindows) { 'clang' } else { 'release' }
-if (-not (Test-Path (PathOf $build 'build.ninja'))) {
+$buildType = ''
+if (Test-Path (PathOf $build 'CMakeCache.txt')) {
+    $line = Select-String -Path (PathOf $build 'CMakeCache.txt') -Pattern '^CMAKE_BUILD_TYPE:\w+=(.*)$' | Select-Object -First 1
+    if ($line) { $buildType = $line.Matches[0].Groups[1].Value.Trim() }
+}
+if (-not (Test-Path (PathOf $build 'build.ninja')) -or $buildType -ne 'Release') {   # a Debug build left by an IDE is slow and needs far more memory to compile
     Info "configuring: cmake --preset $preset (the first run fetches the model store and GoogleTest from GitHub) ..."
     Push-Location $src
     try { Invoke-Native { cmake --preset $preset } } finally { Pop-Location }
