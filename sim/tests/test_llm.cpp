@@ -403,3 +403,68 @@ TEST(NpcLines, TheVoiceRemembersThePartyAndFallsBackWhenTheModelFails) {
     g->SetNpcVoice(MakeLlmNpcVoice(failing, *g));
     ASSERT_TRUE(g->Talk("tran", "stores").ok);  // the written text is used instead
 }
+
+TEST(Llm, MatureContentPolicy) {
+    // ---- the preamble: empty when off; when on it drops refusals and always carries the adults-only limit
+    EXPECT_TRUE(ContentPreamble(false).empty());
+    const std::string pre = ContentPreamble(true);
+    EXPECT_NE(pre.find("Do not refuse"), std::string::npos);
+    EXPECT_NE(pre.find("18 or older"), std::string::npos);
+    EXPECT_NE(pre.find("minor"), std::string::npos);
+
+    // ---- the wrapper puts it in front of every system prompt and leaves the rest alone
+    std::string seen;
+    auto inner = std::make_shared<MockLlmClient>([&](const std::string& sys, const std::string&, bool) { seen = sys; LlmReply r; r.ok = true; r.content = "{}"; return r; });
+    EXPECT_EQ(ApplyContentPolicy(inner, false), inner);
+    EXPECT_EQ(ApplyContentPolicy(nullptr, true), nullptr);
+    auto wrapped = ApplyContentPolicy(inner, true);
+    ASSERT_TRUE(std::dynamic_pointer_cast<ContentPolicyClient>(wrapped));
+    wrapped->Chat("You are the narrator.", "hi", false);
+    EXPECT_EQ(seen, pre + "You are the narrator.");
+    EXPECT_NE(wrapped->Describe().find("content=mature"), std::string::npos);
+
+    // ---- "act": a free-form action with no rules effect, narrated by the reply
+    GameConfig cfg; cfg.moduleId = "ravenmoor"; cfg.seed = 11;
+    Game g(cfg);
+    const std::string before = g.LocationId();
+    std::string sayPrompt;
+    MockLlmClient actor([&](const std::string& sys, const std::string&, bool) {
+        sayPrompt = sys;
+        LlmReply r; r.ok = true;
+        r.content = R"({"steps":[{"cmd":"act","what":"hug Elara"}],"reply":"Elara laughs and hugs you back."})";
+        return r;
+    });
+    const SayResult sr = Say(actor, g, "hug elara");
+    EXPECT_TRUE(sr.ok);
+    EXPECT_EQ(sr.steps, std::vector<std::string>{"act"});
+    EXPECT_EQ(sr.message, "Elara laughs and hugs you back.");
+    EXPECT_EQ(g.LocationId(), before);
+    EXPECT_NE(sayPrompt.find("\"cmd\":\"act\""), std::string::npos);
+    EXPECT_TRUE(RunExplorationStep(g, Json{{"cmd", "act"}}).ok);
+
+    // ---- the agents file: content.mature wraps every agent; content.model is each actor's mature model unless it sets its own
+    std::string err;
+    auto ac = AgentsConfig::Parse(Json::parse(R"({"content":{"mature":true,"model":"uncensored"},
+        "defaults":{"model":"aligned"},"players":{"finn":{"matureModel":"finn-mature"}}})"), err);
+    ASSERT_TRUE(ac.has_value()) << err;
+    EXPECT_TRUE(ac->mature);
+    EXPECT_EQ(ac->ForPlayer("thorin", "Thorin").matureModel, "uncensored");
+    EXPECT_EQ(ac->ForPlayer("finn", "Finn").matureModel, "finn-mature");
+    EXPECT_TRUE(!AgentsConfig::Parse(Json::parse(R"({"defaults":{"model":"m"},"content":true})"), err) && err.find("content") != std::string::npos);
+    std::string madeWith;
+    AgentTable table(*ac, [&](const std::string&, const BackendDef&, const AgentDef& d) { madeWith = d.model; return std::make_shared<MockLlmClient>(); });
+    auto dm = table.Dm();
+    ASSERT_TRUE(dm);
+    EXPECT_EQ(madeWith, "uncensored");
+    EXPECT_EQ(dm->Def().model, "uncensored");
+    EXPECT_TRUE(std::dynamic_pointer_cast<ContentPolicyClient>(dm->Client()));
+    ASSERT_TRUE(table.SetModel("dm", "picked", "", false, err)) << err;  // an explicit switch wins over the mature model
+    EXPECT_EQ(table.Dm()->Def().model, "picked");
+
+    // ---- off by default, including the shipped agents.json
+    auto off = AgentsConfig::Parse(Json::parse(R"({"defaults":{"model":"aligned"}})"), err);
+    ASSERT_TRUE(off.has_value());
+    EXPECT_FALSE(off->mature);
+    AgentTable plain(*off, [](const std::string&, const BackendDef&, const AgentDef&) { return std::make_shared<MockLlmClient>(); });
+    EXPECT_FALSE(std::dynamic_pointer_cast<ContentPolicyClient>(plain.Dm()->Client()));
+}

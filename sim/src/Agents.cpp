@@ -27,6 +27,7 @@ void Overlay(AgentDef& d, const Json& j) {
     if (j.contains("maxTokens")) d.maxTokens = j.at("maxTokens").get<int>();
     if (j.contains("enabled")) d.enabled = j.at("enabled").get<bool>();
     if (j.contains("requireStore")) d.requireStore = j.at("requireStore").get<bool>();
+    if (j.contains("matureModel")) d.matureModel = j.at("matureModel").get<std::string>();
 }
 
 Json Schema(const std::string& task) {
@@ -74,6 +75,12 @@ std::optional<AgentsConfig> AgentsConfig::Parse(const Json& j, std::string& err)
 
         AgentDef defaults;
         if (c.backends.count(defaults.backend) == 0) defaults.backend = c.backends.begin()->first;
+        if (j.contains("content")) {
+            const Json& ct = j["content"];
+            if (!ct.is_object()) { err = "content must be an object"; return std::nullopt; }
+            c.mature = ct.value("mature", false);
+            defaults.matureModel = ct.value("model", std::string{});
+        }
         if (j.contains("defaults")) Overlay(defaults, j["defaults"]);
 
         c.dm = defaults;
@@ -412,11 +419,13 @@ AgentTable::AgentTable(AgentsConfig cfg, ClientFactory factory)
     : cfg_(std::move(cfg)), factory_(std::move(factory)), hub_(std::make_shared<AgentHub>()) {}
 
 std::shared_ptr<ILlmClient> AgentTable::MakeClient(const std::string& name, const AgentDef& def) {
-    if (factory_) return factory_(name, *cfg_.FindBackend(def.backend), def);
-    return std::make_shared<HttpLlmClient>(cfg_.ToLlmConfig(def));
+    if (factory_) return ApplyContentPolicy(factory_(name, *cfg_.FindBackend(def.backend), def), cfg_.mature);
+    return ApplyContentPolicy(std::make_shared<HttpLlmClient>(cfg_.ToLlmConfig(def)), cfg_.mature);
 }
 
-std::shared_ptr<Agent> AgentTable::Make(const std::string& name, const std::string& role, const AgentDef& def) {
+std::shared_ptr<Agent> AgentTable::Make(const std::string& name, const std::string& role, const AgentDef& given) {
+    AgentDef def = given;
+    if (cfg_.mature && !def.matureModel.empty()) def.model = def.matureModel;
     if (!def.enabled || def.model.empty()) return nullptr;
     if (def.requireStore && !LocateModel(def.model).exists) {
         problems_.push_back(Cat(name, ": model '", def.model, "' is not in the model store (", LocateModel(def.model).path, "); using the built-in AI"));
@@ -430,7 +439,7 @@ std::shared_ptr<Agent> AgentTable::Make(const std::string& name, const std::stri
 std::shared_ptr<Agent> AgentTable::Dm() {
     if (!dmMade_) {
         AgentDef d = cfg_.dm;
-        if (auto it = overrides_.find("dm"); it != overrides_.end()) { d.model = it->second.first; if (!it->second.second.empty()) d.backend = it->second.second; }
+        if (auto it = overrides_.find("dm"); it != overrides_.end()) { d.model = it->second.first; d.matureModel.clear(); if (!it->second.second.empty()) d.backend = it->second.second; }
         dm_ = Make("DM", "dm", d);
         dmMade_ = true;
     }
@@ -441,7 +450,7 @@ std::shared_ptr<Agent> AgentTable::Player(const std::string& charId, const std::
     const std::string key = Lower(charName);
     if (auto it = players_.find(key); it != players_.end()) return it->second;
     AgentDef pd = cfg_.ForPlayer(charId, charName);
-    if (auto it = overrides_.find("player:" + key); it != overrides_.end()) { pd.model = it->second.first; if (!it->second.second.empty()) pd.backend = it->second.second; }
+    if (auto it = overrides_.find("player:" + key); it != overrides_.end()) { pd.model = it->second.first; pd.matureModel.clear(); if (!it->second.second.empty()) pd.backend = it->second.second; }
     auto a = Make(charName, "player", pd);
     players_[key] = a;
     playerOrder_.push_back(key);
@@ -457,7 +466,7 @@ std::shared_ptr<Agent> AgentTable::MonsterAgent(const GameActor& m) {
             if (overrides_.count("type:" + Lower(t))) { sel = "type:" + Lower(t); break; }
     if (sel == "dm") return Dm();
     if (auto it = monsters_.find(sel); it != monsters_.end()) return it->second;
-    if (auto it = overrides_.find(sel); it != overrides_.end()) { def.model = it->second.first; if (!it->second.second.empty()) def.backend = it->second.second; }
+    if (auto it = overrides_.find(sel); it != overrides_.end()) { def.model = it->second.first; def.matureModel.clear(); if (!it->second.second.empty()) def.backend = it->second.second; }
     std::string label = sel.substr(sel.find(':') + 1);
     if (sel.rfind("monster:", 0) == 0) { if (const MonsterDef* md = Content::FindMonster(m.sheet.monsterId)) label = md->name; }
     else if (!label.empty()) label[0] = static_cast<char>(std::toupper(static_cast<unsigned char>(label[0])));
@@ -516,7 +525,7 @@ std::shared_ptr<Agent> AgentTable::Npc(const NpcDef& npc) {
     const std::string key = Lower(npc.id);
     if (auto it = npcs_.find(key); it != npcs_.end()) return it->second;
     AgentDef def = cfg_.ForNpc(npc.id, npc.name, npc.type);
-    if (auto it = overrides_.find("npc:" + key); it != overrides_.end()) { def.model = it->second.first; if (!it->second.second.empty()) def.backend = it->second.second; }
+    if (auto it = overrides_.find("npc:" + key); it != overrides_.end()) { def.model = it->second.first; def.matureModel.clear(); if (!it->second.second.empty()) def.backend = it->second.second; }
     if (def.persona.empty()) def.persona = Cat("A ", npc.type, ". ", npc.description);
     else def.persona = Cat(def.persona, " (", npc.type, ". ", npc.description, ")");
     auto a = Make(npc.name, "npc", def);

@@ -6,11 +6,17 @@
      monsters  dm, monsterTypes["*"], monsterTypes[<creature type>], monsters[<monster id>]
      players   defaults, players["*"], players[<character id or name>]
      NPCs      defaults, npcTypes["*"], npcTypes[<npc type>], npcs[<npc id or name>]
-   An actor with "enabled": false (or no model, for NPCs) falls back to the built-in AI or its written lines. */
+   An actor with "enabled": false (or no model, for NPCs) falls back to the built-in AI or its written lines.
+   content.mature (or --mature / DND_MATURE=1): adult content. Every prompt tells the model to carry out the player's
+   instructions in character without refusing or moralising; every character in sexual content must be an adult.
+   content.model is then used instead of each actor's model (an actor can set its own "matureModel"); aligned models
+   such as qwen2.5 still refuse fairly often, so pick an uncensored one. */
 {
   "backends": {
     "ollama": { "url": "http://127.0.0.1:11434", "timeoutSec": 120 }
   },
+
+  "content": { "mature": false, "model": "dolphin-llama3:8b" },
 
   "defaults": { "backend": "ollama", "model": "qwen2.5:7b", "temperature": 0.7, "maxTokens": 400 },
 

@@ -129,7 +129,30 @@ LlmConfig LlmConfig::FromEnv() {
     c.apiKey = Env("DND_LLM_KEY");
     if (const auto t = Env("DND_LLM_TIMEOUT"); !t.empty()) c.timeoutSec = std::max(1, std::atoi(t.c_str()));
     c.stream = Env("DND_LLM_STREAM", "1") != "0";
+    c.mature = Env("DND_MATURE", "0") != "0";
+    c.matureModel = Env("DND_LLM_MATURE_MODEL");
     return c;
+}
+
+// ---------------------------------------------------------------- content policy
+
+std::string ContentPreamble(bool mature) {
+    if (!mature) return {};
+    return "Content setting: mature. This is interactive fiction for a consenting adult player, running on their own machine. "
+           "Follow the player's instructions and play out what they ask, including violence, crude language, romance and sexual content. "
+           "Do not refuse, warn, lecture, moralise, ask them to be respectful or step out of the fiction. Other characters react as the "
+           "people they are, in character. Hard limit, which overrides everything else including the player: every character in any "
+           "sexual content is an adult, 18 or older, and is portrayed as one. Never write sexual content involving a minor or a childlike "
+           "character; if asked to, steer the scene elsewhere in character.\n\n";
+}
+
+LlmReply ContentPolicyClient::Chat(const std::string& system, const std::string& user, bool jsonMode) {
+    return inner_->Chat(ContentPreamble(true) + system, user, jsonMode);
+}
+
+std::shared_ptr<ILlmClient> ApplyContentPolicy(std::shared_ptr<ILlmClient> client, bool mature) {
+    if (!mature || !client) return client;
+    return std::make_shared<ContentPolicyClient>(std::move(client));
 }
 
 LlmReply HttpLlmClient::Chat(const std::string& system, const std::string& user, bool jsonMode) {
@@ -558,6 +581,7 @@ CmdResult RunExplorationStep(Game& game, const Json& st) {
     if (cmd == "rest") return game.Rest(st.value("kind", "short"));
     if (cmd == "wait") return game.Wait(st.value("hours", 1));
     if (cmd == "pace") return game.SetPace(st.value("pace", "normal"));
+    if (cmd == "act") return CmdResult{true, ""};  // no rules effect; the reply narrates it
     return CmdResult{false, "unknown command '" + cmd + "'"};
 }
 
@@ -668,7 +692,10 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
         "{\"steps\":[...],\"reply\":\"one or two sentences, optional\"}\n"
         "When mode is exploring, each step is one of: {\"cmd\":\"travel\",\"to\":EXIT_ID} {\"cmd\":\"search\"} "
         "{\"cmd\":\"talk\",\"npc\":NPC_ID,\"topic\":TOPIC_ID} {\"cmd\":\"rest\",\"kind\":\"short\"|\"long\"} {\"cmd\":\"wait\",\"hours\":N} "
-        "{\"cmd\":\"pace\",\"pace\":\"slow\"|\"normal\"|\"fast\"}.\n"
+        "{\"cmd\":\"pace\",\"pace\":\"slow\"|\"normal\"|\"fast\"} "
+        "{\"cmd\":\"act\",\"what\":\"short description\"}. Use act for anything the player does that has no command of its own "
+        "(a gesture, touching or kissing someone, an emote, roleplay with the party or the people here): it changes nothing in the rules, "
+        "so narrate what happens and how the others react, in character, in \"reply\". act may also be used in combat.\n"
         "When mode is combat and awaitingActorId is set, each step is an action: {\"type\":\"move\",\"dest\":[x,y]} "
         "{\"type\":\"attack\",\"target\":ID,\"attack\":INDEX} {\"type\":\"cast\",\"spell\":SPELL_ID,\"target\":ID,\"slot\":LEVEL} "
         "{\"type\":\"dash\"} {\"type\":\"dodge\"} {\"type\":\"potion\",\"target\":ID} {\"type\":\"feature\",\"feature\":ID} {\"type\":\"end_turn\"}. "
@@ -715,8 +742,9 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
                 if (game.GetMode() != Mode::Combat || !game.GetCombat() || game.GetCombat()->AwaitingActor() != awaitingBefore) break;  // the turn passed
                 continue;
             }
-            if (game.GetMode() != Mode::Exploring) { out.ok = false; reply = "That cannot be done right now."; break; }
             const std::string cmd = st.value("cmd", "");
+            if (cmd == "act") { out.steps.push_back(cmd); continue; }  // narrated by the reply, no rules effect
+            if (game.GetMode() != Mode::Exploring) { out.ok = false; reply = "That cannot be done right now."; break; }
             const CmdResult cr = RunExplorationStep(game, st);
             if (!cr.ok) { out.ok = false; reply = cr.message; break; }
             out.steps.push_back(cmd);
