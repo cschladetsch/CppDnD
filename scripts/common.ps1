@@ -131,7 +131,18 @@ function Invoke-Configure($src, [switch]$Quiet) {
         Write-Host '         sim/build was configured with another generator; starting it again' -ForegroundColor DarkGray
         Remove-Item -Recurse -Force $build
     }
-    if (Test-Path (PathOf $build 'build.ninja')) { return 0 }
+    # A build folder configured by hand or by an IDE may be a Debug build (-O0 -g): far slower to play, and clang++ needs much
+    # more memory for it, enough to fail with "out of memory" while llama-server and Stable Diffusion are loaded. Make it Release.
+    $type = ''
+    $cache = PathOf $build 'CMakeCache.txt'
+    if (Test-Path $cache) {
+        $line = Select-String -Path $cache -Pattern '^CMAKE_BUILD_TYPE:\w+=(.*)$' | Select-Object -First 1
+        if ($line) { $type = $line.Matches[0].Groups[1].Value.Trim() }
+    }
+    if ((Test-Path (PathOf $build 'build.ninja')) -and $type -eq 'Release') { return 0 }
+    if (Test-Path (PathOf $build 'build.ninja')) {
+        Write-Host "         sim/build is a $(if ($type) { $type } else { 'no-type' }) build; configuring it as Release (cmake --preset $(Get-BuildPreset))" -ForegroundColor DarkGray
+    }
     $v = Get-CMakeVersion
     if ($v -and $v -lt [version]'3.21') { Write-Host "  [FAIL] cmake $v is too old for CMakePresets.json; 3.21 or newer is needed" -ForegroundColor Red; return 1 }
     $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'

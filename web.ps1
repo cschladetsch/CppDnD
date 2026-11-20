@@ -101,8 +101,22 @@ else {
     Fail "port $Port is in use by another program; pick another -Port"
 }
 
-# ---- 2b. llama.cpp: a GGUF model from the model store (content.llama in agents.json, mature mode)
-$llamaProc = $null
+# ---- 3. build, before llama-server and Stable Diffusion start: together they hold most of the RAM, and the compiler needs some
+Head 'Build'
+if ($Rebuild -and (Test-Path $build)) { Remove-Item -Recurse -Force $build }
+if (Invoke-Configure $src) { Fail 'cmake configure failed' }
+cmake --build $build --target dnd_server
+if ($LASTEXITCODE) { Fail "build failed" }
+$exe = PathOf $build (Exe 'dnd_server')
+if (-not (Test-Path $exe)) { Fail "$exe was not produced" }
+
+# Everything from here on may start something (llama-server, Ollama, Stable Diffusion, the server); the finally at the end
+# stops what this script started, also when it fails or is interrupted, and puts DND_LLM_URL back as it was.
+$llmUrlSaved = $env:DND_LLM_URL
+$llamaProc = $null; $ollamaProc = $null; $proc = $null; $sdWeStarted = $false; $sdScript = PathOf $PSScriptRoot 'sd.ps1'
+try {
+
+# ---- 4. llama.cpp: a GGUF model from the model store (content.llama in agents.json, mature mode)
 if (-not $NoLlm -and -not $NoLlama -and -not $env:DND_LLM_URL) {
     $agentsFile0 = if ($env:DND_AGENTS) { $env:DND_AGENTS } else { PathOf $src 'data' 'agents.json' }
     $llamaSpec = ''; $llamaLayers = 30; $llamaPort = 8081; $llamaCtx = 8192
@@ -158,12 +172,18 @@ if (-not $NoLlm -and -not $NoLlama -and -not $env:DND_LLM_URL) {
     }
 }
 
-# ---- 3. Ollama and its models
-$ollamaProc = $null
+# ---- 5. Ollama and its models
 if ($NoLlm) { $Model = '' }
 elseif ($env:DND_LLM_URL -and -not $Model) {
     Head 'Language model'
     Ok "using the server in DND_LLM_URL ($env:DND_LLM_URL); Ollama is not touched"
+    # the agents' and -Mature's Ollama model names do not apply to it: it answers with whatever it has loaded
+    $served = ''
+    try { $served = "$((Invoke-RestMethod -Uri "$($env:DND_LLM_URL.TrimEnd('/'))/v1/models" -TimeoutSec 3).data[0].id)" } catch {}
+    if ($served) { Ok "it serves '$served'" } else { Warn "could not ask $env:DND_LLM_URL which model it serves (/v1/models)" }
+    if ($Mature -and $llamaSpec -and $served -and ($served -notmatch [regex]::Escape((($llamaSpec -split '[/:]')[1])))) {
+        Warn "-Mature wants '$llamaSpec' (content.llama in agents.json), but that server serves '$served'; stop it, or unset DND_LLM_URL, and run this again"
+    }
 }
 else {
     Head 'Ollama'
@@ -245,7 +265,7 @@ else {
     }
 }
 
-# ---- 4. Stable Diffusion
+# ---- 6. Stable Diffusion
 $imgUrl = 'http://127.0.0.1:7860'
 $matureCkpt = ''
 $sdMature = [bool]$Mature
@@ -254,16 +274,25 @@ if (Test-Path $imgFile) {
     try { $ij = Read-JsonFile $imgFile; if ($ij.url) { $imgUrl = $ij.url }; if ($ij.mature -and $ij.mature.checkpoint) { $matureCkpt = "$($ij.mature.checkpoint)" }; if ($ij.mature -and $ij.mature.enabled) { $sdMature = $true } }
     catch { Warn "could not read sim/data/images.json: $($_.Exception.Message)" }
 }
-$sdWeStarted = $false
 $sdFailed = $false
-$sdScript = PathOf $PSScriptRoot 'sd.ps1'
 if (-not $NoArt) {
     Head 'Stable Diffusion'
+    if ($sdMature -and $matureCkpt) { Info "mature pictures: checkpoint '$matureCkpt' (sim/data/images.json)" }
+    elseif ($sdMature) { Warn 'mature pictures: sim/data/images.json names no "mature" checkpoint, so the base model draws' }
     $sdUp = $false
     try { Invoke-RestMethod -Uri "$imgUrl/sdapi/v1/options" -TimeoutSec 2 | Out-Null; $sdUp = $true } catch {}
     if ($sdUp) {
         Ok "already running at $imgUrl"
-        if ($sdMature -and $matureCkpt) { Info "for the mature checkpoint '$matureCkpt' it must have been started with ./sd.ps1 -Start -Mature (else: ./sd.ps1 -Stop, then run this again)" }
+        if ($sdMature -and $matureCkpt) {
+            $loaded = ''
+            try { $loaded = "$((Invoke-RestMethod -Uri "$imgUrl/sdapi/v1/options" -TimeoutSec 3).sd_model_checkpoint)" } catch {}
+            $wf = Get-ChildItem (PathOf (Get-ModelHome) $matureCkpt) -Recurse -File -Include '*.safetensors', '*.ckpt' -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($loaded -and $wf -and ($loaded -notlike "*$($wf.BaseName)*")) {
+                Warn "it has '$loaded' loaded, not the mature checkpoint '$matureCkpt': run ./sd.ps1 -Stop (or close the server you started), then this again"
+            } elseif (-not $wf) {
+                Warn "the mature checkpoint '$matureCkpt' is not downloaded, so '$loaded' draws; run ./sd.ps1 -Stop, then this again to be offered the download"
+            }
+        }
     }
     elseif (-not (Test-Path $sdScript)) { Warn 'sd.ps1 is missing; continuing without pictures'; $sdFailed = $true }
     else {
@@ -292,16 +321,7 @@ if (-not $NoArt) {
     }
 }
 
-# ---- 5. build
-Head 'Build'
-if ($Rebuild -and (Test-Path $build)) { Remove-Item -Recurse -Force $build }
-if (Invoke-Configure $src) { Fail 'cmake configure failed' }
-cmake --build $build --target dnd_server
-if ($LASTEXITCODE) { Fail "build failed" }
-$exe = PathOf $build (Exe 'dnd_server')
-if (-not (Test-Path $exe)) { Fail "$exe was not produced" }
-
-# ---- 6. serve
+# ---- 7. serve
 $argList = @('--port', "$Port")
 if ($Model) { $argList += @('--ollama', $Model) }
 if ($Mature) { $argList += @('--mature'); if ($Model) { $argList += @('--mature-model', $Model) } }
@@ -340,8 +360,13 @@ try {
     $proc.WaitForExit()
 } finally {
     if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
+}
+
+} finally {
+    if ($proc -and -not $proc.HasExited) { Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue }
     if ($sdWeStarted) { & $sdScript -Stop | Out-Null }
     if ($ollamaProc -and -not $ollamaProc.HasExited) { Stop-Tree $ollamaProc.Id }
     if ($llamaProc -and -not $llamaProc.HasExited) { Stop-Tree $llamaProc.Id }
+    $env:DND_LLM_URL = $llmUrlSaved
     Restore-Cnf
 }
