@@ -12,9 +12,9 @@
   // true: refuse to draw unless "checkpoint" exists in the model store.
   "requireStore": false,
 
-  // Adult pictures. enabled: true (or .\sd.ps1 -Start -Mature, or .\web.ps1 -Mature) draws with this model instead. "checkpoint" is a folder in the CppLmmModelStore
-  // (default %USERPROFILE%\.local\share\deepseek\models\mature) holding the .safetensors or .ckpt of an SD 1.5 or SDXL fine-tune you downloaded.
-  "mature": { "enabled": false, "checkpoint": "mature" },
+  // Adult pictures. enabled: true (or .\sd.ps1 -Start -Mature, or .\web.ps1 -Mature) uses the adult words and sizes below. With no "checkpoint" the base model above draws them.
+  // To use a fine-tune instead, add "checkpoint": "<folder>": a folder in the CppLmmModelStore (see DEEPSEEK_MODEL_HOME) holding the .safetensors or .ckpt of an SD 1.5 or SDXL model.
+  "mature": { "enabled": false },
 
   "timeoutSec": 600
 }
