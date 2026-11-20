@@ -5,6 +5,8 @@
 #   .\web.ps1 -Model llama3.1          use this Ollama model for the plain-English prompt (default: the model in data\agents.json)
 #   .\web.ps1 -NoLlm                   no Ollama at all (no plain-English prompt, no AI table)
 #                                      (with DND_LLM_URL set and no -Model, the server there is used and Ollama is left alone)
+#   .\web.ps1 -Mature                  adult content: no refusals, all characters adults; uses content.model from agents.json
+#                                      (an uncensored model such as dolphin-llama3:8b) unless -Model is given
 #   .\web.ps1 -NoArt                   no Stable Diffusion (no generated pictures)
 #   .\web.ps1 -Rebuild -NoBrowser
 #   .\web.ps1 --data .\my-content      unrecognised options go to dnd_server
@@ -20,6 +22,7 @@ param(
     [int]$Port = 8088,
     [string]$Model = '',
     [switch]$NoLlm,
+    [switch]$Mature,
     [switch]$NoArt,
     [switch]$Art,
     [switch]$Yes,
@@ -113,11 +116,16 @@ else {
         try {
             $ag = Read-JsonFile $agentsFile
             if ($ag.defaults -and $ag.defaults.model) { $defaultModel = $ag.defaults.model }
+            if ($ag.content -and $ag.content.mature) { $Mature = $true }
+            if ($Mature -and $ag.content -and $ag.content.model) { $defaultModel = $ag.content.model }
             $nodes = @($ag.defaults, $ag.dm)
             foreach ($section in 'monsterTypes', 'monsters', 'players', 'npcTypes', 'npcs') {
                 if ($ag.$section) { foreach ($prop in $ag.$section.PSObject.Properties) { $nodes += $prop.Value } }
             }
-            foreach ($node in $nodes) { if ($node -and $node.model) { $wanted += "$($node.model)" } }
+            foreach ($node in $nodes) {
+                if ($node -and $node.model) { $wanted += "$($node.model)" }
+                if ($Mature -and $node -and $node.matureModel) { $wanted += "$($node.matureModel)" }
+            }
         } catch { Warn "could not read $agentsFile ($($_.Exception.Message)); its models are not checked" }
     }
     if (-not $Model) { $Model = $defaultModel }
@@ -226,6 +234,7 @@ if (-not (Test-Path $exe)) { Fail "$exe was not produced" }
 # ---- 6. serve
 $argList = @('--port', "$Port")
 if ($Model) { $argList += @('--ollama', $Model) }
+if ($Mature) { $argList += @('--mature'); if ($Model) { $argList += @('--mature-model', $Model) } }
 if ($ServerArgs) { $argList += ($ServerArgs | Where-Object { $_ -ne '--' }) }
 $proc = Start-Process -FilePath $exe -ArgumentList $argList -NoNewWindow -PassThru
 try {
@@ -241,6 +250,11 @@ try {
     Write-Host "  $url   (Ctrl-C to stop)" -ForegroundColor Green
     if ($Model) { Write-Host "  Prompt: plain English through Ollama, model $Model" -ForegroundColor Green }
     else { Write-Host '  Prompt: off (no Ollama model)' -ForegroundColor DarkGray }
+    try {
+        $llm = Invoke-RestMethod -Uri "${url}api/llm" -TimeoutSec 5
+        if ($llm.mature) { Write-Host "  Content: mature (adults only), model $($llm.model)" -ForegroundColor Green }
+        else { Write-Host '  Content: standard (models may refuse adult content; -Mature turns it on)' -ForegroundColor DarkGray }
+    } catch {}
     try {
         $img = Invoke-RestMethod -Uri "${url}api/images" -TimeoutSec 5
         if (-not $img.enabled) { Write-Host "  Pictures: off ($($img.error))" -ForegroundColor DarkGray }
