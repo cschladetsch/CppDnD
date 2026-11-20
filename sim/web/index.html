@@ -77,6 +77,20 @@ button.sel { border-color:var(--accent); box-shadow:0 0 0 1px var(--accent) inse
 .camgrid { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:14px; } @media (max-width:900px){ .camgrid { grid-template-columns:1fr; } }
 .camcanvas { width:100%; aspect-ratio:16/9; background:#0c0a12; border:1px solid var(--edge); border-radius:6px; touch-action:none; cursor:grab; display:block; outline:none; }
 .camcanvas:focus { border-color:var(--accent); }
+.walkstage { position:relative; aspect-ratio:16/9; overflow:hidden; background:#0c0a12; border:1px solid var(--edge); border-radius:6px; outline:none; touch-action:none; cursor:grab; user-select:none; }
+.walkstage:focus { border-color:var(--accent); }
+.walkwire, .walkimg { position:absolute; inset:0; width:100%; height:100%; display:block; }
+.walkimg { object-fit:cover; transition:transform .22s ease-out; pointer-events:none; transform-origin:50% 50%; }
+.walkbadge, .walkhud { position:absolute; left:8px; font-size:12px; color:#ece8f5; background:rgba(12,10,18,.7); border-radius:4px; padding:2px 7px; pointer-events:none; }
+.walkbadge { top:8px; } .walkbadge:empty { display:none; } .walkhud { bottom:8px; font-family:ui-monospace, monospace; }
+.walkmini { position:absolute; right:8px; top:8px; border:1px solid rgba(236,232,245,.35); border-radius:4px; pointer-events:none; }
+.walkpad { position:absolute; bottom:10px; left:50%; transform:translateX(-50%); display:flex; gap:6px; }
+.walklook { position:absolute; right:10px; bottom:10px; display:flex; flex-direction:column; gap:6px; }
+.walkpad button, .walklook button { background:rgba(12,10,18,.72); border:1px solid rgba(236,232,245,.4); color:#ece8f5; font-size:18px; min-width:42px; height:38px; border-radius:8px; cursor:pointer; padding:0 8px; }
+.walkpad button:hover, .walklook button:hover { background:rgba(60,52,90,.9); border-color:var(--accent); }
+.walkstrip { display:flex; gap:6px; overflow-x:auto; padding-bottom:4px; min-height:52px; }
+.walkthumb { height:48px; aspect-ratio:16/9; object-fit:cover; border-radius:4px; border:1px solid var(--edge); cursor:pointer; flex:none; }
+.walkthumb:hover { border-color:var(--accent); }
 .camnum { display:grid; grid-template-columns:auto 1fr; gap:4px 10px; align-items:center; font-size:13px; } .camnum input { width:100%; }
 .keys { font-size:12px; color:var(--dim); margin-top:6px; line-height:1.9; }
 kbd { background:#2a2638; border:1px solid var(--edge); border-bottom-width:2px; border-radius:4px; padding:0 5px; margin:0 1px; font:11px ui-monospace, monospace; color:var(--text); }
@@ -1003,6 +1017,7 @@ function renderViewBar() {
     el("button", { className: "primary", textContent: viewBusy ? "Drawing..." : `Show what ${name || "my hero"} sees`, disabled: viewBusy,
       title: "Draws the scene from this character's eyes with the local image model", onclick: () => showView() }),
     el("button", { textContent: "Camera...", title: "Aim the camera yourself with a live preview, then draw a realistic picture of what it sees", onclick: openCamera }),
+    el("button", { textContent: "Walk...", title: "Move through the scene Street View style: step, turn and look, with a picture drawn at each stop", onclick: openWalk }),
     el("span", { className: "viewmsg small " + (viewMsg.bad ? "err" : "dim"), textContent: viewMsg.text })));
 }
 function renderViewport() {
@@ -1022,6 +1037,7 @@ async function drawView(opts = {}) {
   if (opts.camera) body.camera = opts.camera;
   if (opts.init) body.init = opts.init;
   if (opts.strength) body.strength = opts.strength;
+  if (opts.seed) body.seed = opts.seed;
   setViewMsg("Asking the image model...");
   const { status, data } = await api("POST", `/api/games/${gid}/viewpoint`, body);
   if (status !== 202) { setViewMsg(viewError(status === 503 ? "Picture generation is off (see data/images.json)." : data.error || "cannot draw"), true); return null; }
@@ -1183,6 +1199,201 @@ function camStep(dt) {
   if (K.has("ArrowUp")) { cam.pitch += turn; moved = true; }
   if (K.has("ArrowDown")) { cam.pitch -= turn; moved = true; }
   if (moved) { camClamp(cam); camDirty = true; }
+}
+
+// ---- Walk: move through the scene Street View style. Step, turn and look with the keys, the buttons or by clicking the floor;
+// the picture for each stop is drawn by the image model, and until it arrives the last picture is slid and zoomed toward where you went.
+let walkOpen = false;
+async function openWalk() {
+  if (!gid || camOpen || walkOpen) return;
+  const r = await api("GET", `/api/games/${gid}/scene`);
+  if (r.status !== 200) return toast(r.data.error || "cannot read the scene");
+  camScene = r.data; cam = { ...camScene.camera }; camClamp(cam); walkOpen = true;
+  const g = camScene.grid, ASP = CAM_W / CAM_H, STEP = 1.5, TURN = 30, DEPTH = 6;
+  const loc = camScene.location.name || "scene";
+  const seed = [...loc].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7) & 0x7fffffff;   // one seed per place keeps the stops looking like the same room
+  const cache = new Map(), trail = [];
+  let last = null, pumping = false, failed = false, timer = 0, drag = null, msgTimer = 0;
+  const poseKey = c => [Math.round(c.x * 2), Math.round(c.y * 2), Math.round(c.yaw / 15), Math.round(c.pitch / 5), Math.round(c.fov / 5)].join("|");
+  const hfov = c => 2 * Math.atan(Math.tan(c.fov * Math.PI / 360) * ASP) * 180 / Math.PI;
+  const compass = yaw => ["N", "NE", "E", "SE", "S", "SW", "W", "NW"][Math.round(((yaw % 360) + 360) % 360 / 45) % 8];
+
+  const wire = el("canvas", { width: CAM_W, height: CAM_H, className: "walkwire" }), wctx = wire.getContext("2d");
+  const img = el("img", { className: "walkimg", alt: "", draggable: false });
+  const badge = el("div", { className: "walkbadge" }), hud = el("div", { className: "walkhud" });
+  const mini = el("canvas", { width: 160, height: 120, className: "walkmini" }), mctx = mini.getContext("2d");
+  const flash = text => { badge.textContent = text; clearTimeout(msgTimer); msgTimer = setTimeout(show, 1600); };
+
+  const cellBlocked = (x, y) => {
+    const cx = Math.floor(x), cy = Math.floor(y);
+    if (cx < 0 || cy < 0 || cx >= g.width || cy >= g.height) return true;
+    const ch = g.rows[cy][cx];
+    if (ch === "#" || ch === "O") return true;
+    return camScene.props.some(p => p.life !== "dead" && !p.hero && Math.hypot(p.x + .5 - x, p.y + .5 - y) < 0.45);
+  };
+  const travel = (dx, dy) => {   // walk in small strides, sliding along walls, and stop where the way is shut
+    const n = Math.max(1, Math.ceil(Math.hypot(dx, dy) / 0.25)); let moved = false;
+    for (let i = 0; i < n; i++) {
+      const nx = cam.x + dx / n, ny = cam.y + dy / n;
+      if (!cellBlocked(nx, ny)) { cam.x = nx; cam.y = ny; moved = true; }
+      else if (!cellBlocked(nx, cam.y)) { cam.x = nx; moved = true; }
+      else if (!cellBlocked(cam.x, ny)) { cam.y = ny; moved = true; }
+      else break;
+    }
+    return moved;
+  };
+  const act = (fn, blockedText) => {
+    const ok = fn(); camClamp(cam); failed = false; show(); schedule();
+    if (ok === false) flash(blockedText || "Something is in the way");
+  };
+  const fwd = d => { const y = cam.yaw * Math.PI / 180; return travel(Math.sin(y) * d, -Math.cos(y) * d); };
+  const side = d => { const y = cam.yaw * Math.PI / 180; return travel(Math.cos(y) * d, Math.sin(y) * d); };
+  const go = {
+    forward: big => act(() => fwd(STEP * (big ? 2 : 1))), back: big => act(() => fwd(-STEP * (big ? 2 : 1))),
+    left: big => act(() => side(-STEP * (big ? 2 : 1))), right: big => act(() => side(STEP * (big ? 2 : 1))),
+    turnL: () => act(() => { cam.yaw -= TURN; }), turnR: () => act(() => { cam.yaw += TURN; }),
+    up: () => act(() => { cam.pitch += 10; }), down: () => act(() => { cam.pitch -= 10; }),
+  };
+
+  // the nearest stop we have a picture for, slid and zoomed toward where the camera is now (a cheap stand-in until the real one is drawn)
+  const warp = (from, to) => {
+    let dyaw = ((to.yaw - from.yaw + 540) % 360) - 180;
+    if (Math.abs(dyaw) > hfov(to) * 0.75) return null;
+    const y = from.yaw * Math.PI / 180, dx = to.x - from.x, dy = to.y - from.y;
+    const ahead = dx * Math.sin(y) - dy * Math.cos(y), across = dx * Math.cos(y) + dy * Math.sin(y);
+    if (ahead > DEPTH * 0.8) return null;
+    const scale = Math.max(0.6, Math.min(3, DEPTH / (DEPTH - ahead))), halfW = DEPTH * Math.tan(hfov(to) * Math.PI / 360);
+    const tx = -(dyaw / hfov(to)) * 100 - (across / (2 * halfW)) * 100, ty = ((to.pitch - from.pitch) / to.fov) * 100;
+    return `translate(${tx.toFixed(1)}%, ${ty.toFixed(1)}%) scale(${scale.toFixed(3)})`;
+  };
+
+  const drawMini = () => {
+    const S = Math.min(160 / g.width, 120 / g.height), ox = (160 - g.width * S) / 2, oy = (120 - g.height * S) / 2;
+    mctx.clearRect(0, 0, 160, 120); mctx.fillStyle = "rgba(12,10,18,.78)"; mctx.fillRect(0, 0, 160, 120);
+    for (let yy = 0; yy < g.height; yy++) for (let xx = 0; xx < g.width; xx++) { const ch = g.rows[yy][xx]; if (ch === "#" || ch === "O") { mctx.fillStyle = ch === "#" ? "#4a4463" : "#6b5a3c"; mctx.fillRect(ox + xx * S, oy + yy * S, S, S); } }
+    for (const p of camScene.props) { if (p.life === "dead") continue; mctx.fillStyle = p.team === "party" ? "#5b8def" : p.team === "foe" ? "#d05a5a" : "#6fbf73"; mctx.beginPath(); mctx.arc(ox + (p.x + .5) * S, oy + (p.y + .5) * S, Math.max(2, S * 0.3), 0, 7); mctx.fill(); }
+    for (const t of trail) { mctx.fillStyle = "rgba(224,184,74,.45)"; mctx.beginPath(); mctx.arc(ox + t.pose.x * S, oy + t.pose.y * S, 2, 0, 7); mctx.fill(); }
+    const cx = ox + cam.x * S, cy = oy + cam.y * S, ya = cam.yaw * Math.PI / 180, fx = Math.sin(ya), fy = -Math.cos(ya);
+    mctx.fillStyle = "#e0b84a"; mctx.beginPath(); mctx.moveTo(cx + fx * 11, cy + fy * 11); mctx.lineTo(cx - fy * 4.5 - fx * 4, cy + fx * 4.5 - fy * 4); mctx.lineTo(cx + fy * 4.5 - fx * 4, cy - fx * 4.5 - fy * 4); mctx.closePath(); mctx.fill();
+  };
+
+  function show() {
+    clearTimeout(msgTimer);
+    const hit = cache.get(poseKey(cam)), base = hit || last, w = base ? warp(base.pose, cam) : null;
+    hud.textContent = `${compass(cam.yaw)}   x ${cam.x.toFixed(1)}  y ${cam.y.toFixed(1)}`;
+    drawMini();
+    if (!base || !w) {
+      img.style.display = "none"; wire.style.display = "block"; camRender(wctx, false);
+      badge.textContent = pumping ? "Drawing this view..." : failed ? "Could not draw this view" : "No picture here yet";
+      return;
+    }
+    wire.style.display = "none"; img.style.display = "block";
+    if (img.dataset.url !== base.url) { img.dataset.url = base.url; img.src = base.url; }
+    img.style.transform = w;
+    badge.textContent = hit ? "" : pumping ? "Drawing this view... (the picture is approximate until it arrives)" : failed ? "Could not draw this view" : "Waiting to draw this view";
+  }
+
+  // latest wins: wait until the camera has stopped, draw that pose, and if it moved meanwhile draw again; nearby stops are drawn when idle
+  const schedule = () => { clearTimeout(timer); if (autoBox.checked) timer = setTimeout(pump, 600); };
+  const neighbours = () => {
+    const out = [], save = { ...cam };
+    for (const f of [() => fwd(STEP), () => { cam.yaw -= TURN; }, () => { cam.yaw += TURN; }, () => fwd(-STEP)]) {
+      const before = { ...cam }; f(); camClamp(cam);
+      if (poseKey(cam) !== poseKey(before) && !cache.has(poseKey(cam))) out.push({ ...cam });
+      Object.assign(cam, save);
+    }
+    return out;
+  };
+  async function pump(target) {
+    if (pumping || !walkOpen) return;
+    let c = target || { ...cam }, key = poseKey(c);
+    if (cache.has(key)) { if (!target) prefetchMore(); return; }
+    pumping = true; viewBusy = true; renderViewBar(); show();
+    let res = null;
+    try { res = await drawView({ camera: c, seed }); } finally { pumping = false; viewBusy = false; renderViewBar(); }
+    if (!walkOpen) return;
+    if (res) {
+      const item = { url: res.url, pose: c, subject: res.subject };
+      cache.set(key, item); last = item; failed = false;
+      trail.push(item); if (trail.length > 24) trail.shift(); drawTrail();
+      lastView = { url: res.url, subject: res.subject, title: "Walk view" }; renderViewport();
+    } else if (!target) failed = true;
+    show();
+    if (res && poseKey(cam) !== key && autoBox.checked) pump();
+    else if (res) prefetchMore();
+  }
+  function prefetchMore() {
+    if (!preBox.checked || pumping || !walkOpen) return;
+    const next = neighbours()[0]; if (next) pump(next);
+  }
+
+  const strip = el("div", { className: "walkstrip" });
+  function drawTrail() {
+    strip.replaceChildren(...trail.map(t => el("img", { src: t.url, className: "walkthumb", title: `${compass(t.pose.yaw)}  x ${t.pose.x.toFixed(1)} y ${t.pose.y.toFixed(1)}`, onclick: () => { cam = { ...t.pose }; failed = false; show(); stage.focus(); } })));
+    strip.scrollLeft = strip.scrollWidth;
+  }
+
+  const autoBox = el("input", { type: "checkbox", checked: true }), preBox = el("input", { type: "checkbox", checked: false });
+  autoBox.onchange = () => { if (autoBox.checked) schedule(); else clearTimeout(timer); };
+  preBox.onchange = () => { if (preBox.checked) prefetchMore(); };
+  const pb = (label, title, fn) => el("button", { textContent: label, title, onpointerdown: e => e.stopPropagation(), onclick: e => { fn(e.shiftKey); stage.focus(); } });
+  const pad = el("div", { className: "walkpad" },
+    pb("↶", "Turn left (Q or Left)", go.turnL), pb("◀", "Step left (A)", go.left), pb("▲", "Step forward (W or Up; Shift for two)", go.forward),
+    pb("▼", "Step back (S or Down)", go.back), pb("▶", "Step right (D)", go.right), pb("↷", "Turn right (E or Right)", go.turnR));
+  const lookPad = el("div", { className: "walklook" }, pb("⌃", "Look up (R)", go.up), pb("⌄", "Look down (F)", go.down));
+
+  const stage = el("div", { className: "walkstage", tabIndex: 0 }, wire, img, badge, hud, mini, pad, lookPad);
+  const aim = ev => {   // the floor point under the pointer, as in Street View
+    const rc = stage.getBoundingClientRect(), sx = ((ev.clientX - rc.left) / rc.width) * 2 - 1, sy = 1 - ((ev.clientY - rc.top) / rc.height) * 2;
+    const B = camBasis(cam), th = Math.tan(cam.fov * Math.PI / 360);
+    const d = [0, 1, 2].map(i => B.f[i] + B.r[i] * sx * th * ASP + B.u[i] * sy * th);
+    if (d[2] >= -0.03) return { sx, floor: null };
+    const t = -cam.z / d[2]; return { sx, floor: [cam.x + d[0] * t - cam.x, cam.y + d[1] * t - cam.y] };
+  };
+  stage.addEventListener("pointerdown", e => { drag = { x: e.clientX, y: e.clientY, moved: 0 }; stage.setPointerCapture(e.pointerId); stage.focus(); stage.style.cursor = "grabbing"; });
+  stage.addEventListener("pointermove", e => {
+    if (!drag) return;
+    const dx = e.clientX - drag.x, dy = e.clientY - drag.y; drag.x = e.clientX; drag.y = e.clientY; drag.moved += Math.abs(dx) + Math.abs(dy);
+    const k = hfov(cam) / stage.getBoundingClientRect().width;
+    cam.yaw -= dx * k; cam.pitch += dy * k; camClamp(cam); failed = false; show(); schedule();   // dragging the picture turns the view the other way, like a map
+  });
+  stage.addEventListener("pointerup", e => {
+    if (!drag) return; const was = drag; drag = null; stage.style.cursor = "grab";
+    if (was.moved > 5) return;
+    const a = aim(e);
+    if (a.floor) { const len = Math.hypot(a.floor[0], a.floor[1]), k = Math.min(len, 6) / Math.max(len, 1e-6); act(() => travel(a.floor[0] * k, a.floor[1] * k)); }
+    else act(() => { cam.yaw += a.sx * hfov(cam) / 2; });
+  });
+  stage.addEventListener("pointercancel", () => { drag = null; stage.style.cursor = "grab"; });
+  stage.addEventListener("wheel", e => { e.preventDefault(); if (e.deltaY < 0) go.forward(); else go.back(); }, { passive: false });
+
+  const close = () => { walkOpen = false; clearTimeout(timer); clearTimeout(msgTimer); window.removeEventListener("keydown", onKey); dlg.remove(); };
+  const onKey = e => {
+    if (!walkOpen) return;
+    const tag = (e.target && e.target.tagName) || "", ty = (e.target && e.target.type) || "";
+    if (e.code === "Escape") { close(); return; }
+    if (tag === "TEXTAREA" || tag === "SELECT" || (tag === "INPUT" && !/^(range|checkbox|radio|button)$/.test(ty))) return;
+    const k = e.key && e.key.length === 1 && /[a-z]/i.test(e.key) ? "Key" + e.key.toUpperCase() : e.code, big = e.shiftKey;
+    const map = { KeyW: () => go.forward(big), ArrowUp: () => go.forward(big), KeyS: () => go.back(big), ArrowDown: () => go.back(big), KeyA: () => go.left(big), KeyD: () => go.right(big),
+      KeyQ: go.turnL, ArrowLeft: go.turnL, KeyE: go.turnR, ArrowRight: go.turnR, KeyR: go.up, PageUp: go.up, KeyF: go.down, PageDown: go.down };
+    if (map[k]) { e.preventDefault(); map[k](); }
+  };
+  window.addEventListener("keydown", onKey);
+
+  const drawNow = el("button", { className: "primary", textContent: "Draw this view", onclick: () => { clearTimeout(timer); failed = false; pump(); } });
+  const home = el("button", { textContent: "Back to the hero's eyes", onclick: () => { cam = { ...camScene.camera }; camClamp(cam); failed = false; show(); schedule(); stage.focus(); } });
+  const dlg = el("div", { className: "camdlg", onmousedown: e => { if (e.target === dlg) close(); } },
+    el("div", { className: "camlay" },
+      el("div", { className: "row", style: "justify-content:space-between;align-items:center;margin:0 0 8px" },
+        el("h2", { textContent: `Walk  |  ${loc}  |  ${camScene.mode}`, style: "margin:0" }), el("button", { textContent: "Close (Esc)", onclick: close })),
+      stage,
+      el("div", { className: "row", style: "align-items:center;margin-top:8px;flex-wrap:wrap" }, drawNow, home,
+        el("label", { className: "small" }, autoBox, " draw each stop"), el("label", { className: "small", title: "Quietly draws one step ahead, behind and either side while you stand still" }, preBox, " pre-draw nearby stops"),
+        el("span", { className: "viewmsg small dim", textContent: viewMsg.text })),
+      el("div", { className: "keys", innerHTML: "<kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> or the arrows step (<kbd>Shift</kbd> for two) &nbsp; <kbd>Q</kbd><kbd>E</kbd> turn &nbsp; <kbd>R</kbd><kbd>F</kbd> look up / down<br>Mouse: click the floor to walk there, drag to look around, wheel to step forward and back. Walls and people block the way." }),
+      el("h2", { textContent: "Where you have been", style: "margin-top:10px" }), strip));
+  document.body.append(dlg);
+  stage.focus(); show(); schedule();
 }
 
 async function openCamera() {
