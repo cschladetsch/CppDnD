@@ -33,7 +33,8 @@ The simulator: a rules engine, a terminal client, an HTTP server with a browser 
 | [data](data/README.md) | game content and how to author it |
 | [include](include/README.md) | public headers, one per subsystem |
 | [src](src/README.md) | implementation, one file per header plus the two entry points |
-| [web](web/README.md) | browser client |
+| [web](web/README.md) | browser client, the 3D models viewer, built assets |
+| tools | `gen_art.py` (pictures through Stable Diffusion, run by `art.ps1`) and `gen_assets.py` (textures and character models through Blender, run by `assets.ps1`) |
 | [tests](tests/README.md) | test suites |
 | [docs](docs/README.md) | HTTP API reference |
 | [third_party](third_party/README.md) | vendored libraries |

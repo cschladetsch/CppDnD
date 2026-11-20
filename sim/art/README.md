@@ -73,3 +73,5 @@ The web client's Gallery panel lists every picture in this folder (characters, m
 - To replace a generated subject, use `art/prompts.json` (see above) or add `"art": {"prompt": "..."}` to the entry in the JSON data.
 
 Licence note: pictures you generate are governed by the licence of the checkpoint you used; check it before distributing them.
+
+These are 2D pictures from Stable Diffusion. The 3D textures and character models of the models viewer are made separately, with Blender (`..\assets.ps1`, see [../web/README.md](../web/README.md)).

@@ -16,7 +16,7 @@ Public headers, all under `dnd/`, namespace `dnd`. Each has a matching `.cpp` in
 | `Human.hpp` | the terminal `HumanController` |
 | `DM.hpp` | `DungeonMasterEngine`: builds encounters from an XP budget |
 | `Content.hpp` | class, weapon, spell, monster, character and module definitions, and the loader |
-| `Game.hpp` | `Game`: the session (exploration, clock, rests, quests, save and load) |
+| `Game.hpp` | `Game`: the session (exploration, clock, rests, quests, save and load), the journal |
 | `Json.hpp` | lossless JSON for saves and the API, and `CombatView` for clients |
 | `Scene.hpp` | `Camera`, `BuildScene` (the scene a camera sees, from `Game::View()`), `Project`, `CameraWords`, `DescribeView` |
 | `Images.hpp` | `ImageConfig` (images.json), `ArtSubjects` (what can have a picture), image clients (AUTOMATIC1111 and OpenAI-style), and `ArtService`, the background queue that draws into the art folder using a model from the model store |

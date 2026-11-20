@@ -5,14 +5,14 @@
 | `main.cpp` | the GoogleTest entry point; loads the game content once for every test |
 | `test_support.hpp` | shared helpers (`Hero`, `Mon`) |
 | `test_core.cpp` | dice, grid and cover, rules (advantage, concentration, damage adjustment, Extra Attack), content loading, RNG, JSON round trips |
-| `test_game.cpp` | remote combat, modules, save and load determinism, procedural delves, role swap, switching the controlled hero mid-fight, trading weapons and potions between characters, generated room text, rooms found by exploring |
+| `test_game.cpp` | remote combat, modules, save and load determinism, procedural delves, role swap, switching the controlled hero mid-fight, trading weapons and potions between characters, generated room text, rooms found by exploring, the combat preview (hit chance and expected damage per foe), the journal |
 | `test_llm.cpp` | the LLM pipeline with a mock model, spoken lines, per-actor agents |
 | `test_history.cpp` | the pair and group histories (files, saves, fights, NPC talk, private agent lines) |
-| `test_images.cpp` | picture subjects, configuration files, the art service queue with a mock image client, model store resolution |
+| `test_images.cpp` | picture subjects, configuration files, the art service queue with a mock image client, model store resolution, per-module art styles replacing the global words |
 | `test_art.cpp` | the AUTOMATIC1111 client against a fake local server (txt2img, img2img, errors, probe) and camera pictures through the art service (files, seeds, failures, bad ids) |
 | `test_scene.cpp` | one end-to-end pass over the camera, scene and prompt words |
 | `test_camera.cpp` | the camera model in detail: clamping, projection for every heading, lens and pitch, camera words, scene layout, the words a view produces (parameterized) |
-| `test_modules.cpp` | every shipped module: connected graph, no dead ends, every flag requirement satisfiable for every draw, drawn values used, ids unique, maps with room for a party, the autopilot finishes and often wins; CyberHood's routes; The Hollow Crown's alternate routes and draws; The Sunless Abbey's 50 rooms, three pairs of alternate routes, lamps and bell, and draws; The Meridian's 50 rooms, 13 NPCs, alternate routes and draws; every module's own cast loads, is valid and starts the game |
+| `test_modules.cpp` | every shipped module: connected graph, no dead ends, every flag requirement satisfiable for every draw, drawn values used, ids unique, maps with room for a party, the autopilot finishes and often wins; CyberHood's routes; The Hollow Crown's alternate routes and draws; The Sunless Abbey's 50 rooms, three pairs of alternate routes, lamps and bell, and draws; The Meridian's 50 rooms, 13 NPCs, alternate routes and draws; every module's own cast loads, is valid and starts the game, per-module character casts (ids, default parties, cast folders needing a module) |
 | `sessions_smoke.py` | sessions against a real server: names, listing order, rename limits, state identical after a restart, play continues, delete removes the file for good, a damaged file is skipped |
 | `api_smoke.py` | plays a whole module through the HTTP API: creating a game, acting as the hero, autopilot, saving and loading |
 

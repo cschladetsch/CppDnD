@@ -11,15 +11,15 @@ Implementation of the headers in [../include/dnd](../include/README.md), plus th
 | `Human.cpp` | the terminal prompt controller |
 | `Content.cpp` | loading and validating `data/` (errors name the file and field), class progression tables |
 | `Game.cpp` | exploration, clock, travel, rests, events, flags, quests, autopilot, save and load |
-| `GameView.cpp` | the JSON view of a `Game` returned to clients |
-| `Json.cpp` | JSON conversion for sheets, events, actions and combat |
+| `GameView.cpp` | the JSON view of a `Game` returned to clients and the journal (who you have met, what was said) |
+| `Json.cpp` | JSON conversion for sheets, events, actions and combat; combat options carry a per-attack, per-foe preview |
 | `Scene.cpp` | the camera model: the scene built from a game view (battlefield, or an open field), projection, and the words a camera adds to a picture prompt |
 | `Images.cpp` | the image clients, prompts built from the content, the drawing queue, model resolution through the model store |
 | `History.cpp` | the pair and group histories, digests for agent prompts, atomic file writes |
 | `Agents.cpp` | agents.json loading and inheritance, the agents, the message hub, per-actor combat control, the party council, NPC voices, runtime model switching |
 | `Llm.cpp` | HTTP LLM client, narrator, LLM Dungeon Master, plain-English `Say` |
 | `main.cpp` | `dnd_sim`: the terminal client (`--help` lists the options) |
-| `server_main.cpp` | `dnd_server`: the HTTP routes and static file serving |
+| `server_main.cpp` | `dnd_server`: the HTTP routes and static file serving; also undo and rewind snapshots, the journal and telemetry routes (`telemetry.jsonl` beside the sessions) |
 
 ## Conventions
 

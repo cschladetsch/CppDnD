@@ -195,6 +195,20 @@ There is no bundled artwork, and none is needed. The web client draws its own to
 
 The model is chosen in `sim/data/images.json` and can be a folder in the CppLmmModelStore (`DEEPSEEK_MODEL_HOME`) holding a `.safetensors`; the panel can switch it mid-game. Or drop in your own files with the same names. Details in [sim/art/README.md](sim/art/README.md).
 
+## 3D models
+
+`sim/web/models.html` (the **3D** button in the web client) shows each world's textures and its characters as rigged 3D models, with a free camera: click the view, then W A S D and the mouse. The assets are built with Blender from the game data and are already committed, so the viewer works without it. To rebuild or extend them:
+
+```powershell
+winget install BlenderFoundation.Blender   # once (or: pip install bpy)
+.\assets.ps1                     # whatever is missing
+.\assets.ps1 -NewTextures        # another variant of every world's textures; an open viewer picks it up
+.\assets.ps1 -RebuildCharacters  # rewrite existing models (otherwise they are kept, so a hero never changes)
+.\assets.ps1 -Size 512           # bigger textures (default 256)
+```
+
+Details are in [sim/web/README.md](sim/web/README.md).
+
 ## Layout
 
 Each folder has its own README.
@@ -204,13 +218,15 @@ run.ps1     build if needed, then run the terminal client (or the server with -S
 web.ps1     check and set up every dependency, build if needed, start the server, Ollama and Stable Diffusion, open the browser
 sd.ps1      check, install, start and stop Stable Diffusion (the image server)
 art.ps1     draw every missing picture from a shell
+assets.ps1  build the 3D textures and character models with Blender
 test.ps1    build, then run every test
 check.ps1   report what is missing: tools, files, content, port, Ollama
 sim/                                                        engine, clients, content, tests
   data/          classes, weapons, spells, monsters, characters, modules/*.json
   include/dnd/   public headers (the engine's API)
   src/           implementation, main.cpp (terminal), server_main.cpp (HTTP)
-  web/           single-page browser client
+  web/           single-page browser client, models.html (3D viewer), assets/ and vendor/three
+  tools/         gen_art.py (pictures, Stable Diffusion), gen_assets.py (textures and models, Blender)
   history/       written at run time: per-game x-y.json and group-history.json (git-ignored)
   sessions/      written at run time: one <id>.json per game, restored at startup (git-ignored)
   tests/         test_*.cpp (GoogleTest unit and integration), api_smoke.py (HTTP end to end)
