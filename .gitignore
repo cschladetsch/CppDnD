@@ -1,2 +1,5 @@
 diag.txt
 cppdnd-all.patch
+*.log
+__pycache__/
+*.pyc

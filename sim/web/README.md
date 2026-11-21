@@ -38,7 +38,7 @@ Everything it shows is built by Blender, from the game data, with `assets.ps1` a
 - **Characters.** One rigged low-poly model per hero (the global cast and each module's cast) with Idle and Walk animations and its own baked cloth texture. Look, build and props come from the id and class, so a hero is always the same figure, and an existing model is never overwritten unless `-RebuildCharacters` is given. Sci-fi worlds get helmets and blasters instead of hats and swords.
 - **Persistence.** The files are the persistent part (`assets/manifest.json` lists them). The viewer also remembers your world, texture variant, animation, camera and where you put each character, in the browser.
 
-The pre-built set is committed under `assets/`; rebuilding needs Blender (`winget install BlenderFoundation.Blender`).
+The files under `assets/` are generated and not committed: run `.\assets.ps1` once (it needs Blender, `winget install BlenderFoundation.Blender`, and takes under a minute) and the viewer has everything. Until then it says there are no assets yet.
 
 ## Using a different front end
 

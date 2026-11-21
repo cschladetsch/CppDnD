@@ -2,3 +2,5 @@ build/
 .cache/
 history/
 sessions/
+# built by ..\assets.ps1 with Blender (textures and character models for web/models.html)
+web/assets/

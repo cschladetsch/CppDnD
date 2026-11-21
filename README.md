@@ -205,7 +205,7 @@ The model is chosen in `sim/data/images.json` and can be a folder in the CppLmmM
 
 ## 3D models
 
-`sim/web/models.html` (the **3D** button in the web client) shows each world's textures and its characters as rigged 3D models, with a free camera: click the view, then W A S D and the mouse. The assets are built with Blender from the game data and are already committed, so the viewer works without it. To rebuild or extend them:
+`sim/web/models.html` (the **3D** button in the web client) shows each world's textures and its characters as rigged 3D models, with a free camera: click the view, then W A S D and the mouse. The assets are built with Blender from the game data and are not committed (they are generated), so run `.\assets.ps1` once before first use. It can also extend them later:
 
 ```powershell
 winget install BlenderFoundation.Blender   # once; macOS: brew install --cask blender; Linux: your package manager (or: pip install bpy)
