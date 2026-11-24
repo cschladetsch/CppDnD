@@ -10,6 +10,7 @@ param(
     [switch]$Server,
     [switch]$Rebuild,
     [switch]$Mature,
+    [Alias('i')] [switch]$Interactive,   # -i on its own would be ambiguous with PowerShell's -InformationAction
     [Parameter(ValueFromRemainingArguments = $true)] [string[]]$AppArgs
 )
 $ErrorActionPreference = 'Stop'
@@ -25,5 +26,6 @@ if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
 $exe = PathOf $build (Exe $(if ($Server) { 'dnd_server' } else { 'dnd_sim' }))
 if ($Mature) { $AppArgs = @($AppArgs) + '--mature' }
+if ($Interactive) { $AppArgs = @($AppArgs) + '--interactive' }
 & $exe @AppArgs
 exit $LASTEXITCODE
