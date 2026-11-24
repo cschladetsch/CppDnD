@@ -9,7 +9,7 @@ Rules reference for the mechanics implemented here: the [D&D 5e SRD](https://5th
 | Method and path | Body | Result |
 |---|---|---|
 | `GET /api/health` | | `{"ok":true}` |
-| `GET /api/content` | | modules, characters, monsters, spells, classes; each character carries `module` (empty for the classic four plus Gruk and Sylva), `gender`, `tags` and `default` (true when a new game of that module starts with them) |
+| `GET /api/content` | | modules, characters, monsters, spells, classes; each character carries `module` (empty for the classic four plus Gruk and Sylva), `gender`, `tags` and `default` (true when a new game of that module starts with them); each module carries `tutorial` (true for the Training Yard lesson) |
 | `GET /api/llm` | | LLM client status and the model's location in the model store |
 | `POST /api/games` | see below; optional `name` | `201 {"id", "name", "view"}` |
 | `GET /api/games` | | `{"games":[ids], "sessions":[{id, name, module, moduleName, hero, role, mode, location, day, created, updated}], "persistent"}`, newest first |
@@ -42,6 +42,10 @@ quests[]      {id, name, description, done}
 combat        null, or {round, finished, awaiting, current, grid{rows}, order, actors[],
                options?, result?}
 events[]      {seq, type, actor, target, roll, vs, amount, text, flavour}
+              d20 tests add {check, natural, mode, crit, coverBonus, opportunity}:
+                check "attack": roll = total to hit, vs = AC including cover, natural = the kept d20,
+                                mode "advantage" | "disadvantage" | "", crit, opportunity (a reaction attack)
+                check "save":   roll = the save total, vs = the DC, coverBonus added to the save
 lastSeq       pass back as ?since= to receive only new events
 ```
 

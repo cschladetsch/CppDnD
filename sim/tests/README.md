@@ -15,8 +15,9 @@
 | `test_modules.cpp` | every shipped module: connected graph, no dead ends, every flag requirement satisfiable for every draw, drawn values used, ids unique, maps with room for a party, the autopilot finishes and often wins; CyberHood's routes; The Hollow Crown's alternate routes and draws; The Sunless Abbey's 50 rooms, three pairs of alternate routes, lamps and bell, and draws; The Meridian's 50 rooms, 13 NPCs, alternate routes and draws; every module's own cast loads, is valid and starts the game, per-module character casts (ids, default parties, cast folders needing a module) |
 | `sessions_smoke.py` | sessions against a real server: names, listing order, rename limits, state identical after a restart, play continues, delete removes the file for good, a damaged file is skipped |
 | `api_smoke.py` | plays a whole module through the HTTP API: creating a game, acting as the hero, autopilot, saving and loading |
+| `web_smoke.cjs` | the browser client in headless Chromium: a coach tip shows, Close brings it back after a reload and "Do not show again" does not, hover help, and the first steps of the combat tutorial (the turn order, moving, an attack explained in words, ending the turn). Registered with CTest only when `node` can load the `playwright` package; `NODE_PATH` is passed through |
 
-Every `TEST` is its own CTest entry (`gtest_discover_tests`), so `ctest` reports them one by one; `api_smoke` is registered as well. GoogleTest is taken from the system if installed, otherwise fetched (v1.15.2) at configure time.
+Every `TEST` is its own CTest entry (`gtest_discover_tests`), so `ctest` reports them one by one; `api_smoke`, `sessions_smoke` and (when Playwright is installed) `web_smoke` are registered as well. GoogleTest is taken from the system if installed, otherwise fetched (v1.15.2) at configure time.
 
 
 ```powershell

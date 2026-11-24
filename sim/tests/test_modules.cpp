@@ -551,7 +551,8 @@ TEST(Meridian, TheKeycardAndTheCarrierAreEachDrawnFromTwoPlaces) {
 TEST(ModuleCasts, EveryModuleHasItsOwnCastAndStartsWithIt) {
     for (const auto& m : Content::Modules()) {
         const auto cast = Content::CastOf(m.id);
-        ASSERT_GE(cast.size(), 5u) << m.id;
+        const std::size_t want = m.tutorial ? 2u : 4u;   // the lesson is a fighter and a wizard, to keep the first fight readable
+        ASSERT_GE(cast.size(), m.tutorial ? 2u : 5u) << m.id;
         std::set<std::string> classes;
         for (const CharacterDef* c : cast) {
             EXPECT_EQ(c->module, m.id);
@@ -560,13 +561,13 @@ TEST(ModuleCasts, EveryModuleHasItsOwnCastAndStartsWithIt) {
             for (const auto& s : c->spells) EXPECT_TRUE(Content::FindSpell(s) != nullptr) << c->id << " " << s;
             classes.insert(c->classId);
         }
-        EXPECT_GE(classes.size(), 4u) << m.id;
+        EXPECT_GE(classes.size(), want) << m.id;
         const auto party = Content::DefaultParty(m.id);
-        ASSERT_EQ(party.size(), 4u);
+        ASSERT_EQ(party.size(), want);
         for (const auto& id : party) { const CharacterDef* c = Content::FindCharacter(id); ASSERT_TRUE(c != nullptr); EXPECT_EQ(c->module, m.id); }
         GameConfig cfg; cfg.moduleId = m.id; cfg.seed = 3;
         Game g(cfg);
-        EXPECT_EQ(g.View(0)["party"].size(), 4u) << m.id;
+        EXPECT_EQ(g.View(0)["party"].size(), want) << m.id;
         EXPECT_TRUE(g.Hero().find("Thorin") == std::string::npos) << m.id;
     }
     // the others stay out of it: no module cast shares a character with another

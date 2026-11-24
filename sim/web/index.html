@@ -106,13 +106,27 @@ kbd { background:#2a2638; border:1px solid var(--edge); border-bottom-width:2px;
 @keyframes critglow{from{box-shadow:0 0 14px 4px #ffd54a}to{box-shadow:none}} @keyframes healglow{from{box-shadow:0 0 10px 3px #7be08a}to{box-shadow:none}}
 @media (prefers-reduced-motion:reduce){.cell.fx-hit,.cell.fx-crit,.cell.fx-heal,.cell .float{animation:none}}
 #log .expandable{cursor:pointer} #log .expandable:hover{text-decoration:underline dotted} #log .recap{color:var(--dim);border-left:3px solid var(--accent);padding-left:8px;margin-bottom:6px}
-.tipcard{background:#241f33;border:1px solid var(--accent);border-radius:8px;padding:8px 10px;margin-bottom:8px;font-size:13px}
 .uxdlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
 .uxbox{max-width:560px;width:92vw;max-height:80vh;overflow:auto}.uxset{display:flex;gap:8px;align-items:center;padding:4px 0;color:var(--text)}.jrow{padding:3px 0}
 kbd{background:#2c2740;border:1px solid #4a4266;border-radius:4px;padding:0 5px;font:12px ui-monospace,monospace}
 body.cb .cell.party{outline:2px solid #648fff}body.cb .cell.foe{outline:2px dashed #ffb000}body.cb .cell.reach{box-shadow:inset 0 0 0 100px rgba(255,176,0,.18)}
 button:focus-visible,.cell:focus-visible,input:focus-visible,select:focus-visible,#log .expandable:focus-visible{outline:3px solid #fff;outline-offset:1px}
 @media (max-width:820px){main{grid-template-columns:1fr !important}button{min-height:36px}}
+/* tips: hover help, coach cards, the tutorial */
+#hovertip{position:fixed;z-index:70;max-width:340px;background:#0f0d16;color:var(--text);border:1px solid var(--accent);border-radius:6px;padding:6px 9px;font-size:12.5px;line-height:1.45;white-space:pre-line;pointer-events:none;box-shadow:0 4px 14px rgba(0,0,0,.55);display:none}
+#coach{position:fixed;right:16px;bottom:16px;z-index:45;display:flex;flex-direction:column;gap:8px;width:min(390px,calc(100vw - 32px))}
+.coach{background:#241f33;border:1px solid var(--accent);border-radius:10px;padding:10px 12px;box-shadow:0 6px 24px rgba(0,0,0,.55);font-size:13.5px}
+.coach.tut{border-color:#7fb0ff;background:#1c2233}
+.coach h3{margin:0 0 4px;font-size:14px;color:var(--accent)} .coach.tut h3{color:#a9c8ff} .coach p{margin:4px 0;white-space:pre-line}
+.coach .row{justify-content:flex-end;margin:8px 0 0} .coach .step{font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:.06em} .coach .paused{font-size:11.5px;color:var(--dim);font-style:italic}
+.coach-hl{outline:3px solid var(--accent)!important;outline-offset:2px;animation:coachpulse 1.4s ease-in-out infinite}
+@keyframes coachpulse{50%{outline-color:rgba(201,162,77,.3)}} @media (prefers-reduced-motion:reduce){.coach-hl{animation:none}}
+@media (max-width:600px){#coach{left:16px;right:16px;width:auto}}
+.initstrip{display:flex;gap:4px;flex-wrap:wrap;align-items:center;margin:0 0 8px;font-size:12px} .initstrip span{padding:1px 8px;border-radius:10px;border:1px solid var(--edge);background:#17141f}
+.initstrip .party{border-color:var(--party)} .initstrip .foe{border-color:var(--foe)} .initstrip .cur{background:var(--accent);color:#1a1405;border-color:var(--accent)} .initstrip .out{opacity:.45;text-decoration:line-through} .initstrip b{color:var(--dim);font-weight:normal;margin-right:2px}
+.econ{display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin-top:8px;font-size:12px} .econ span.pill{padding:1px 9px;border-radius:10px;border:1px solid var(--edge);background:#17141f} .econ .used{opacity:.45;text-decoration:line-through}
+.legend{display:flex;gap:4px 12px;flex-wrap:wrap;margin-top:6px;font-size:11.5px;color:var(--dim)} .legend span{white-space:nowrap} .legend i{display:inline-block;width:12px;height:12px;border-radius:2px;vertical-align:-2px;margin-right:4px;border:1px solid var(--edge)}
+.start.learn{border-color:#7fb0ff} .start.learn p{margin:4px 0}
 </style>
 </head>
 <body>
@@ -146,8 +160,9 @@ async function showStart() {
   llmOn = !!llmInfo.enabled;
   agentsOn = !!(llmInfo.agents && llmInfo.agents.available);
   const mods = el("select", { id: "mod" }, el("option", { value: "", textContent: "Procedural delve (3 rooms)" }));
-  for (const m of content.modules || []) mods.append(el("option", { value: m.id, textContent: `${m.name} (level ${m.recommendedLevel})` }));
-  mods.value = (content.modules || [])[0]?.id || "";
+  const adventures = (content.modules || []).filter(m => !m.tutorial), lesson = (content.modules || []).find(m => m.tutorial);
+  for (const m of adventures) mods.append(el("option", { value: m.id, textContent: `${m.name} (level ${m.recommendedLevel})` }));
+  mods.value = adventures[0]?.id || "";
   const role = el("select", { id: "role" }, ...[["player", "Player (one hero)"], ["dm", "Dungeon Master (all monsters)"], ["spectator", "Spectator (AI plays)"]].map(([v, t]) => el("option", { value: v, textContent: t })));
   const hero = el("select", { id: "hero" });
   // each module has its own cast (data/modules/<id>/characters.json); the procedural delve uses the classic four
@@ -176,7 +191,10 @@ async function showStart() {
     if (status !== 201) return toast(data.error || "could not load");
     startGame(data.id, data.view);
   };
-  $("#app").replaceChildren(el("div", { className: "panel start" }, el("h2", { textContent: "New game" }),
+  const learn = lesson ? [el("div", { className: "panel start learn" }, el("h2", { textContent: "New to combat?" }),
+    el("p", { className: "small", textContent: `${lesson.name} walks you through one fight, step by step: whose turn it is, moving, attacking, reading the dice, cover and spells. About five minutes.` }),
+    el("div", { className: "row" }, el("button", { className: "primary", textContent: `Learn combat: ${lesson.name}`, onclick: () => startTutorial(lesson.id) })))] : [];
+  $("#app").replaceChildren(...learn, el("div", { className: "panel start" }, el("h2", { textContent: "New game" }),
     el("label", { textContent: "Module" }), mods, el("label", { textContent: "Role" }), role, el("label", { textContent: "Hero" }), hero, el("label", { textContent: "Difficulty" }), diff,
     el("label", { textContent: "AI table" }), el("label", { style: "display:flex;gap:8px;align-items:center;color:var(--text)" }, agentsBox,
       el("span", { textContent: agentsOn ? "every actor is its own model (agents.json); slower" : "not available: no agents.json found" })),
@@ -1805,23 +1823,321 @@ function showSettings() {
       : el("input", { type: "range", min: 80, max: 160, step: 10, value: ux[key], oninput: e => { ux[key] = +e.target.value; uxSave(); } });
     return el("label", { className: "uxset" }, inp, el("span", { textContent: label }), ...(extra ? [el("span", { className: "dim small", textContent: extra })] : []));
   };
-  dialog("Settings", row("Sound effects and ambient drone", "sound"), row("Read narration and NPC lines aloud (this device's voices)", "voice"),
-    row("Type out narration", "reveal"), row("Colour-blind friendly markers", "cb"), row("Computer turns without a pause", "fast"), row("Text size", "text", "range", "80% to 160%"),
-    el("div", { className: "row" }, el("button", { textContent: "Show the tips again", onclick: () => { ux.tipsSeen = false; uxSave(); showTips(); } })));
+  return dialog("Settings", row("Sound effects and ambient drone", "sound"), row("Read narration and NPC lines aloud (this device's voices)", "voice"),
+    row("Type out narration", "reveal"), row("Colour-blind friendly markers", "cb"), row("Computer turns without a pause", "fast"), row("Text size", "text", "range", "80% to 160%"));
 }
 const KEYS = [["/", "focus the prompt"], ["1 to 9", "pick an attack or spell in combat"], ["E", "end your turn"], ["U", "undo your last action"], ["J", "journal"], ["S", "settings"], ["?", "this help"], ["Tab and Enter", "move around and use squares, buttons and links"]];
 function showHelp() {
   dialog("How to play", el("p", { className: "small", textContent: "Click a path to travel, a topic to talk, or type plain English below. In a fight, shaded squares are where you can walk, and each foe shows your chance to hit." }),
     el("p", { className: "small", textContent: "Undo steps back one action. Rewind returns to the last rest. The journal lists who you have met and what they said." }),
+    el("p", { className: "small", textContent: "Hover or focus anything for what it does, including each line of the combat log. Tips explain things the first time they happen; Settings turns them off or brings them back. New to fights? Start the Training Yard tutorial from New game." }),
     el("h3", { textContent: "Keys" }), ...KEYS.map(([k, d]) => el("div", { className: "small" }, el("kbd", { textContent: k }), " " + d)));
 }
-function showTips() {
-  if (ux.tipsSeen || !$("#log")) return;
-  const tip = el("div", { className: "tipcard" }, el("b", { textContent: "First time? " }),
-    "Click a path or type what you want to do. In combat, shaded squares show where you can walk and each foe shows your chance to hit. Press ? for keys. ",
-    el("button", { textContent: "Got it", onclick: () => { ux.tipsSeen = true; uxSave(); tip.remove(); } }));
-  $("#log").before(tip);
+
+// ---- tips: hover help on anything with a title, coach cards that explain what just happened, and the combat tutorial
+// Hover help: every title= in the page shows as a styled popover on hover and on keyboard focus (Esc hides it).
+const hoverTip = el("div", { id: "hovertip", role: "tooltip" });
+document.body.append(hoverTip);
+let hoverFor = null;
+function tipTextOf(n) {
+  const t = n.getAttribute("title");
+  if (t != null) { if (t) n.dataset.tip = t; n.removeAttribute("title"); }   // the native tooltip would show on top of ours
+  return n.dataset.tip || "";
 }
+function hoverShow(n) {
+  const t = tipTextOf(n); if (!t) return hoverHide();
+  hoverFor = n; hoverTip.textContent = t; hoverTip.style.display = "block"; n.setAttribute("aria-describedby", "hovertip");
+  const r = n.getBoundingClientRect(), w = hoverTip.offsetWidth, h = hoverTip.offsetHeight;
+  const x = Math.min(Math.max(8, r.left + r.width / 2 - w / 2), innerWidth - w - 8);
+  let y = r.bottom + 6; if (y + h > innerHeight - 8) y = Math.max(8, r.top - h - 6);
+  hoverTip.style.left = x + "px"; hoverTip.style.top = y + "px";
+}
+function hoverHide() { if (hoverFor) hoverFor.removeAttribute("aria-describedby"); hoverFor = null; hoverTip.style.display = "none"; }
+const tipHost = t => (t && t.closest ? t.closest("[title],[data-tip]") : null);
+document.addEventListener("mouseover", ev => { const n = tipHost(ev.target); if (n !== hoverFor) n ? hoverShow(n) : hoverHide(); });
+document.addEventListener("focusin", ev => { const n = tipHost(ev.target); n ? hoverShow(n) : hoverHide(); });
+document.addEventListener("focusout", hoverHide);
+document.addEventListener("scroll", hoverHide, true);
+document.addEventListener("keydown", ev => { if (ev.key === "Escape" && hoverFor) hoverHide(); }, true);
+
+// Coach cards: shown the first time something comes up. "Close" hides one until the page is loaded again;
+// "Do not show again" hides it for good. Both are per browser (localStorage), like the other settings.
+const TIPK = "cppdnd.tips";
+const coach = Object.assign({ off: false, never: [], tutorialDone: false, tut: null }, (() => { try { return JSON.parse(lsGet(TIPK) || "{}"); } catch { return {}; } })());
+if (!Array.isArray(coach.never)) coach.never = [];
+if (ux.tipsSeen && !coach.never.includes("welcome")) coach.never.push("welcome");   // the old one-off tip card
+const coachSave = () => lsSet(TIPK, JSON.stringify(coach));
+const coachSeen = new Set();     // shown during this visit
+let coachQ = [], coachCur = null, coachHeld = false, coachReplay = false;
+const coachBox = el("div", { id: "coach", "aria-live": "polite" });
+document.body.append(coachBox);
+
+function coachOffer(id, title, body, anchor) {
+  if (coachReplay || coach.off || coach.never.includes(id) || coachSeen.has(id) || (tut.on && TUT_OWNS.has(id))) return;
+  if ((coachCur && coachCur.id === id) || coachQ.some(t => t.id === id)) return;
+  coachQ.push({ id, title, body, anchor }); coachRender();
+}
+function coachDismiss(never) {
+  if (!coachCur) return;
+  if (never && !coach.never.includes(coachCur.id)) { coach.never.push(coachCur.id); coachSave(); }
+  coachCur = null; coachRender(); coachResume();
+}
+const inFight = () => !!(view && view.mode === "combat" && view.combat && !view.combat.finished);
+// (not before the first round: initiative has to be rolled before there is anything to read)
+const coachPausing = () => inFight() && view.combat.round > 0 && view.combat.awaiting < 0 && !!(coachCur || (tut.on && TUT[tut.step] && TUT[tut.step].hold));
+function card(kind, head, title, body, buttons) {
+  return el("div", { className: "coach" + (kind ? " " + kind : ""), role: "dialog", "aria-label": title },
+    ...(head ? [el("div", { className: "step", textContent: head })] : []), el("h3", { textContent: title }), el("p", { textContent: body }),
+    ...(coachPausing() ? [el("div", { className: "paused", textContent: "The fight waits while this is open." })] : []),
+    el("div", { className: "row" }, ...buttons));
+}
+function coachRender() {
+  if (!coachCur && coachQ.length) { coachCur = coachQ.shift(); coachSeen.add(coachCur.id); }
+  const kids = [];
+  if (tut.on && TUT[tut.step]) kids.push(tutCard());
+  if (coachCur) kids.push(card("", "Tip", coachCur.title, typeof coachCur.body === "function" ? coachCur.body() : coachCur.body,
+    [el("button", { textContent: "Do not show again", onclick: () => coachDismiss(true) }), el("button", { className: "primary", textContent: "Close", onclick: () => coachDismiss(false) })]));
+  coachBox.replaceChildren(...kids);
+  coachHighlight();
+}
+function coachHighlight() {
+  for (const n of document.querySelectorAll(".coach-hl")) n.classList.remove("coach-hl");
+  for (const f of [tut.on && TUT[tut.step] && TUT[tut.step].anchor, coachCur && coachCur.anchor]) {
+    let n = null; try { n = f && f(); } catch {}
+    if (n && n.classList) n.classList.add("coach-hl");
+  }
+}
+// The computer's turns wait while a card is open, so it can be read before the next thing happens.
+const coachBaseAdvance = advance;
+advance = async function () { if (coachPausing()) { coachHeld = true; return; } return coachBaseAdvance(); };
+function coachResume() { if (coachHeld && !coachPausing()) { coachHeld = false; setTimeout(advance, aiDelay()); } }
+
+// ---- what the dice meant, in words, from the fields the engine puts on attack and save events
+const actorOf = id => view && view.combat && view.combat.actors.find(a => a.id === id);
+const ours = a => !!a && a.team === "party";
+function explainRoll(e) {
+  const a = actorName(e.actor) || "The attacker", t = actorName(e.target) || "the target";
+  if (e.check === "save")
+    return `${t} rolled a saving throw: d20 plus their bonus came to ${e.roll}${e.coverBonus ? ` (including +${e.coverBonus} for cover)` : ""}, against the caster's spell save DC of ${e.vs}. ${e.roll >= e.vs ? "That meets the DC, so they resisted." : "That is short of the DC, so they failed."}`;
+  const bonus = e.roll - e.natural, kept = e.mode ? ` (with ${e.mode}: two d20s, keeping the ${e.mode === "advantage" ? "higher" : "lower"})` : "";
+  const ac = e.coverBonus ? `${t}'s AC of ${e.vs - e.coverBonus}, +${e.coverBonus} for cover, ${e.vs}` : `${t}'s Armor Class (AC) of ${e.vs}`;
+  const verdict = e.natural === 20 ? "A natural 20 always hits, and is a critical hit: the damage dice are rolled twice."
+    : e.natural === 1 ? "A natural 1 always misses, whatever the bonus."
+    : e.crit ? "It hits, and a hit from next to a helpless target is always critical: the damage dice are rolled twice."
+    : e.roll >= e.vs ? `${e.roll} meets ${e.vs}, so it hits.` : `${e.roll} is short of ${e.vs}, so it misses.`;
+  return `${a} rolled ${e.natural} on the d20${kept}, ${bonus >= 0 ? "+" : "-"}${Math.abs(bonus)} attack bonus, total ${e.roll}, against ${ac}. ${verdict}${e.amount > 0 ? ` ${e.amount} damage.` : ""}`;
+}
+
+// ---- coach tips raised by events
+function coachOnEvent(e) {
+  const a = actorOf(e.actor), t = actorOf(e.target);
+  if (e.type === "info" && /^Initiative:/.test(e.text))
+    coachOffer("initiative", "Who goes first", `Everyone rolled initiative: a d20 plus their Dexterity modifier. The highest goes first.\n${e.text.replace(/^Initiative:\s*/, "").replace(/\) /g, "),  ")}\n\nThe strip above the grid shows the order, with whoever is acting now highlighted. When everyone has had a turn, a new round starts. A round is about six seconds.`, () => $(".initstrip"));
+  if (e.type === "combat_start" && view && view.module && view.module.id !== "tutorial" && !coach.tutorialDone && !tut.on)
+    coachOffer("try_tutorial", "New to combat?", "The Training Yard walks you through one small fight step by step. Start it from New game (top right) whenever you like.");
+  if (e.check === "attack") {
+    if (e.opportunity) coachOffer("opportunity", "Opportunity attack", `${actorName(e.actor)} got a free swing at ${actorName(e.target)} for moving out of reach. Leaving an enemy's reach (5 ft for most weapons) lets it attack as a reaction, once per round. To avoid it, go around enemies or finish them first.\n\n${explainRoll(e)}`);
+    else if (ours(a)) coachOffer("attack_result", "Reading an attack", `${explainRoll(e)}\n\nHover any attack line in the log for this breakdown, or click it for the raw dice.`, () => $("#log"));
+    else if (ours(t)) coachOffer("defence", "Being attacked", `Monsters roll the same way you do, against your Armor Class (AC). ${explainRoll(e)}\n\nArmor, shields and cover all raise the number they need.`);
+    if (e.natural === 20) coachOffer("critical", "Critical hit", "A natural 20 on the attack die always hits, whatever the AC, and is a critical hit: the damage dice are rolled twice. Melee hits on a target that is down or paralyzed are also critical.");
+    else if (e.natural === 1) coachOffer("fumble", "A natural 1", "A 1 on the attack die always misses, however good the bonus is.");
+    if (e.mode) coachOffer("advantage", e.mode === "advantage" ? "Advantage" : "Disadvantage", `That roll had ${e.mode}: two d20s were rolled and the ${e.mode === "advantage" ? "higher" : "lower"} one kept.\n\nAdvantage comes from things like attacking a target that is down, prone (in melee), blinded or restrained.\nDisadvantage comes from attacking someone who is dodging, from being poisoned, frightened or prone yourself, from shooting beyond normal range, or from shooting with an enemy right next to you.\nIf you have both, they cancel out.`);
+    if (e.coverBonus) coachOffer("cover", "Cover", `${actorName(e.target)} was behind cover, which added +${e.coverBonus} to their AC. Half cover (a crate, c) is +2. Three-quarters cover (a pillar, O) is +5. A wall blocks the shot entirely. Cover between the attacker and the target counts, so you can use it too.`);
+  }
+  if (e.check === "save") coachOffer("saving_throw", "Saving throws", `Some spells do not roll to hit. Instead the target rolls a saving throw: a d20 plus their bonus for one ability (such as Dexterity or Constitution), against the caster's spell save DC.\n\n${explainRoll(e)}\n\nArea spells such as Shatter make everyone in the area roll, and on a success they take half damage.`);
+  if (e.type === "down" && ours(t || a)) {
+    const who = (actorOf(e.actor) || {}).name || "A hero";
+    coachOffer("down", "Down, not dead", `${who} dropped to 0 HP and is unconscious. At the start of each of their turns they make a death save: a d20, where 10 or more is a success. Three successes and they are stable. Three failures and they die. A natural 20 gets them up with 1 HP, and a 1 counts as two failures. Being hit while down is also a failure.\n\nAny healing, from a potion or a spell, gets them straight back up.`);
+  }
+  if (e.type === "info" && /concentration/.test(e.text))
+    coachOffer("concentration", "Concentration", "Some spells last only while the caster concentrates on them. Taking damage forces a Constitution save to keep it, against DC 10 or half the damage, whichever is higher. Dropping to 0 HP ends it, and so does casting another concentration spell.");
+  const cond = e.type === "info" && /is now ([^.]+)\.$/.exec(e.text);
+  if (cond && gloss(cond[1])) coachOffer("condition", "Conditions", `${actorName(e.target)} is now ${cond[1]}: ${gloss(cond[1])}\n\nHover a creature on the grid to see its conditions and what they do.`);
+  if (e.type === "combat_end") coachOffer("victory", /^Victory/.test(e.text) ? "Victory" : "The fight is over", `${e.text}.\n\nXP adds up toward your next level, which you reach after a long rest. Spent spell slots and feature uses come back when you rest as well.`);
+  if (e.type === "rest" && /long rest|hit dice/.test(e.text)) coachOffer("rest", "Resting", "A short rest (1 hour) lets each hero spend hit dice to heal. A long rest (8 hours) restores hit points, spell slots and class features, once a day. Resting somewhere risky can be interrupted by a fight.");
+}
+
+// ---- coach tips raised by what is on screen
+function coachOnView(v) {
+  if (v.mode === "exploring" && !tut.on && v.module.id !== "tutorial")
+    coachOffer("welcome", "First time?", "Click a path to travel, click a person's topic to talk, or type what you want to do in plain English below. Press ? for the keys. In a fight, tips like this one explain what is going on as it happens.");
+  if (!inFight()) return;
+  const c = v.combat, o = c.options, me = o && c.actors.find(a => a.id === o.actor);
+  const rows = c.grid.rows.join("");
+  if (/[~cO]/.test(rows)) coachOffer("terrain", "Reading the grid", "Dark squares are walls. Speckled squares (~) are rough ground, which costs double movement. Crates (c) give half cover, +2 AC, and pillars (O) give three-quarters cover, +5 AC. The legend under the grid shows each one.", () => $(".legend"));
+  if (!me) return;
+  const eco = o.economy;
+  coachOffer("your_turn", `${me.name}'s turn`, `On your turn you have:\n•  Movement: ${eco.movementFt} ft. Each square is 5 ft, diagonals too. You can split it before and after attacking.\n•  One action: attack, cast a spell, Dash, Dodge or use a potion.\n•  One bonus action, used by some spells and features.\n•  One reaction, used for opportunity attacks on other creatures' turns.\n\nShaded squares are where you can walk. Press End turn when you are done. Anything unused is lost.`, () => $(".econ"));
+  if (eco.attacksLeft > 0 && !eco.action) coachOffer("extra_attack", "Extra Attack", `${me.name} has ${eco.attacksLeft} more attack(s) as part of this action. You can move between them, or switch targets.`);
+  if (pending.kind === "attack") {
+    const w = o.attacks.find(x => x.index === pending.index), pv = (o.preview || [])[pending.index] || [];
+    const ok = pv.find(p => p.legal), bad = pv.find(p => !p.legal), ft = ok && c.actors.find(a => a.id === ok.target);
+    if (w && ok && ft) coachOffer("hit_chance", "Your chance to hit", `Each foe you can reach shows your chance to hit with the selected attack (${w.name}). You hit when d20 ${w.toHit >= 0 ? "+" : "-"} ${Math.abs(w.toHit)} meets their AC, so against ${ft.name}'s AC ${ft.ac} you need ${Math.max(2, Math.min(20, ft.ac - w.toHit))} or more on the die. Hover a foe for the expected damage, then click it to attack.`, () => $("#grid .cell.inrange"));
+    if (bad) coachOffer("out_of_range", "Out of reach", `The ✕ on ${actorName(bad.target)} means you cannot use ${w ? w.name : "this attack"} on them: ${bad.whyNot}. Move closer, or pick a ranged attack or a spell.`, () => $("#grid .cell.outrange"));
+  }
+  if (pending.kind === "spell") {
+    const sp = o.spells.find(x => x.id === pending.index);
+    if (sp) coachOffer("spells", "Casting spells", `${sp.name} is ${sp.level ? `a level ${sp.level} spell. Casting it uses a spell slot of that level or higher, and the party panel shows how many you have left` : "a cantrip, so you can cast it as often as you like"}. Its range is ${sp.rangeFt} ft${sp.bonusAction ? ", and it takes your bonus action instead of your action" : ""}.${sp.concentration ? " It needs concentration, so it lasts until you are hurt badly or cast another concentration spell." : ""}\n\nSome spells roll to hit like a weapon. Others make the target roll a saving throw against your spell save DC. Click a creature to cast it.`);
+  }
+}
+
+// ---- the tutorial: a sequence of cards over the Training Yard; each step ends when the game shows it was done
+const tut = { on: false, step: 0, gid: null, last: null };
+const TUT_OWNS = new Set(["welcome", "try_tutorial", "initiative", "your_turn", "attack_result", "hit_chance"]);   // the steps say these themselves
+const heroActor = () => view && view.combat && view.combat.actors.find(a => a.team === "party" && a.name === view.hero);
+const myTurn = () => !!(inFight() && view.combat.options && heroActor() && view.combat.options.actor === heroActor().id);
+const TUT = [
+  { title: "Welcome to the Training Yard", body: () => "You are Kestrel Vane, a fighter, with Mira Ashgrove, a wizard, beside you. Sergeant Brask has advice if you click his topics.\n\nWhen you are ready, click the path into the practice ring.",
+    anchor: () => [...document.querySelectorAll("#scene button")].find(b => /practice ring/i.test(b.textContent)), done: v => v.mode === "combat" },
+  { title: "Who goes first", hold: true, next: true, anchor: () => $(".initstrip"),
+    body: () => "Everyone has rolled initiative: a d20 plus their Dexterity modifier. The strip above the grid is the order for every round, and the highlighted name is acting now.\n\nThe computer plays Mira and the monsters. The fight waits until you press Next." },
+  { title: "Waiting for your turn", body: () => "Watch the log as the others act. When it is Kestrel's turn, buttons appear under the grid.", done: () => myTurn() },
+  { title: "Move", next: true, anchor: () => $(".econ"),
+    body: () => `It is your turn. You have ${view.combat.options ? view.combat.options.economy.movementFt : 30} ft of movement, and each square is 5 ft. The shaded squares show how far you can go. Rough ground (~) costs double.\n\nClick a shaded square next to a goblin. Or, if one is already next to you, press Next.`,
+    done: (v, e) => !!tut.last || !!(e && e.type === "move" && heroActor() && e.actor === heroActor().id) },
+  { title: "Attack", next: true, anchor: () => $("#grid .cell.inrange"),
+    body: () => "Your warhammer is selected. Each foe in reach shows your chance to hit, and hovering one shows the expected damage. You hit when a d20 plus your attack bonus meets their Armor Class (AC).\n\nClick a foe next to you to swing.",
+    done: () => !!tut.last },
+  { title: "Reading the result", hold: true, next: true, anchor: () => $("#log"),
+    body: () => (tut.last ? explainRoll(tut.last) : "The log shows the roll and the result.") + "\n\nEvery attack line in the log explains itself when you hover it. Click one to see the raw dice." },
+  { title: "End your turn", anchor: () => [...document.querySelectorAll("#combat button")].find(b => b.textContent === "End turn"),
+    body: () => "You have used your action. You could still move with whatever movement is left. When you are done, press End turn (or E). Anything unused is lost.",
+    done: (v, e) => !!e && e.type === "turn_start" && !!heroActor() && e.actor !== heroActor().id },
+  { title: "Their turns", next: true, anchor: () => $("#log"),
+    body: () => `The others have taken their turns; the log shows what they did. Monsters roll a d20 plus their bonus against your AC, which is ${(heroActor() || {}).ac || 17} for Kestrel, so your armor is why they often miss. Hover any attack line in the log to see how it went.` },
+  { title: "Throwing, range and cover", next: true, anchor: () => [...document.querySelectorAll("#combat button")].find(b => /^javelin/i.test(b.textContent)),
+    body: () => "Select your javelin and look at the numbers on the foes. Within 30 ft it is a normal throw, and out to 120 ft it has disadvantage (two d20s, keep the lower). A crate (c) between you and the target adds +2 to their AC, and a pillar (O) adds +5, so their chance drops. Throwing with an enemy next to you also has disadvantage.\n\nUse it now or press Next.",
+    done: () => pending.kind === "attack" && view.combat && view.combat.options && (view.combat.options.attacks.find(a => a.index === pending.index) || {}).name === "javelin" },
+  { title: "Spells", next: true, anchor: () => $("#focus"),
+    body: () => "Mira is a wizard. To play her yourself, choose her under You control in the Party panel. Fire Bolt rolls to hit like a weapon. Magic Missile never misses. Shatter makes everything in a 10 ft burst roll a Constitution saving throw against her spell save DC, for half damage on a success. Levelled spells use up spell slots and cantrips do not.\n\nPress Next whenever you like.",
+    done: (v, e) => e && e.type === "spell" && ours(actorOf(e.actor)) && heroActor() && e.actor === heroActor().id },
+  { title: "Staying alive", next: true, anchor: () => [...document.querySelectorAll("#combat button")].find(b => /^Potion/.test(b.textContent)),
+    body: () => "Hurt? Potion heals you 2d4+2 HP for your action, and Kestrel has two. Dodge spends your action to give attacks against you disadvantage until your next turn. Walking away from an enemy next to you gives it a free swing (an opportunity attack), so go around or finish it first." },
+  { title: "Finish the fight", body: () => "Beat everything in the ring. Tips will pop up the first time something new happens: a critical hit, cover, a saving throw, someone going down.", done: v => !inFight() },
+  { title: "That is combat", next: true, last: true,
+    body: () => "You have the basics: initiative, movement, one action, the d20 against AC, cover, saves and death saves. In the adventures the same tips appear when something new happens, and you can switch them off or reset them in Settings.\n\nPress New game (top right) to start a real adventure." },
+];
+function tutCard() {
+  const s = TUT[tut.step], last = !!s.last;
+  return card("tut", `Tutorial: step ${tut.step + 1} of ${TUT.length}`, s.title, s.body(),
+    [...(last ? [] : [el("button", { textContent: "Skip tutorial", onclick: () => tutEnd(false) })]),
+     ...(s.next ? [el("button", { className: "primary", textContent: last ? "Finish" : "Next", onclick: () => (last ? tutEnd(true) : tutGo(tut.step + 1)) })] : [])]);
+}
+function tutSave() { coach.tut = tut.on ? { gid: tut.gid, step: tut.step } : null; coachSave(); }
+function tutGo(n) {
+  tut.step = Math.min(n, TUT.length - 1); tutSave();
+  // a step that is already satisfied (it is already your turn, you attacked before moving) passes straight on
+  const s = TUT[tut.step]; if (s.done && view && !s.hold && s.done(view, null)) return tutGo(tut.step + 1);
+  coachRender(); coachResume();
+}
+function tutEnd(finished) {
+  if (!finished && !confirm("Leave the tutorial? You can start it again from New game.")) return;
+  tut.on = false; coach.tutorialDone = true; tutSave(); coachRender(); coachResume();
+}
+function tutCheck(e) {
+  if (!tut.on || gid !== tut.gid || !view) return;
+  const s = TUT[tut.step], h = heroActor();
+  if (e && e.check === "attack" && !e.opportunity && h && e.actor === h.id) tut.last = e;   // the first swing, for "Reading the result"
+  if (s.done && s.done(view, e || null)) tutGo(tut.step + 1);
+}
+async function startTutorial(moduleId) {
+  const { status, data } = await api("POST", "/api/games", { module: moduleId, role: "player", hero: "kestrel_vane", difficulty: "easy", seed: 7 });
+  if (status !== 201) return toast(data.error || "could not start the tutorial");
+  Object.assign(tut, { on: true, step: 0, gid: data.id, last: null }); tutSave();
+  startGame(data.id, data.view);
+}
+
+// ---- wiring: events, renders and settings
+const coachBaseUxEvent = uxEvent;
+uxEvent = function (e, short) {
+  coachBaseUxEvent(e, short);
+  if (e.check) {   // hovering an attack or save line explains it
+    const log = $("#log"), d = log && (e.flavour ? log.lastElementChild && log.lastElementChild.previousElementSibling : log.lastElementChild);
+    if (d) d.title = explainRoll(e) + (d.classList.contains("expandable") ? "\nClick to see the dice." : "");
+  }
+  if (!coachReplay) { coachOnEvent(e); tutCheck(e); }
+};
+const coachBaseLogEvents = logEvents;
+logEvents = function (events) {
+  coachReplay = lastSeq === 0;   // a session opened or rebuilt replays its whole log: explain only what happens from now on
+  try { coachBaseLogEvents(events); } finally { coachReplay = false; }
+};
+const coachBaseApplyView = apply;
+apply = function (v) {
+  coachBaseApplyView(v);
+  if (hoverFor && !hoverFor.isConnected) hoverHide();
+  if (tut.on && gid !== tut.gid) { tut.on = false; }
+  else if (!tut.on && coach.tut && coach.tut.gid === gid) Object.assign(tut, { on: true, step: coach.tut.step || 0, gid });   // reopened mid-lesson
+  coachOnView(v); tutCheck(null); coachRender(); coachResume();
+};
+
+const ECON_TIPS = {
+  move: "Movement left this turn. Each square is 5 ft, diagonals too, and rough ground (~) costs 10 ft. You can split it before and after attacking.",
+  action: "One action per turn: attack, cast a spell, Dash, Dodge or use a potion.",
+  bonus: "Some spells and features, such as Second Wind and Rage, use the bonus action instead of the action.",
+  reaction: "Spent automatically on an opportunity attack when an enemy walks out of your reach. It comes back at the start of your turn.",
+  attacks: "Attacks left in this action, from Extra Attack. You can move between them.",
+};
+const FEATURE_TIPS = { second_wind: "Second Wind (bonus action): heal 1d10 + your level. It comes back on a short or long rest.", rage: "Rage (bonus action): extra melee damage, and you take half damage from weapons, for up to 10 rounds." };
+const ACTION_TIPS = {
+  Dash: "Dash (action): get your speed again as extra movement this turn.",
+  Dodge: "Dodge (action): until your next turn, attacks against you have disadvantage.",
+  "End turn": "End your turn (E). Unused movement and actions are lost.",
+  player: "Play one hero; the computer plays the rest of the party.", dm: "Play the monsters as the Dungeon Master.", spectator: "Watch: the computer plays everyone.",
+};
+const coachBaseRenderCombat = renderCombat;
+renderCombat = function () {
+  coachBaseRenderCombat();
+  const c = view && view.combat, box = $("#combat"); if (!c || !box || box.hidden) return;
+  const h2 = $("h2", box); if (h2) h2.title = "A round is one turn for everyone, about six seconds in the story.";
+  // the turn order, from initiative
+  const strip = el("div", { className: "initstrip", title: "Turn order (initiative): rolled once, at the start of the fight, as d20 + Dexterity" }, el("b", { textContent: "Order:" }));
+  for (const id of c.order || []) {
+    const a = c.actors.find(x => x.id === id); if (!a) continue;
+    strip.append(el("span", { className: [a.team === "party" ? "party" : "foe", a.id === c.current ? "cur" : "", a.life !== "alive" ? "out" : ""].filter(Boolean).join(" "),
+      textContent: a.name, title: `${a.name}${a.id === c.current ? " (acting now)" : ""}\nHP ${a.hp}/${a.maxHp}, AC ${a.ac}${a.life !== "alive" ? `, ${a.life}` : ""}${a.effects.length ? "\n" + a.effects.join(", ") : ""}` }));
+  }
+  h2 ? h2.after(strip) : box.prepend(strip);
+  // a legend for the squares
+  const grid = $("#grid", box);
+  const key = (bg, label, tip, extra = "") => el("span", { title: tip }, el("i", { style: `background:${bg} center/100% 100%;${extra}` }), label);
+  if (grid) grid.after(el("div", { className: "legend" },
+    key("#08070c var(--tile-wall)", "wall", "Walls block movement and line of sight."), key("#322c3f var(--tile-rough)", "rough (~)", "Rough ground: each square costs 10 ft of movement instead of 5."),
+    key("#3a3326 var(--tile-cover)", "crate (c)", "Half cover: +2 AC against attacks that pass it, and +2 on Dexterity saves."), key("#3a3326 var(--tile-cover)", "pillar (O)", "Three-quarters cover: +5 AC against attacks that pass it, and +5 on Dexterity saves.", "outline:2px solid #6b5a33"),
+    key("rgba(95,176,255,.35)", "reachable", "Shaded squares: where you can walk with the movement you have left."), key("transparent", "in range", "Gold outline: a foe the selected attack can reach. The badge is your chance to hit.", "outline:2px solid #e5c24a")));
+  const o = c.options, me = o && c.actors.find(a => a.id === o.actor);
+  if (!o || !me) return;
+  // the turn budget as pills, each explained on hover
+  const eco = o.economy, line = [...box.children].find(n => n.matches && n.matches("div.small.dim") && /click a square to move/.test(n.textContent));
+  const pill = (text, used, tip) => el("span", { className: "pill" + (used ? " used" : ""), textContent: text, title: tip });
+  const econ = el("div", { className: "econ" }, el("b", { textContent: me.name + ":" }), pill(`${eco.movementFt} ft move`, !eco.movementFt, ECON_TIPS.move), pill("action", !eco.action, ECON_TIPS.action),
+    pill("bonus action", !eco.bonusAction, ECON_TIPS.bonus), pill("reaction", !eco.reaction, ECON_TIPS.reaction), ...(eco.attacksLeft ? [pill(`${eco.attacksLeft} attack(s) left`, false, ECON_TIPS.attacks)] : []),
+    el("span", { className: "dim", textContent: "Click a square to move, or a creature to use the selected option." }));
+  if (line) line.replaceWith(econ);
+  // every button says what it does
+  for (const b of box.querySelectorAll("button")) {
+    const t = b.textContent;
+    const w = o.attacks.find(a => t === `${a.name} ${a.toHit >= 0 ? "+" : ""}${a.toHit} ${a.damage}`);
+    const sp = !w && o.spells.find(s => t === s.name + (s.level ? ` (L${s.level})` : ""));
+    const f = !w && !sp && o.features.find(x => t === `${x.id} (${x.uses})`);
+    if (w) b.title = `${w.name}: roll d20 ${w.toHit >= 0 ? "+" : "-"} ${Math.abs(w.toHit)} against the target's AC. ${w.damage} ${w.type} damage on a hit.\n` + (w.longRangeFt > w.rangeFt ? `Range ${w.rangeFt} ft, or up to ${w.longRangeFt} ft with disadvantage.` : "Melee: the target must be next to you.") + "\nPick it, then click a foe.";
+    else if (sp) b.title = `${sp.name}: ${sp.level ? `level ${sp.level}, uses a spell slot` : "cantrip, free to cast"}, range ${sp.rangeFt} ft${sp.bonusAction ? ", bonus action" : ""}${sp.concentration ? ", concentration" : ""}.${sp.available ? "" : "\nNo spell slots of this level or higher are left."}\nPick it, then click a creature.`;
+    else if (f) b.title = FEATURE_TIPS[f.id] || `${f.id}: ${f.uses} use(s) left.`;
+    else if (/^Potion/.test(t)) b.title = `Potion of healing (action): drink it for 2d4+2 HP. ${o.potions} left.`;
+    else if (ACTION_TIPS[t]) b.title = ACTION_TIPS[t];
+  }
+};
+
+// Settings: tips on or off, and a way to see them all again
+const coachBaseSettings = showSettings;
+showSettings = function () {
+  const dlg = coachBaseSettings(), box = dlg && dlg.querySelector(".uxbox"); if (!box) return dlg;
+  box.append(el("h3", { textContent: "Tips" }),
+    el("label", { className: "uxset" }, el("input", { type: "checkbox", checked: !coach.off, onchange: e => { coach.off = !e.target.checked; coachSave(); if (coach.off) { coachQ = []; coachCur = null; coachRender(); coachResume(); } } }),
+      el("span", { textContent: "Explain things the first time they happen (coach tips)" })),
+    el("div", { className: "row" }, el("button", { textContent: `Show all tips again${coach.never.length ? ` (${coach.never.length} hidden)` : ""}`, onclick: ev => { coach.never = []; coach.off = false; coachSeen.clear(); coachSave(); ev.target.textContent = "All tips will show again."; if (view) coachOnView(view); } })));
+  return dlg;
+};
 
 // ---- header buttons
 function uxHeader() {
@@ -1853,7 +2169,7 @@ apply = function (v) {
 apply.warm = new Set();
 const baseStartGame = startGame;
 startGame = function (id, v) {
-  baseStartGame(id, v); showTips();
+  baseStartGame(id, v);
   api("GET", `/api/games/${id}/journal`).then(({ data }) => {
     if (!data || !data.npcs || !v || v.clock.day < 2) return;
     const last = data.npcs.filter(n => n.last).sort((a, b) => (b.last.day || 0) - (a.last.day || 0))[0];
