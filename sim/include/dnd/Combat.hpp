@@ -93,6 +93,9 @@ private:
     struct AttackRollResult { bool hit; bool crit; int natural; int total; int targetAc; };
 
     void Say(EventType t, int actor, int target, std::string text, int roll = 0, int vs = 0, int amount = 0) const;
+    void SayAttack(EventType t, int actor, int target, std::string text, const AttackRollResult& r, const AttackPreview& pv,
+                   int amount = 0, bool opportunity = false) const;
+    void SaySave(EventType t, int actor, int target, std::string text, int total, int dc, int amount = 0, int coverBonus = 0) const;
     void RollInitiative();
     void BeginTurn(GameActor& a);
     void FinishTurn(GameActor& a);
