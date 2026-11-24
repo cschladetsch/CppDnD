@@ -42,8 +42,7 @@ const freePort = () => new Promise(r => { const s = net.createServer().listen(0,
     ok(await page.locator("#hovertip").isVisible() && /How to play/.test(await page.locator("#hovertip").textContent()), "hovering a button shows its help");
 
     // ---- the tutorial
-    await page.locator("#sessSel").selectOption("__new");
-    await page.locator("button", { hasText: "Learn combat" }).click();
+    await page.locator("#learnBtn").click();   // from the header, in the middle of another game
     const tut = page.locator("#coach .coach.tut");
     await tut.locator("h3", { hasText: "Welcome to the Training Yard" }).waitFor();
     ok(true, "the tutorial starts on step 1");
