@@ -1839,7 +1839,7 @@ function showSettings() {
 }
 const KEYS = [["/", "focus the prompt"], ["1 to 9", "pick an attack or spell in combat"], ["E", "end your turn"], ["U", "undo your last action"], ["J", "journal"], ["S", "settings"], ["?", "this help"], ["Tab and Enter", "move around and use squares, buttons and links"]];
 function showHelp() {
-  dialog("How to play", el("p", { className: "small", textContent: "Click a path to travel, a topic to talk, or type plain English below. In a fight, shaded squares are where you can walk, and each foe shows your chance to hit." }),
+  dialog("How to play", el("p", { className: "small", textContent: "Click a path to travel, a topic to talk, or type plain English below. In a fight, shaded squares are where you can walk, and each foe shows your chance to hit. Click a party member to play as them; right-click them to heal, give a potion or buff." }),
     el("p", { className: "small", textContent: "Undo steps back one action. Rewind returns to the last rest. The journal lists who you have met and what they said." }),
     el("p", { className: "small", textContent: "Hover or focus anything for what it does, including each line of the combat log. Tips explain things the first time they happen; Settings turns them off or brings them back. New to fights? Press Learn combat at the top for the Training Yard tutorial." }),
     el("h3", { textContent: "Keys" }), ...KEYS.map(([k, d]) => el("div", { className: "small" }, el("kbd", { textContent: k }), " " + d)));
@@ -2162,7 +2162,7 @@ function allyMenu(t) {
       !sp.available ? "no spell slot left" : dist > sp.rangeFt ? `out of range (${sp.rangeFt} ft)` : sp.bonusAction ? "no bonus action left" : "no action left this turn",
       () => doAction({ type: "cast", spell: sp.id, target: t.id, slot: sp.level ? lowestSlot(sp.level) : 0 }));
   if (!self && pm && view.role === "player" && !pm.dead)
-    kids.push(el("div", { className: "row" }, el("button", { textContent: `Play as ${t.name} instead`, title: "Switch which party member you control. The one you leave is played by the computer.", onclick: () => { close(); setHero(pm.id); } })));
+    kids.push(el("div", { className: "row" }, el("button", { textContent: `Play as ${t.name} instead`, title: "Switch which party member you control (or left-click them on the grid). The one you leave is played by the computer.", onclick: () => { close(); setHero(pm.id); } })));
   kids.push(el("p", { className: "dim small", textContent: "Party members are never targets for attacks or harmful spells: the rules engine only lets you attack enemies. Area spells such as Shatter are the exception, so mind where you aim them." }));
   const dlg = dialog(self ? `${t.name} (you)` : `Help ${t.name}`, ...kids);
 }
@@ -2170,15 +2170,23 @@ const allyBaseRenderCombat = renderCombat;
 renderCombat = function () {
   allyBaseRenderCombat();
   const c = view && view.combat, box = $("#combat"); if (!c || !box || box.hidden) return;
-  const o = c.options, me = o && c.actors.find(a => a.id === o.actor), grid = $("#grid", box); if (!me || !grid) return;
-  const w = c.grid.width, cells = [...grid.children];
-  for (const a of c.actors.filter(x => x.team === me.team && x.life !== "dead")) {
+  const o = c.options, me = o && c.actors.find(a => a.id === o.actor), grid = $("#grid", box); if (!grid) return;
+  const w = c.grid.width, cells = [...grid.children], hero = heroActor && heroActor();
+  // Left click selects a party member (you play as them); right click, or the context-menu key, opens what you can do for them.
+  for (const a of c.actors.filter(x => x.team === "party" && x.life !== "dead")) {
     const cell = cells[a.pos[1] * w + a.pos[0]]; if (!cell) continue;
-    const sp = pending.kind === "spell" && o.spells.find(s => s.id === pending.index);
-    cell.classList.add("ally");
-    if (sp && sp.friendly && a.id !== me.id) { cell.onclick = () => useOn(a); cell.title += `\nClick to cast ${sp.name} on ${a.name}.`; continue; }   // a healing or buff spell is picked: cast it
-    cell.onclick = () => allyMenu(a); cell.tabIndex = 0;
-    cell.title = (cell.title || a.name) + (a.id === me.id ? "\nThat is you. Click to drink a potion or cast a spell on yourself." : `\nAn ally: you cannot attack them. Click to heal, give a potion, buff, or play as ${a.name}.`);
+    const pm = view.party.find(p => p.name === a.name), mine = me ? a.id === me.id : hero ? a.id === hero.id : false;
+    const canPick = !mine && pm && !pm.dead && view.role === "player";
+    const sp = me && pending.kind === "spell" && o.spells.find(s => s.id === pending.index);
+    cell.classList.add("ally"); cell.tabIndex = 0;
+    const select = () => canPick ? setHero(pm.id) : mine ? toast(`You are already playing ${a.name}.`) : toast(`You cannot play ${a.name} right now.`);
+    const menu = ev => { if (ev) ev.preventDefault(); if (me) allyMenu(a); else toast(`You can help ${a.name} on your own turn.`); };
+    cell.oncontextmenu = menu;
+    cell.onkeydown = ev => { if (ev.key === "ContextMenu" || (ev.shiftKey && ev.key === "F10")) menu(ev); else if (ev.key === "Enter" || ev.key === " ") { ev.preventDefault(); cell.onclick(); } };
+    const base = (cell.title || a.name).split("\nAn ally")[0].split("\nThat is you")[0];
+    if (sp && sp.friendly && !mine) { cell.onclick = () => useOn(a); cell.title = base + `\nClick to cast ${sp.name} on ${a.name}. Right-click for more.`; continue; }   // a healing or buff spell is picked: cast it
+    cell.onclick = select;
+    cell.title = base + (mine ? `\nThat is you. Right-click to drink a potion or cast a spell on yourself.` : `\nAn ally: you cannot attack them. Click to play as ${a.name}. Right-click to heal, give a potion or buff them.`);
   }
 };
 
