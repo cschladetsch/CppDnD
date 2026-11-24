@@ -52,6 +52,27 @@ struct MatureImageStyle {
     bool narration = true;  // pictures drawn from a camera also say what the story last narrated
 };
 
+// Pictures of the story (camera views), images.json "story". A second language model, the illustrator (see Illustrator.hpp),
+// keeps a condensed history of the story and writes each picture's prompt from it, and the picture is worded as a photograph.
+// The illustrator's model: url and model empty use the game's own language model (whatever --llm-url / --ollama / agents
+// serve); set them to give the illustrator its own. With no model at all, views are worded from the camera alone, as before.
+struct StoryStyle {
+    bool enabled = true;      // false: no illustrator, views are worded from the camera (and, in mature mode, the last narration)
+    std::string url, path, model, apiKey, format;  // empty: the game's model; format "openai" (default) or "cppcoder"
+    int timeoutSec = 120;
+    double temperature = 0.4;
+    int maxTokens = 700;
+    int storyWords = 220, promptWords = 60;
+    // A realistic photograph instead of the module's illustration: these words lead, the module's setting words follow with
+    // their painting words taken out, and this negative replaces "photo" in the module's negative.
+    bool photo = true;
+    std::string prefix = "RAW photo, cinematic film still, photorealistic, 35mm photograph, natural skin texture, detailed realistic faces, natural lighting, film grain, sharp focus";
+    std::string negative = "painting, drawing, illustration, digital art, concept art, cartoon, anime, comic, 3d render, cgi, video game, sketch, plastic skin, doll, airbrushed, oversaturated, deformed iris, bad anatomy, bad hands";
+    std::string sampler = "DPM++ SDE Karras";  // Realistic Vision's own recommendation; empty: the normal sampler
+    int steps = 30;
+    double cfg = 5.5;
+};
+
 // The adults-only guard. In mature mode it is always applied, and nothing in any settings file can turn it off or
 // override it: every picture of people says they are adults, this negative prompt comes after every other one, and a
 // picture whose words mention a minor is refused rather than drawn.
@@ -77,6 +98,7 @@ struct ImageConfig {
     std::map<std::string, std::string> prompts;  // "characters/thorin" -> replacement for the generated subject
     bool mature = false;    // off by default; see MatureImageStyle
     MatureImageStyle matureStyle;
+    StoryStyle story;
     const std::string& ActiveCheckpoint() const { return mature && !matureStyle.checkpoint.empty() ? matureStyle.checkpoint : checkpoint; }
 
     // images.json (data/images.json, --images, DND_IMAGES), then the style file (art/style.json), then art/prompts.json.
@@ -149,6 +171,12 @@ struct ViewJob {
     std::uint32_t seed = 0;   // 0: derived from the id
     std::string module;       // the game's module, for its art style
     std::string narration;    // mature mode only: what the story last narrated, added to the subject
+    // Runs on the picture worker before drawing (it may take a while: it asks the illustrator model). Returns the prompt
+    // written from the story, or empty (err says why) to draw from subject and narration instead.
+    std::function<std::string(std::string& err)> compose;
+    std::string story;        // what compose wrote; replaces subject and narration
+    std::string composeError; // why compose wrote nothing, or why its words were not used
+    bool photo = false;       // word it as a photograph (StoryStyle)
 };
 
 // ---------------------------------------------------------------- the art service

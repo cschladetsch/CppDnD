@@ -18,6 +18,7 @@
 #include "dnd/Agents.hpp"
 #include "dnd/Content.hpp"
 #include "dnd/Game.hpp"
+#include "dnd/Illustrator.hpp"
 #include "dnd/Images.hpp"
 #include "dnd/Llm.hpp"
 #include "dnd/Scene.hpp"
@@ -37,6 +38,7 @@ struct Slot {
     std::optional<Json> undo;            // the game as it was before the player's last action (POST /undo)
     std::optional<Json> rewind;          // the game as it was after the last rest (POST /rewind)
     std::string modeBefore, locBefore;   // what the last POST started from, for telemetry
+    std::shared_ptr<StoryState> story = std::make_shared<StoryState>();  // the condensed story the illustrator draws from
 };
 
 struct Server {
@@ -706,6 +708,7 @@ int main(int argc, char** argv) {
     // ---- image generation: draws into the art folder, one picture at a time, in the background
     std::shared_ptr<ArtService> art;
     std::string imagesError, imagesFile;
+    StoryStyle icfgStory;
     if (!artDir.empty()) {
         namespace fs = std::filesystem;
         imagesFile = !imagesPath.empty() ? imagesPath : (std::getenv("DND_IMAGES") && *std::getenv("DND_IMAGES") ? std::getenv("DND_IMAGES") : (fs::path(dataDir) / "images.json").string());
@@ -713,6 +716,7 @@ int main(int argc, char** argv) {
         if (icfg) {
             icfg->mature = icfg->mature || S.llmCfg.mature;  // one switch for words and pictures: --mature, DND_MATURE, content.mature
             art = std::make_shared<ArtService>(*icfg, artDir);
+            icfgStory = icfg->story;
         }
         else std::cerr << "warning: image generation is off: " << imagesError << "\n";
     }
@@ -720,10 +724,31 @@ int main(int argc, char** argv) {
         if (!art) throw HttpError{503, imagesError.empty() ? "image generation is off (no art folder)" : imagesError};
         return *art;
     };
+    // The illustrator: a second language model pass that keeps each game's condensed story and writes the prompt of every
+    // picture drawn from a camera. Its own model when images.json "story" names one, else the game's model.
+    std::shared_ptr<Illustrator> illustrator;
+    if (art && icfgStory.enabled) {
+        std::shared_ptr<ILlmClient> client;
+        if (!icfgStory.model.empty() || !icfgStory.url.empty()) {
+            LlmConfig lc = S.llmCfg;  // same server, key and policy as the game's model unless the story block says otherwise
+            if (!icfgStory.url.empty()) lc.baseUrl = icfgStory.url;
+            if (!icfgStory.path.empty()) lc.path = icfgStory.path;
+            if (!icfgStory.model.empty()) lc.model = icfgStory.model;
+            if (!icfgStory.apiKey.empty()) lc.apiKey = icfgStory.apiKey;
+            if (!icfgStory.format.empty()) lc.format = icfgStory.format;
+            lc.timeoutSec = icfgStory.timeoutSec;
+            lc.stream = false;
+            lc.matureModel.clear();
+            client = S.mock ? std::shared_ptr<ILlmClient>(std::make_shared<MockLlmClient>()) : std::make_shared<HttpLlmClient>(lc);
+            client = ApplyContentPolicy(client, art->Mature());
+        } else client = S.llm;
+        if (client) illustrator = std::make_shared<Illustrator>(client, Illustrator::Config{icfgStory.storyWords, icfgStory.promptWords});
+    }
     svr.Get("/api/images", guarded([&](const httplib::Request&, httplib::Response& res) {
         if (!art) { Reply(res, 200, {{"enabled", false}, {"error", imagesError}, {"file", imagesFile}}); return; }
         Json s = art->Status();
         s["file"] = imagesFile;
+        s["illustrator"] = Json{{"enabled", illustrator != nullptr}, {"client", illustrator ? illustrator->Describe() : ""}, {"photo", icfgStory.photo}};
         Reply(res, 200, s);
     }));
     svr.Post("/api/images/generate", guarded([&](const httplib::Request& req, httplib::Response& res) {
@@ -759,14 +784,17 @@ int main(int argc, char** argv) {
         auto slot = find(req);
         const Json b = Body(req);
         Json scene;
-        std::string moduleOfGame, narration;
+        std::string moduleOfGame, narration, storyDir;
         const bool mature = needArt().Mature();
+        StoryMaterial material;
         {
             std::lock_guard<std::mutex> lk(slot->m);
             const Json view = slot->game->View(0);
             scene = BuildScene(view);
             if (mature) narration = RecentNarration(view);
+            if (illustrator) material = GatherStory(view, "", mature);
             moduleOfGame = slot->game->Config().moduleId;
+            storyDir = slot->game->Hist().Dir();
         }
         const Camera dflt = Camera::FromJson(scene["camera"]);
         const Camera cam = b.contains("camera") && b["camera"].is_object() ? Camera::FromJson(b["camera"], dflt) : dflt;
@@ -779,6 +807,19 @@ int main(int argc, char** argv) {
         job.strength = numOf("strength", 0.72);
         job.seed = static_cast<std::uint32_t>(numOf("seed", 0));
         job.subject = DescribeView(scene, cam, job.height > 0 ? static_cast<double>(job.width) / job.height : 16.0 / 9.0);
+        job.photo = icfgStory.photo;
+        if (illustrator && b.value("story", true)) {  // "story": false draws from the camera words alone
+            material.camera = job.subject;
+            job.compose = [illustrator, state = slot->story, material, storyDir](std::string& why) {
+                std::lock_guard<std::mutex> lk(state->m);
+                if (state->dir.empty()) state->dir = storyDir;
+                state->LoadIfNeeded();
+                const Illustrator::Shot shot = illustrator->Compose(state->digest, material);
+                if (!shot.ok) { why = shot.error; return std::string(); }
+                state->Save();
+                return shot.prompt;
+            };
+        }
         if (b.contains("init") && b["init"].is_string()) {
             std::string init = b["init"].get<std::string>();
             if (const auto comma = init.find(','); init.compare(0, 5, "data:") == 0 && comma != std::string::npos) init.erase(0, comma + 1);
@@ -790,7 +831,30 @@ int main(int argc, char** argv) {
         std::string err;
         needArt().EnqueueView(job, err);
         if (!err.empty()) throw HttpError{422, err};
-        Reply(res, 202, {{"id", job.id}, {"subject", job.subject}, {"narration", job.narration}, {"camera", cam.ToJson()}, {"state", "queued"}, {"hero", scene["hero"]}});
+        Reply(res, 202, {{"id", job.id}, {"subject", job.subject}, {"narration", job.narration}, {"fromStory", static_cast<bool>(job.compose)}, {"camera", cam.ToJson()}, {"state", "queued"}, {"hero", scene["hero"]}});
+    }));
+    // The condensed story the illustrator keeps for this game (rewritten each time a camera picture is drawn). DELETE forgets it.
+    svr.Get("/api/games/:id/story", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::string dir;
+        {
+            std::lock_guard<std::mutex> lk(slot->m);
+            dir = slot->game->Hist().Dir();
+        }
+        std::lock_guard<std::mutex> lk(slot->story->m);
+        if (slot->story->dir.empty()) slot->story->dir = dir;
+        slot->story->LoadIfNeeded();
+        Json out = slot->story->digest.ToJson();
+        out["illustrator"] = illustrator ? illustrator->Describe() : "";
+        Reply(res, 200, out);
+    }));
+    svr.Delete("/api/games/:id/story", guarded([&](const httplib::Request& req, httplib::Response& res) {
+        auto slot = find(req);
+        std::lock_guard<std::mutex> lk(slot->story->m);
+        slot->story->loaded = true;
+        slot->story->digest = StoryDigest{};
+        slot->story->Save();
+        Reply(res, 200, slot->story->digest.ToJson());
     }));
     svr.Get("/api/images/view/:id", guarded([&](const httplib::Request& req, httplib::Response& res) {
         Reply(res, 200, needArt().View(req.path_params.at("id")));

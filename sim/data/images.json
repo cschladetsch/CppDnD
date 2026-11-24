@@ -19,5 +19,19 @@
   // pictures follow the story, so people are dressed unless the narration says otherwise (camera pictures carry the latest narration).
   "mature": { "enabled": false, "checkpoint": "realistic-vision-5.1" },
 
+  // Camera pictures (the viewport, walk and camera views) follow the story. The illustrator, a second language model pass, keeps a
+  // condensed history of each game (<history>/<game>/story.json), rewrites it from what has happened since the last picture, and
+  // writes the picture's prompt from it in one call. model / url empty: the game's own model (whatever web.ps1 serves); name one
+  // to give the illustrator its own, e.g. "url": "http://127.0.0.1:11434", "model": "qwen2.5:7b" (in mature mode pick an uncensored
+  // one). storyWords and promptWords size the history and the prompt. photo: worded as a realistic photograph (prefix and negative
+  // below, the module's painting words removed); best with a photographic checkpoint such as realistic-vision-5.1.
+  "story": {
+    "enabled": true, "model": "", "url": "", "storyWords": 220, "promptWords": 60,
+    "photo": true,
+    "prefix": "RAW photo, cinematic film still, photorealistic, 35mm photograph, natural skin texture, detailed realistic faces, natural lighting, film grain, sharp focus",
+    "negative": "painting, drawing, illustration, digital art, concept art, cartoon, anime, comic, 3d render, cgi, video game, sketch, plastic skin, doll, airbrushed, oversaturated, deformed iris, bad anatomy, bad hands",
+    "sampler": "DPM++ SDE Karras", "steps": 30, "cfg": 5.5
+  },
+
   "timeoutSec": 600
 }

@@ -1096,10 +1096,10 @@ async function drawView(opts = {}) {
     const r = await api("GET", `/api/images/view/${encodeURIComponent(id)}`);
     if (r.status !== 200) { setViewMsg(viewError(r.data.error || "lost the server"), true); return null; }
     const st = r.data;
-    if (st.state === "done") { setViewMsg(""); refreshGallery(); return { url: st.url + "?t=" + Date.now(), subject: data.subject, camera: data.camera, hero: data.hero }; }
+    if (st.state === "done") { setViewMsg(""); refreshGallery(); return { url: st.url + "?t=" + Date.now(), subject: st.prompt || data.subject, camera: data.camera, hero: data.hero }; }
     if (st.state === "failed") { setViewMsg(viewError(st.error), true); return null; }
     if (st.state === "unknown") { setViewMsg("The server forgot this picture (it was restarted?).", true); return null; }
-    setViewMsg(st.state === "running" ? `Drawing... ${i + 1}s` : `Waiting for the image model... ${i + 1}s`);
+    setViewMsg(st.state === "running" ? (data.fromStory ? `Reading the story and drawing... ${i + 1}s` : `Drawing... ${i + 1}s`) : `Waiting for the image model... ${i + 1}s`);
   }
   setViewMsg("Gave up waiting after 30 minutes.", true);
   return null;

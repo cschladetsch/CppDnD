@@ -72,6 +72,46 @@ bool ReadJsonFile(const std::string& path, Json& out, std::string& err) {
 
 std::string Article(const std::string& word) { return !word.empty() && std::string("aeiouAEIOU").find(word[0]) != std::string::npos ? "an" : "a"; }
 
+// Comma-separated prompt phrases made fit for a photograph. For a prompt (negative false) the painting words are taken out of
+// each phrase ("dark gothic fantasy illustration, painterly" -> "dark gothic fantasy"); for a negative prompt the phrases that
+// would forbid a photograph ("photo", "photorealistic", ...) are dropped.
+std::string PhotoWords(const std::string& phrases, bool negative = false) {
+    static const std::vector<std::string> painting = {"digital painting", "oil painting", "concept art", "digital art", "fantasy art", "illustration", "painterly", "painting", "artwork", "drawing", "sketch", "cel shaded", "anime", "cartoon", "comic"};
+    static const std::set<std::string> photoish = {"photo", "photos", "photograph", "photography", "photographic", "realistic", "photorealistic", "photo-realistic", "realism", "hyperrealistic", "raw photo", "film still"};
+    std::string out, part;
+    auto flush = [&] {
+        std::string p = part;
+        part.clear();
+        auto trim = [](std::string& x) {
+            while (!x.empty() && std::isspace(static_cast<unsigned char>(x.front()))) x.erase(x.begin());
+            while (!x.empty() && std::isspace(static_cast<unsigned char>(x.back()))) x.pop_back();
+        };
+        trim(p);
+        if (negative) {
+            if (p.empty() || photoish.count(LowerCase(p))) return;
+        } else {
+            for (const auto& w : painting)
+                for (std::string low = LowerCase(p); ; low = LowerCase(p)) {
+                    const auto at = low.find(w);
+                    if (at == std::string::npos) break;
+                    p.erase(at, w.size());
+                }
+            std::string q;  // collapse the gaps left behind
+            for (char c : p) if (!(c == ' ' && (q.empty() || q.back() == ' '))) q.push_back(c);
+            p = q;
+            trim(p);
+            if (p.empty()) return;
+        }
+        out += (out.empty() ? "" : ", ") + p;
+    };
+    for (char c : phrases) {
+        if (c == ',') flush();
+        else part.push_back(c);
+    }
+    flush();
+    return out;
+}
+
 std::string Join(const std::vector<std::string>& v, const char* sep = " ") {
     std::string s;
     for (const auto& x : v) s += (s.empty() ? "" : sep) + x;
@@ -285,6 +325,28 @@ std::optional<ImageConfig> ImageConfig::Load(const std::string& imagesFile, cons
                 };
                 size("portrait", ms.portraitW, ms.portraitH);
                 size("wide", ms.wideW, ms.wideH);
+            }
+            if (j.contains("story")) {
+                const Json& t = j["story"];
+                if (!t.is_object()) { err = imagesFile + ": \"story\" must be an object"; return std::nullopt; }
+                StoryStyle& ss = c.story;
+                ss.enabled = t.value("enabled", ss.enabled);
+                ss.url = t.value("url", ss.url);
+                ss.path = t.value("path", ss.path);
+                ss.model = t.value("model", ss.model);
+                ss.apiKey = t.value("apiKey", ss.apiKey);
+                ss.format = t.value("format", ss.format);
+                ss.timeoutSec = std::max(5, t.value("timeoutSec", ss.timeoutSec));
+                ss.temperature = t.value("temperature", ss.temperature);
+                ss.maxTokens = std::clamp(t.value("maxTokens", ss.maxTokens), 100, 4000);
+                ss.storyWords = std::clamp(t.value("storyWords", ss.storyWords), 40, 1000);
+                ss.promptWords = std::clamp(t.value("promptWords", ss.promptWords), 10, 200);
+                ss.photo = t.value("photo", ss.photo);
+                ss.prefix = t.value("prefix", ss.prefix);
+                ss.negative = t.value("negative", ss.negative);
+                ss.sampler = t.value("sampler", ss.sampler);
+                ss.steps = std::clamp(t.value("steps", ss.steps), 0, 150);
+                ss.cfg = t.value("cfg", ss.cfg);
             }
         } else if (!e.empty()) { err = e; return std::nullopt; }
         if (c.backend != "a1111" && c.backend != "openai") { err = "images backend must be \"a1111\" or \"openai\", not \"" + c.backend + "\""; return std::nullopt; }
@@ -610,7 +672,8 @@ void ArtService::Worker() {
             if (it.view) {
                 if (ok) {
                     const std::string file = fs::path(Existing("views", it.view->id)).filename().string();
-                    views_[it.view->id] = Json{{"state", "done"}, {"url", "/art/views/" + file}};
+                    views_[it.view->id] = Json{{"state", "done"}, {"url", "/art/views/" + file}, {"prompt", it.view->story.empty() ? it.view->subject : it.view->story}, {"fromStory", !it.view->story.empty()}};
+                    if (!it.view->composeError.empty()) views_[it.view->id]["storyError"] = it.view->composeError;
                 } else views_[it.view->id] = Json{{"state", "failed"}, {"error", err}};
             }
             if (ok) {
@@ -642,7 +705,18 @@ bool ArtService::Do(const Item& it, std::string& err) {
     const std::string eff = EffectiveCheckpoint(problem);
     if (!problem.empty()) { err = problem; return false; }
 
+    if (it.view && it.view->compose && it.view->story.empty()) {  // the illustrator writes the prompt from the story; on failure the camera words draw
+        std::string why;
+        try { it.view->story = it.view->compose(why); } catch (const std::exception& ex) { it.view->story.clear(); why = ex.what(); }
+        if (it.view->story.empty()) it.view->composeError = why.empty() ? "the illustrator wrote nothing" : why;
+    }
     ImageRequest r;
+    if (it.view && !it.view->story.empty() && !BuildRequest(it.s, it.promptOverride, it.view.get(), r, err)) {
+        // the illustrator's words tripped a guard: drop them and draw from the camera words, which are checked the same way
+        it.view->composeError = err;
+        it.view->story.clear();
+        err.clear();
+    }
     if (!BuildRequest(it.s, it.promptOverride, it.view.get(), r, err)) return false;
     r.checkpoint = eff;
 
@@ -689,10 +763,14 @@ bool ArtService::BuildRequest(const ArtSubject& s, const std::string& promptOver
     const bool mature = cfg.mature;
     const MatureImageStyle& ms = cfg.matureStyle;
     const ImageStyle& st = cfg.style;
-    std::string subject = view ? view->subject : promptOverride.empty() ? s.subject : promptOverride;
+    const StoryStyle& ss = cfg.story;
+    const bool fromStory = view && !view->story.empty();
+    const bool photo = view && view->photo;
+    std::string subject = fromStory ? view->story : view ? view->subject : promptOverride.empty() ? s.subject : promptOverride;
     // the story leads: what was last narrated (who is doing what, and what they wear or do not) goes before the camera and
-    // place words, so Stable Diffusion, which weighs early words most, follows the narrative rather than a stock look
-    if (mature && view && ms.narration && !view->narration.empty()) subject = view->narration + (subject.empty() ? "" : ", " + subject);
+    // place words, so Stable Diffusion, which weighs early words most, follows the narrative rather than a stock look.
+    // The illustrator's prompt already holds the story, so nothing is added to it.
+    if (!fromStory && mature && view && ms.narration && !view->narration.empty()) subject = view->narration + (subject.empty() ? "" : ", " + subject);
     std::string framing;
     // the module's own look (art in its JSON) replaces the global words; mature words replace both
     const std::string moduleId = view ? view->module : s.module;
@@ -700,6 +778,12 @@ bool ArtService::BuildRequest(const ArtSubject& s, const std::string& promptOver
     const ArtStyleDef* art = mod ? &mod->art : nullptr;
     std::string prefix = art && !art->prefix.empty() ? art->prefix : st.prefix;
     std::string suffix = art && !art->suffix.empty() ? art->suffix : st.suffix;
+    std::string setting;  // photo: the module's setting words, without their painting words, after the subject
+    if (photo) {
+        setting = PhotoWords(prefix);
+        prefix = ss.prefix;
+        suffix = PhotoWords(suffix);
+    }
     if (mature && !ms.prefix.empty()) prefix = ms.prefix;
     if (mature && !ms.suffix.empty()) suffix = ms.suffix;
     if (!view && !s.custom && promptOverride.empty()) {
@@ -710,20 +794,24 @@ bool ArtService::BuildRequest(const ArtSubject& s, const std::string& promptOver
     // adults only: a person is said to be an adult right after what they are, where the model gives it the most weight
     const std::string adult = mature && (s.person || view) ? (view ? std::string("every person shown is an adult") : AdultWords(s.gender)) : "";
     r.prompt.clear();
-    for (const std::string& part : {prefix, subject, adult, framing, suffix}) {  // comma-separated phrases, as Stable Diffusion likes them
+    for (const std::string& part : {prefix, subject, adult, framing, setting, suffix}) {  // comma-separated phrases, as Stable Diffusion likes them
         if (part.empty()) continue;
         if (!r.prompt.empty()) r.prompt += (r.prompt.back() == ',' || r.prompt.back() == '.') ? " " : ", ";
         r.prompt += part;
     }
     r.negative = art && !art->negative.empty() ? art->negative : st.negative;
+    if (photo) {  // a photograph: "photo" and its kin come out of the negative, and painting and render words go in
+        r.negative = PhotoWords(r.negative, true);
+        if (!ss.negative.empty()) r.negative += (r.negative.empty() ? "" : ", ") + ss.negative;
+    }
     if (mature) {
         if (MentionsMinor(r.prompt)) { err = "not drawn: mature mode only draws adults, and this picture's words mention a minor"; return false; }
         for (const std::string& extra : {ms.negative, AdultsOnlyNegative()})  // the guard always comes last
             if (!extra.empty()) r.negative += (r.negative.empty() ? "" : ", ") + extra;
     }
-    r.sampler = mature && !ms.sampler.empty() ? ms.sampler : st.sampler;
-    r.steps = mature && ms.steps > 0 ? ms.steps : st.steps;
-    r.cfg = mature && ms.cfg > 0 ? ms.cfg : st.cfg;
+    r.sampler = mature && !ms.sampler.empty() ? ms.sampler : photo && !ss.sampler.empty() ? ss.sampler : st.sampler;
+    r.steps = mature && ms.steps > 0 ? ms.steps : photo && ss.steps > 0 ? ss.steps : st.steps;
+    r.cfg = mature && ms.cfg > 0 ? ms.cfg : photo && ss.cfg > 0 ? ss.cfg : st.cfg;
     const bool msize = mature && (s.wide ? ms.wideW > 0 : ms.portraitW > 0);
     r.width = s.wide ? (msize ? ms.wideW : st.wideW) : (msize ? ms.portraitW : st.portraitW);
     r.height = s.wide ? (msize ? ms.wideH : st.wideH) : (msize ? ms.portraitH : st.portraitH);
