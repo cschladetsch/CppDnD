@@ -176,7 +176,7 @@ function Start-Background {
     if ($script:OnWindows) { $p.WindowStyle = 'Hidden' }
     return (Start-Process @p)
 }
-# Stop a process and everything it started (launch.py starts the web UI's Python server; ollama serve starts runners).
+# Stop a process and everything it started (webui.bat and webui.sh start Python; ollama serve starts runners).
 function Stop-Tree($id) {
     if (-not $id) { return }
     $eap = $ErrorActionPreference; $ErrorActionPreference = 'Continue'   # taskkill writes to stderr when the process has gone

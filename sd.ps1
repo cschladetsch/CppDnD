@@ -1,7 +1,6 @@
 #!/usr/bin/env pwsh
 # Stable Diffusion for CppDnD: check what it needs, install it, start it, stop it.
-# PowerShell 7 on Windows, Linux or macOS (or Windows PowerShell 5.1). It runs A1111's launch.py with Python 3.10 in a venv itself;
-# A1111's own webui.bat and webui.sh are never used.
+# PowerShell 7 on Windows, Linux or macOS (or Windows PowerShell 5.1). Windows runs webui.bat, Linux and macOS webui.sh.
 # CppDnD draws pictures through an AUTOMATIC1111 server (started with --api). This script sets one up.
 #   ./sd.ps1                 same as -Check
 #   ./sd.ps1 -Check          report every requirement (changes nothing)
@@ -57,7 +56,7 @@ function Info($msg) { Write-Host "         $msg" -ForegroundColor DarkGray }
 
 . (Join-Path (Join-Path $PSScriptRoot 'scripts') 'common.ps1')   # $OnWindows, PathOf, Install-Package, Stop-Tree, ...
 $isWin = $OnWindows
-$appleGpu = $OnMac -and ("$(& uname -m 2>$null)".Trim() -eq 'arm64')   # A1111 runs on Metal (MPS) there
+$appleGpu = $OnMac -and ("$(& uname -m 2>$null)".Trim() -eq 'arm64')   # A1111's webui.sh runs on Metal (MPS) there
 if (-not ($Check -or $Install -or $Start -or $Stop -or $Installed -or $Warm)) { $Check = $true }
 
 # A profile may install a command-not-found handler that prints a line for every Get-Command probe below; mute it while this script runs.
@@ -71,7 +70,7 @@ if (-not $sdRoot) {
     if ($isWin) { $sdRoot = PathOf (Get-DataHome) 'CppDnD' 'sd' } else { $sdRoot = PathOf (Get-DataHome) 'cppdnd' 'sd' }
 }
 $webui    = PathOf $sdRoot 'stable-diffusion-webui'
-$launcher = PathOf $webui 'launch.py'   # A1111's entry point: installs PyTorch and its requirements on the first start, then serves
+$launcher = if ($isWin) { PathOf $webui 'webui.bat' } else { PathOf $webui 'webui.sh' }
 $venvPy   = if ($isWin) { PathOf $webui 'venv' 'Scripts' 'python.exe' } else { PathOf $webui 'venv' 'bin' 'python' }
 $logFile  = PathOf $sdRoot 'sd.log'
 $errFile  = PathOf $sdRoot 'sd.err.log'
@@ -136,8 +135,8 @@ function Model-Ready {
 function Show-Requirements([bool]$forInstall) {
     Head 'Stable Diffusion requirements'
     if ($isWin) { Ok "Windows ($([Environment]::OSVersion.Version))" }
-    elseif ($OnMac) { Ok "macOS$(if ($appleGpu) { ' (Apple Silicon GPU)' })" }
-    else { Ok 'Linux (needs the python3.10 venv module, e.g. apt package python3.10-venv)' }
+    elseif ($OnMac) { Ok "macOS (webui.sh$(if ($appleGpu) { ', Apple Silicon GPU' }))" }
+    else { Ok 'Linux (webui.sh; needs the python3.10 venv module, e.g. apt package python3.10-venv)' }
 
     $git = Get-Command git -ErrorAction SilentlyContinue
     if ($git) { Ok "git  $($git.Source)" } else { Bad "git is not on PATH (./sd.ps1 -Install installs it: $(Get-InstallHint $gitPkg))" }
@@ -271,6 +270,17 @@ $knownVae = @{
     }
 }
 
+# webui.bat ends with "pause": once the server process has ended (it never does on success) the hidden window waits for a key forever.
+function Test-LaunchEnded {
+    foreach ($f in @($errFile, $logFile)) {
+        if ((Test-Path $f) -and (Get-Content $f -Tail 3 -ErrorAction SilentlyContinue | Where-Object { $_ -match 'Press any key to continue' })) { return $true }
+    }
+    return $false
+}
+function Stop-StuckLaunch($proc) {
+    if ($proc -and -not $proc.HasExited) { Stop-Tree $proc.Id }
+}
+
 # The checkpoints images.json draws with ("checkpoint", and "mature"."checkpoint" or -MatureModel) and their VAEs, fetched now
 # so the first ./web.ps1 does not stop to offer them. Only models in $knownModels can be fetched; others are put in by hand.
 function Install-Checkpoints {
@@ -308,7 +318,7 @@ function Start-Sd {
     $py = Find-Python310
     $args_ = @('--api', '--nowebui', '--port', "$Port", '--ckpt-dir', ('"' + $modelDir.Replace('\', '/') + '"'), '--no-download-sd-model')
     $gpu = Get-Gpu
-    if ($appleGpu -and -not $Cpu) { }   # the macOS flags come from webui-macos-env.sh, read below
+    if ($appleGpu -and -not $Cpu) { }   # webui.sh adds the macOS flags itself (webui-macos-env.sh)
     elseif ($Cpu -or -not $gpu) { $args_ += @('--use-cpu', 'all', '--no-half', '--skip-torch-cuda-test') }
     elseif ($gpu.MiB -lt 4000) { $args_ += '--lowvram' }
     elseif ($gpu.MiB -lt 9000 -and $Tune -in 'auto', 'medvram') { $args_ += '--medvram' }   # 8 GB cards run out of memory at 768 px wide pictures without it
@@ -355,48 +365,35 @@ function Start-Sd {
     }
     if ($env:DND_SD_ARGS) { $args_ += $env:DND_SD_ARGS }
 
-    # A previous start that is still running (or hung) would still be holding the pid file.
+    # A previous start that hung (webui.bat waits for a key after an error) would still be holding the pid file.
     if (Test-Path $pidFile) {
         $old = [int](Get-Content $pidFile -ErrorAction SilentlyContinue | Select-Object -First 1)
         if ($old -and (Get-Process -Id $old -ErrorAction SilentlyContinue)) { Stop-Tree $old }
         Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
     }
-    # The first start makes the venv here (what webui.bat and webui.sh would do), then launch.py installs PyTorch into it.
-    $firstRun = -not (Test-Path $venvPy)
-    if ($firstRun) {
-        if (-not $py) { Bad 'Python 3.10 is needed to make the venv; run ./sd.ps1 -Install'; return }
-        Write-Host "  making the Python 3.10 venv in $(PathOf $webui 'venv') ..."
-        & $py.Path -m venv (PathOf $webui 'venv')
-        if ($LASTEXITCODE -or -not (Test-Path $venvPy)) { Bad "could not make the venv$(if (-not $isWin) { ' (on Debian and Ubuntu install python3.10-venv)' })"; return }
-    }
-    $envVars = @{ COMMANDLINE_ARGS = ''; PYTORCH_CUDA_ALLOC_CONF = $env:PYTORCH_CUDA_ALLOC_CONF }
-    if (-not $env:PYTORCH_CUDA_ALLOC_CONF -and $Tune -eq 'alloc') { $envVars.PYTORCH_CUDA_ALLOC_CONF = 'garbage_collection_threshold:0.8,max_split_size_mb:128' }   # opt-in only: with this the server process exits silently after loading on an RTX 2070 (torch 2.1.2, Windows)
-    $macEnv = PathOf $webui 'webui-macos-env.sh'
-    if ($appleGpu -and -not $Cpu -and (Test-Path $macEnv)) {
-        # A1111 keeps its macOS settings (Metal flags, the torch build) in this file. Read its values rather than run it;
-        # the last TORCH_COMMAND in it is the Apple Silicon one.
-        foreach ($m in [regex]::Matches((Get-Content -Raw $macEnv), '(?m)^\s*export\s+(\w+)="([^"$]*)"')) {
-            if ($m.Groups[1].Value -ne 'install_dir') { $envVars[$m.Groups[1].Value] = $m.Groups[2].Value }
-        }
-    }
-    $envVars.COMMANDLINE_ARGS = (@($envVars.COMMANDLINE_ARGS) + $args_ | Where-Object { $_ }) -join ' '
-    $saved = @{}
-    foreach ($k in $envVars.Keys) { $saved[$k] = [Environment]::GetEnvironmentVariable($k); [Environment]::SetEnvironmentVariable($k, $envVars[$k]) }
+    $saved = @{ CA = $env:COMMANDLINE_ARGS; PY = $env:PYTHON; PYC = $env:python_cmd; ROOT = $env:can_run_as_root; ALLOC = $env:PYTORCH_CUDA_ALLOC_CONF }
+    if (-not $env:PYTORCH_CUDA_ALLOC_CONF -and $Tune -eq 'alloc') { $env:PYTORCH_CUDA_ALLOC_CONF = 'garbage_collection_threshold:0.8,max_split_size_mb:128' }   # opt-in only: with this the server process exits silently after loading on an RTX 2070 (torch 2.1.2, Windows)
+    $env:COMMANDLINE_ARGS = ($args_ -join ' ')
+    if ($py) { $env:PYTHON = $py.Path; $env:python_cmd = $py.Path }   # webui.bat reads PYTHON, webui.sh reads python_cmd
+    $env:can_run_as_root = '1'
     New-Item -ItemType Directory -Force -Path $sdRoot | Out-Null
-    Write-Host "  starting: $venvPy launch.py"
-    Write-Host "  flags:    $($envVars.COMMANDLINE_ARGS)"
+    Write-Host "  starting: $launcher"
+    Write-Host "  flags:    $($env:COMMANDLINE_ARGS)"
     try {
-        $sp = @{ FilePath = $venvPy; ArgumentList = @('-u', 'launch.py'); WorkingDirectory = $webui; RedirectStandardOutput = $logFile; RedirectStandardError = $errFile; PassThru = $true }
-        if ($isWin) { $sp.WindowStyle = 'Hidden' }
-        $proc = Start-Process @sp
+        if ($isWin) {
+            $proc = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', 'webui.bat') -WorkingDirectory $webui -WindowStyle Hidden -RedirectStandardOutput $logFile -RedirectStandardError $errFile -PassThru
+        } else {
+            $proc = Start-Process -FilePath 'bash' -ArgumentList @('webui.sh') -WorkingDirectory $webui -RedirectStandardOutput $logFile -RedirectStandardError $errFile -PassThru
+        }
     } finally {
-        foreach ($k in $saved.Keys) { [Environment]::SetEnvironmentVariable($k, $saved[$k]) }
+        $env:COMMANDLINE_ARGS = $saved.CA; $env:PYTHON = $saved.PY; $env:python_cmd = $saved.PYC; $env:can_run_as_root = $saved.ROOT; $env:PYTORCH_CUDA_ALLOC_CONF = $saved.ALLOC
     }
     if (-not $proc) { Bad 'could not start the server'; return }
     Set-Content -Path $pidFile -Value $proc.Id
     if ($NoWait) {
-        for ($i = 0; $i -lt 20 -and -not $proc.HasExited; $i++) { Start-Sleep -Seconds 1 }
-        if ($proc.HasExited) {
+        for ($i = 0; $i -lt 20 -and -not $proc.HasExited -and -not (Test-LaunchEnded); $i++) { Start-Sleep -Seconds 1 }
+        if ($proc.HasExited -or (Test-LaunchEnded)) {
+            Stop-StuckLaunch $proc
             Bad "the server exited with code $($proc.ExitCode) right after starting. Last log lines:"
             foreach ($f in @($errFile, $logFile)) { if (Test-Path $f) { Get-Content $f -Tail 8 | ForEach-Object { Info $_ } } }
             Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
@@ -404,13 +401,14 @@ function Start-Sd {
         }
         Ok "launched in the background (log: $logFile); the Pictures panel works once it answers at $apiUrl"; return
     }
-    if ($firstRun) { Write-Host '  first run: installing PyTorch and the web UI requirements (10-20 minutes)' -ForegroundColor Yellow }
+    if (-not (Test-Path $venvPy)) { Write-Host '  first run: installing PyTorch and the web UI requirements (10-20 minutes)' -ForegroundColor Yellow }
 
     $deadline = (Get-Date).AddMinutes($TimeoutMin)
     $tick = 0
     while ((Get-Date) -lt $deadline) {
         if (Test-Api) { Ok "API answering at $apiUrl"; Write-Host 'Stable Diffusion is running. Log: ' $logFile -ForegroundColor Green; return }
-        if ($proc.HasExited) {
+        if ($proc.HasExited -or (Test-LaunchEnded)) {
+            Stop-StuckLaunch $proc
             Bad "the server exited with code $($proc.ExitCode). Last log lines:"
             foreach ($f in @($errFile, $logFile)) { if (Test-Path $f) { Get-Content $f -Tail 8 | ForEach-Object { Info $_ } } }
             Remove-Item -Force $pidFile -ErrorAction SilentlyContinue
