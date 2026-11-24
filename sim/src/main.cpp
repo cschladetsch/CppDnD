@@ -34,6 +34,9 @@ void Usage() {
         "  --llm-say                 type plain English at the prompt (same model settings)\n"
         "  --history DIR             write each pair's private x-y.json and group-history.json to DIR\n"
         "  --agents [file]           every actor is its own model (default file: <data>/agents.json or DND_AGENTS)\n"
+        "  --mature [--mature-model NAME]  adult content: the model follows your instructions without refusing; every\n"
+        "                            character in sexual content is an adult. Also on from DND_MATURE=1 or content.mature in\n"
+        "                            agents.json, whose content.model is used. Implies --llm-narration and --llm-say\n"
         "  --quiet                   no narration\n"
         "  --list                    list modules, characters and monsters\n"
         "In exploration type 'help'; in a fight type 'help' at your turn. 'swap player|dm|auto' changes role mid-fight.\n";
@@ -148,8 +151,8 @@ int main(int argc, char** argv) {
     cfg.role = Role::Spectator;
     cfg.seed = std::random_device{}();
     std::string dataDir = Content::DefaultDataDir(), loadPath, savePath;
-    bool quiet = false, list = false, llmSay = false, interactive = false, useAgents = false;
-    std::string agentsPath, historyDir;
+    bool quiet = false, list = false, llmSay = false, interactive = false, useAgents = false, mature = false;
+    std::string agentsPath, historyDir, matureModel;
 
     for (int i = 1; i < argc; ++i) {
         const std::string a = argv[i];
@@ -174,6 +177,8 @@ int main(int argc, char** argv) {
         else if (a == "--llm-say") llmSay = true;
         else if (a == "--agents") { useAgents = true; if (i + 1 < argc && argv[i + 1][0] != '-') agentsPath = argv[++i]; }
         else if (a == "--interactive" || a == "-i") interactive = true;
+        else if (a == "--mature") mature = true;
+        else if (a == "--mature-model") { mature = true; matureModel = next(); }
         else if (a == "--history") historyDir = (i + 1 < argc) ? argv[++i] : "";
         else if (a == "--quiet") quiet = true;
         else if (a == "--list") list = true;
@@ -211,20 +216,34 @@ int main(int argc, char** argv) {
         g->SetHumanFactory(human);
         if (!quiet) g->SetListener(Print);
 
+        // Adult content, as in the server: --mature, DND_MATURE=1 or content.mature in the agents file. The agents file
+        // also names the model to use (content.model); it is read even without --agents, and only --agents needs it.
+        LlmConfig lc = LlmConfig::FromEnv();
+        if (mature) lc.mature = true;
+        if (!matureModel.empty()) lc.matureModel = matureModel;
+        const bool askedMature = lc.mature;   // on the command line or DND_MATURE, as opposed to the agents file
+        if (agentsPath.empty()) agentsPath = std::getenv("DND_AGENTS") && *std::getenv("DND_AGENTS") ? std::getenv("DND_AGENTS") : dataDir + "/agents.json";
+        std::string agentsErr;
+        auto acfg = AgentsConfig::Load(agentsPath, agentsErr);
+        if (acfg && acfg->mature) lc.mature = true;
+        if (acfg && lc.mature) acfg->mature = true;
+        if (lc.mature && lc.matureModel.empty() && acfg) lc.matureModel = acfg->dm.matureModel;
+        if (lc.mature && !lc.matureModel.empty()) lc.model = lc.matureModel;
+        // asking for mature mode is asking for what the model writes, so it brings the model in: narration and plain-English commands
+        bool narrate = g->Config().llmNarration;
+        if (askedMature && !narrate && !llmSay && !g->Config().agents) narrate = llmSay = true;
+
         std::shared_ptr<ILlmClient> llm;
-        if (g->Config().llmNarration || g->Config().llmDm || llmSay) {
-            const LlmConfig lc = LlmConfig::FromEnv();
-            llm = std::make_shared<HttpLlmClient>(lc);
-            if (g->Config().llmNarration) { g->SetNarrator(MakeLlmNarrator(llm, *g)); g->SetDescriber(MakeLlmDescriber(llm, *g)); g->SetRoomWriter(MakeLlmRoomWriter(llm, *g)); g->SetChatter(MakeLlmChatter(llm, *g)); g->SetNpcVoice(MakeLlmNpcVoice(llm, *g)); }
+        if (narrate || g->Config().llmDm || llmSay) {
+            llm = ApplyContentPolicy(std::make_shared<HttpLlmClient>(lc), lc.mature);
+            if (narrate) { g->SetNarrator(MakeLlmNarrator(llm, *g)); g->SetDescriber(MakeLlmDescriber(llm, *g)); g->SetRoomWriter(MakeLlmRoomWriter(llm, *g)); g->SetChatter(MakeLlmChatter(llm, *g)); g->SetNpcVoice(MakeLlmNpcVoice(llm, *g)); }
             if (g->Config().llmDm) g->SetMonsterFactory([llm] { return std::make_unique<LlmDmController>(llm); });
             std::cerr << "LLM: " << llm->Describe() << "  model store: " << LocateModel(lc.model).path << "\n";
+            if (lc.mature) std::cerr << "Mature content: on (model " << (lc.model.empty() ? std::string("from the server") : lc.model) << ")\n";
         }
 
         if (g->Config().agents) {
-            if (agentsPath.empty()) agentsPath = std::getenv("DND_AGENTS") && *std::getenv("DND_AGENTS") ? std::getenv("DND_AGENTS") : dataDir + "/agents.json";
-            std::string err;
-            auto acfg = AgentsConfig::Load(agentsPath, err);
-            if (!acfg) { std::cerr << err << "\n"; return 2; }
+            if (!acfg) { std::cerr << agentsErr << "\n"; return 2; }
             auto table = std::make_shared<AgentTable>(*acfg);
             AgentTable::Attach(table, *g);
             std::cerr << "AI table (" << agentsPath << "):\n";

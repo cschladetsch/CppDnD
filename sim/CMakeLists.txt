@@ -85,6 +85,12 @@ if(NOT GTest_FOUND)
     set(gtest_force_shared_crt ON CACHE BOOL "" FORCE)
     FetchContent_Declare(googletest URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.tar.gz)
     FetchContent_MakeAvailable(googletest)
+    # its own warnings (newer clang flags some in gtest 1.15) are not ours to fix
+    foreach(t gtest gtest_main gmock gmock_main)
+        if(TARGET ${t} AND NOT MSVC)
+            target_compile_options(${t} PRIVATE -w)
+        endif()
+    endforeach()
 endif()
 include(GoogleTest)
 

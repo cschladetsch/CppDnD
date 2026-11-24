@@ -2,10 +2,14 @@
 # Build (if needed) and run the simulator. PowerShell 7 on Windows, Linux or macOS (or Windows PowerShell 5.1).
 #   ./run.ps1 --module ravenmoor --role player --hero elara     terminal client
 #   ./run.ps1 -Server --port 8088                               HTTP server
+#   ./run.ps1 --module meridian -i -Mature                      adult content (passes --mature): the model narrates and
+#                                                               reads plain English; needs a model server (DND_LLM_URL),
+#                                                               which web.ps1 -Mature starts for you
 #   ./run.ps1 -Rebuild                                          force a clean configure
 param(
     [switch]$Server,
     [switch]$Rebuild,
+    [switch]$Mature,
     [Parameter(ValueFromRemainingArguments = $true)] [string[]]$AppArgs
 )
 $ErrorActionPreference = 'Stop'
@@ -20,5 +24,6 @@ cmake --build $build
 if ($LASTEXITCODE) { exit $LASTEXITCODE }
 
 $exe = PathOf $build (Exe $(if ($Server) { 'dnd_server' } else { 'dnd_sim' }))
+if ($Mature) { $AppArgs = @($AppArgs) + '--mature' }
 & $exe @AppArgs
 exit $LASTEXITCODE
