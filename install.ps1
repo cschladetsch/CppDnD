@@ -26,7 +26,8 @@
 #                                 fetches the model store and GoogleTest
 #   6. tests                      ctest
 #   7. Ollama and its models      optional: the plain-English prompt and the AI table (models are read from sim/data/agents.json)
-#   8. Stable Diffusion           optional: delegates to sd.ps1 -Install (NVIDIA GPU or Apple Silicon, Python 3.10, about 15 GB)
+#   8. Stable Diffusion           optional: delegates to sd.ps1 -Install (NVIDIA GPU or Apple Silicon, Python 3.10, the SD 1.5 model and the
+#                                 checkpoints images.json names, about 20 GB), then sd.ps1 -Warm: one start and stop that installs PyTorch
 #   9. a summary of what is ready and how to start it
 # Needs network access to github.com for the source and CMake's fetches (plus huggingface.co, pypi.org and download.pytorch.org for pictures,
 # and ollama.com for models). Nothing is changed outside the install locations of the tools above and the checkout.
@@ -403,10 +404,21 @@ else {
     elseif (-not $gpu) { Warn 'no NVIDIA GPU found, so picture generation is skipped (./sd.ps1 -Install -Cpu works without one but takes minutes per picture)' }
     else {
         Ok "GPU: $gpu"
-        if (Ask 'Install Stable Diffusion (AUTOMATIC1111, Python 3.10, the SD 1.5 model: about 15 GB)?') {
+        if (Ask 'Install Stable Diffusion (AUTOMATIC1111, Python 3.10, SD 1.5 and Realistic Vision 5.1 with its VAE: about 20 GB)?') {
             $a = @('-Install'); if ($Yes) { $a += '-Yes' }
             & $sd @a
-            if ($LASTEXITCODE) { Warn 'sd.ps1 -Install did not finish; run it again later (it resumes)' } else { $artReady = $true; Ok 'Stable Diffusion installed (the first start also installs PyTorch, 10-20 minutes)' }
+            if ($LASTEXITCODE) { Warn 'sd.ps1 -Install did not finish; run it again later (it resumes)' }
+            else {
+                $artReady = $true
+                Ok 'Stable Diffusion installed'
+                # The first start installs PyTorch (10-20 minutes); doing it here means the first game does not wait for it.
+                if (Ask 'Start Stable Diffusion once now to finish its setup (PyTorch and the web UI requirements: 10-20 minutes, about 5 GB)?') {
+                    $w = @('-Warm'); if ($Yes) { $w += '-Yes' }
+                    & $sd @w
+                    if ($LASTEXITCODE) { Warn 'the first start of Stable Diffusion failed; ./sd.ps1 -Check and sd.log say why, and ./web.ps1 tries again' }
+                    else { Ok 'Stable Diffusion is set up and starts in about a minute from now on' }
+                } else { Info 'skipped; the first ./web.ps1 does it instead (10-20 minutes)' }
+            }
         } else { Info 'skipped; run ./sd.ps1 -Install later' }
     }
 }

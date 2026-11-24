@@ -4,6 +4,7 @@
 # CppDnD draws pictures through an AUTOMATIC1111 server (started with --api). This script sets one up.
 #   ./sd.ps1                 same as -Check
 #   ./sd.ps1 -Check          report every requirement (changes nothing)
+#   ./sd.ps1 -Warm           start once and stop again, so the first-run setup (PyTorch, 10-20 minutes) is done ahead of play
 #   ./sd.ps1 -Install        install what is missing: git and Python 3.10 (winget, apt/dnf/pacman/zypper or Homebrew; asks first),
 #                            AUTOMATIC1111 (cloned), and the SD 1.5 model (into the CppLmmModelStore)
 #   ./sd.ps1 -Start          start the API server in the background and wait until it answers
@@ -35,6 +36,7 @@ param(
     [switch]$Cpu,
     [switch]$NoWait,
     [switch]$Installed,
+    [switch]$Warm,
     [switch]$Mature,
     [string]$MatureModel = '',
     [ValidateSet('auto', 'none', 'medvram', 'alloc')][string]$Tune = 'auto',
@@ -55,7 +57,7 @@ function Info($msg) { Write-Host "         $msg" -ForegroundColor DarkGray }
 . (Join-Path (Join-Path $PSScriptRoot 'scripts') 'common.ps1')   # $OnWindows, PathOf, Install-Package, Stop-Tree, ...
 $isWin = $OnWindows
 $appleGpu = $OnMac -and ("$(& uname -m 2>$null)".Trim() -eq 'arm64')   # A1111's webui.sh runs on Metal (MPS) there
-if (-not ($Check -or $Install -or $Start -or $Stop -or $Installed)) { $Check = $true }
+if (-not ($Check -or $Install -or $Start -or $Stop -or $Installed -or $Warm)) { $Check = $true }
 
 # A profile may install a command-not-found handler that prints a line for every Get-Command probe below; mute it while this script runs.
 $cnfSaved = $ExecutionContext.SessionState.InvokeCommand.CommandNotFoundAction
@@ -219,6 +221,7 @@ function Install-All {
 
     if (Model-Ready) { Ok 'model already in the model store' }
     elseif (-not (Get-ModelFile $modelFile $modelUrl $modelBytes 'the model (4.3 GB)')) { return }
+    Install-Checkpoints
     Write-Host ''
     Write-Host 'Installed. Next: ./sd.ps1 -Start   (the first start installs PyTorch and takes 10-20 minutes)' -ForegroundColor Green
 }
@@ -276,6 +279,32 @@ function Test-LaunchEnded {
 }
 function Stop-StuckLaunch($proc) {
     if ($proc -and -not $proc.HasExited) { Stop-Tree $proc.Id }
+}
+
+# The checkpoints images.json draws with ("checkpoint", and "mature"."checkpoint" or -MatureModel) and their VAEs, fetched now
+# so the first ./web.ps1 does not stop to offer them. Only models in $knownModels can be fetched; others are put in by hand.
+function Install-Checkpoints {
+    $names = @()
+    try {
+        $j = Read-JsonFile (PathOf $PSScriptRoot 'sim' 'data' 'images.json')
+        if ($j.checkpoint) { $names += "$($j.checkpoint)" }
+        if ($j.mature -and $j.mature.checkpoint) { $names += "$($j.mature.checkpoint)" }
+    } catch {}
+    if ($MatureModel) { $names += $MatureModel }
+    foreach ($name in @($names | Where-Object { $_ -and $_ -ne $ModelName } | Select-Object -Unique)) {
+        $k = $knownModels[$name]
+        $dir = PathOf $modelHome $name
+        if (-not $k) { Info "${name}: not a model this script can download; put its .safetensors in $dir"; continue }
+        $file = PathOf $dir $k.File
+        if ((Test-Path $file) -and ((Get-Item $file).Length -eq $k.Bytes)) { Ok "$name already in the model store" }
+        elseif (-not (Confirm-Download "Download $($k.What) into $dir?")) { Info "not downloading $name; ./sd.ps1 -Start offers again (the base model draws meanwhile)"; continue }
+        elseif (-not (Get-ModelFile $file $k.Url $k.Bytes $k.What)) { continue }
+        if (-not $k.Vae) { continue }
+        $v = $knownVae[$k.Vae]
+        $vf = PathOf $modelHome $k.Vae $v.File
+        if ((Test-Path $vf) -and ((Get-Item $vf).Length -eq $v.Bytes)) { Ok "VAE $($k.Vae) already in the model store" }
+        elseif (Confirm-Download "Download $($v.What), which $name is meant to be used with?") { Get-ModelFile $vf $v.Url $v.Bytes $v.What | Out-Null }
+    }
 }
 
 # ---- start / stop
@@ -416,6 +445,14 @@ if ($Installed) {
 if ($Install) { Install-All }
 if ($Check -and -not $Install) { Show-Requirements $true }
 if ($Start) { $script:failed = 0; Start-Sd }
+if ($Warm -and -not $script:failed) {
+    if (Test-Api) { Ok "already running at $apiUrl, so the first-run setup is done" }
+    else {
+        Head 'First start (installs PyTorch and the web UI requirements the first time; later starts take about a minute)'
+        Start-Sd
+        if (Test-Api) { Stop-Sd; Ok 'ready: ./web.ps1 starts it again when needed' }
+    }
+}
 if ($Stop) { Stop-Sd }
 
 Write-Host ''
