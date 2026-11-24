@@ -46,7 +46,7 @@ It needs network access to github.com for the source and CMake's fetches, plus h
 ./check.ps1                          # report what is missing (tools, files, port, Ollama); -Build, -Test, -Model
 ```
 
-`run.ps1` configures with `cmake --preset` on first use (`clang` on Windows, `release` elsewhere; see Build). `-Rebuild` wipes `sim/build` first. Everything after the switches goes to the program.
+`run.ps1` configures with `cmake --preset` on first use (`clang` on Windows, `release` elsewhere; see Build). `-Rebuild` wipes `sim/build` first. `-Mature` passes `--mature`: adult content with no refusals (every character in sexual content an adult), using `content.model` from `sim/data/agents.json`; in the terminal client it also turns on `--llm-narration` and `--llm-say`, so a model server must be running (`DND_LLM_URL`; `web.ps1 -Mature` starts one). Everything after the switches goes to the program.
 
 ## Features
 
