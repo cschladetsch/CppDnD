@@ -272,10 +272,11 @@ else {
 # ---- 6. Stable Diffusion
 $imgUrl = 'http://127.0.0.1:7860'
 $matureCkpt = ''
+$baseCkpt = ''   # images.json "checkpoint": realistic-vision-5.1 as shipped; sd.ps1 loads it beside sd15
 $sdMature = [bool]$Mature
 $imgFile = PathOf $src 'data' 'images.json'
 if (Test-Path $imgFile) {
-    try { $ij = Read-JsonFile $imgFile; if ($ij.url) { $imgUrl = $ij.url }; if ($ij.mature -and $ij.mature.checkpoint) { $matureCkpt = "$($ij.mature.checkpoint)" }; if ($ij.mature -and $ij.mature.enabled) { $sdMature = $true } }
+    try { $ij = Read-JsonFile $imgFile; if ($ij.url) { $imgUrl = $ij.url }; if ($ij.checkpoint) { $baseCkpt = "$($ij.checkpoint)" }; if ($ij.mature -and $ij.mature.checkpoint) { $matureCkpt = "$($ij.mature.checkpoint)" }; if ($ij.mature -and $ij.mature.enabled) { $sdMature = $true } }
     catch { Warn "could not read sim/data/images.json: $($_.Exception.Message)" }
 }
 $sdFailed = $false
@@ -287,14 +288,16 @@ if (-not $NoArt) {
     try { Invoke-RestMethod -Uri "$imgUrl/sdapi/v1/options" -TimeoutSec 2 | Out-Null; $sdUp = $true } catch {}
     if ($sdUp) {
         Ok "already running at $imgUrl"
-        if ($sdMature -and $matureCkpt) {
+        $wantCkpt = if ($sdMature -and $matureCkpt) { $matureCkpt } elseif ($baseCkpt -and $baseCkpt -ne 'sd15') { $baseCkpt } else { '' }
+        $wantWhat = if ($sdMature -and $matureCkpt) { 'the mature checkpoint' } else { 'the checkpoint' }
+        if ($wantCkpt) {
             $loaded = ''
             try { $loaded = "$((Invoke-RestMethod -Uri "$imgUrl/sdapi/v1/options" -TimeoutSec 3).sd_model_checkpoint)" } catch {}
-            $wf = Get-ChildItem (PathOf (Get-ModelHome) $matureCkpt) -Recurse -File -Include '*.safetensors', '*.ckpt' -ErrorAction SilentlyContinue | Select-Object -First 1
+            $wf = Get-ChildItem (PathOf (Get-ModelHome) $wantCkpt) -Recurse -File -Include '*.safetensors', '*.ckpt' -ErrorAction SilentlyContinue | Select-Object -First 1
             if ($loaded -and $wf -and ($loaded -notlike "*$($wf.BaseName)*")) {
-                Warn "it has '$loaded' loaded, not the mature checkpoint '$matureCkpt': run ./sd.ps1 -Stop (or close the server you started), then this again"
+                Warn "it has '$loaded' loaded, not $wantWhat '$wantCkpt': run ./sd.ps1 -Stop (or close the server you started), then this again"
             } elseif (-not $wf) {
-                Warn "the mature checkpoint '$matureCkpt' is not downloaded, so '$loaded' draws; run ./sd.ps1 -Stop, then this again to be offered the download"
+                Warn "$wantWhat '$wantCkpt' is not downloaded, so '$loaded' draws; run ./sd.ps1 -Stop, then this again to be offered the download"
             }
         }
     }

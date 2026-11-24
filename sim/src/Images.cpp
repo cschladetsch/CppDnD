@@ -302,6 +302,8 @@ std::optional<ImageConfig> ImageConfig::Load(const std::string& imagesFile, cons
             c.path = j.value("path", c.path);
             c.apiKey = j.value("apiKey", c.apiKey);
             c.checkpoint = j.value("checkpoint", c.checkpoint);
+            c.fallbackCheckpoint = j.value("fallbackCheckpoint", c.fallbackCheckpoint);
+            c.style.sfwNegative = j.value("sfwNegative", c.style.sfwNegative);
             c.requireStore = j.value("requireStore", c.requireStore);
             c.timeoutSec = std::max(5, j.value("timeoutSec", c.timeoutSec));
             if (j.contains("mature")) {
@@ -489,26 +491,36 @@ std::string ArtService::EffectiveCheckpoint(std::string& problem) const {
         return cfg_.backend == "a1111" ? fs::path(w).filename().string() : ck;
     }
     if (cfg_.requireStore) { problem = Cat("model '", ck, "' is not in the model store (", mi.path, ")"); return ""; }
-    if (MatureFallback()) {  // the mature checkpoint is not installed: the base checkpoint draws (still adults only)
-        ImageConfig base = cfg_;
-        base.mature = false;
-        if (base.checkpoint.empty()) return "";
-        const ModelInfo bm = LocateModel(base.checkpoint);
+    if (const std::string fb = Fallback(); !fb.empty()) {  // the checkpoint is not installed: the next one down draws (in mature mode still adults only)
+        const ModelInfo bm = LocateModel(fb);
         const std::string w = bm.exists ? FindWeights(bm.path) : "";
-        return !w.empty() && cfg_.backend == "a1111" ? fs::path(w).filename().string() : base.checkpoint;
+        return !w.empty() && cfg_.backend == "a1111" ? fs::path(w).filename().string() : fb;
     }
     return ck;  // a name the image server knows by itself
 }
 
-// Mature mode names a checkpoint that is neither in the model store nor listed by the image server (the last probe):
-// typically the shipped default before ./web.ps1 -Mature has downloaded it. Drawing then falls back to the base checkpoint.
-bool ArtService::MatureFallback() const {
-    if (!cfg_.mature || cfg_.matureStyle.checkpoint.empty() || cfg_.matureStyle.checkpoint == cfg_.checkpoint) return false;
-    if (LocateModel(cfg_.matureStyle.checkpoint).exists) return false;
+// Known not to be installed: neither in the model store nor listed by the image server (the last probe). Before the first
+// probe nothing is known, and the name is passed on as it is.
+bool ArtService::Missing(const std::string& ck) const {
+    if (ck.empty() || LocateModel(ck).exists) return false;
     if (!probe_.contains("models") || !probe_["models"].is_array() || probe_["models"].empty()) return false;
     for (const auto& m : probe_["models"])
-        if (m.is_string() && (m.get<std::string>() == cfg_.matureStyle.checkpoint || fs::path(m.get<std::string>()).stem().string() == cfg_.matureStyle.checkpoint)) return false;
+        if (m.is_string() && (m.get<std::string>() == ck || fs::path(m.get<std::string>()).stem().string() == ck)) return false;
     return true;
+}
+
+// The checkpoint that draws because the one asked for is not installed (typically the shipped realistic-vision-5.1 before
+// ./web.ps1 has downloaded it): the mature checkpoint falls back to the normal one, and the normal one to fallbackCheckpoint
+// (sd15). Empty: the one asked for draws.
+std::string ArtService::Fallback() const {
+    const std::string ck = cfg_.ActiveCheckpoint();
+    if (!Missing(ck)) return "";
+    std::vector<std::string> chain;
+    if (cfg_.mature && ck != cfg_.checkpoint) chain.push_back(cfg_.checkpoint);
+    chain.push_back(cfg_.fallbackCheckpoint);
+    for (const auto& c : chain)
+        if (!c.empty() && c != ck && !Missing(c)) return c;
+    return "";
 }
 
 Json ArtService::Status() {
@@ -544,10 +556,11 @@ Json ArtService::Status() {
     if (problem.empty() && !eff.empty() && mi.exists && cfg.backend == "a1111" && probe.value("reachable", false) && probe.contains("models") && probe["models"].is_array() && !probe["models"].empty()) {
         bool listed = false;
         for (const auto& m : probe["models"]) listed = listed || (m.is_string() && m.get<std::string>() == eff);
-        if (!listed) problem = Cat("the image server does not list '", eff, "'", cfg.mature ? "; start it with ./sd.ps1 -Start -Mature" : "; is its --ckpt-dir the model store folder?");
+        if (!listed) problem = Cat("the image server does not list '", eff, "'", cfg.mature ? "; start it with ./sd.ps1 -Start -Mature" : "; restart it with ./sd.ps1 -Stop, then ./sd.ps1 -Start (which loads the images.json checkpoint)");
     }
     if (!problem.empty()) s["problem"] = problem;
-    if (MatureFallback()) s["note"] = Cat("the mature checkpoint '", cfg.matureStyle.checkpoint, "' is not installed, so '", cfg.checkpoint, "' draws instead (./web.ps1 -Mature offers to download it)");
+    if (const std::string fb = Fallback(); !fb.empty())
+        s["note"] = Cat(cfg.mature ? "the mature checkpoint '" : "the checkpoint '", cfg.ActiveCheckpoint(), "' is not installed, so '", fb, "' draws instead (", cfg.mature ? "./web.ps1 -Mature" : "./web.ps1", " offers to download it)");
     s["jobs"] = Jobs();
     return s;
 }
@@ -804,6 +817,7 @@ bool ArtService::BuildRequest(const ArtSubject& s, const std::string& promptOver
         r.negative = PhotoWords(r.negative, true);
         if (!ss.negative.empty()) r.negative += (r.negative.empty() ? "" : ", ") + ss.negative;
     }
+    if (!mature && !st.sfwNegative.empty()) r.negative += (r.negative.empty() ? "" : ", ") + st.sfwNegative;  // photographic checkpoints have no filter
     if (mature) {
         if (MentionsMinor(r.prompt)) { err = "not drawn: mature mode only draws adults, and this picture's words mention a minor"; return false; }
         for (const std::string& extra : {ms.negative, AdultsOnlyNegative()})  // the guard always comes last

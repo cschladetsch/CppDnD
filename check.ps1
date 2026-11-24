@@ -172,7 +172,8 @@ if ($sdModel) {
     if (Test-Path $mdir) {
         $w = Get-ChildItem $mdir -Recurse -File -ErrorAction SilentlyContinue | Where-Object { $_.Extension -in '.safetensors','.ckpt','.gguf' } | Select-Object -First 1
         if ($w) { Ok "image model '$sdModel' is in the model store ($($w.Name))" } else { Warn "model folder $mdir holds no .safetensors, .ckpt or .gguf" }
-    } else { Warn "image model '$sdModel' is not in the model store ($mdir); the image server must know it by name" }
+    } elseif ($sdModel -eq 'realistic-vision-5.1') { Warn "image model '$sdModel' is not downloaded yet ($mdir); sd15 draws until ./web.ps1 (or ./sd.ps1 -Start) downloads it" }
+    else { Warn "image model '$sdModel' is not in the model store ($mdir); the image server must know it by name" }
 }
 
 # ---- tests

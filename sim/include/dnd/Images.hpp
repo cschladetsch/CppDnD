@@ -21,6 +21,9 @@ struct ImageStyle {
     std::string prefix = "dark fantasy gothic horror illustration, painterly, moody dramatic lighting, rich detail,";
     std::string suffix;
     std::string negative = "text, watermark, signature, logo, lowres, blurry, jpeg artifacts, deformed, extra limbs, extra fingers, modern clothing, photo";
+    // Outside mature mode, added to every negative prompt: a photographic checkpoint such as Realistic Vision has no filter of its
+    // own and draws nudity readily. images.json "sfwNegative"; empty turns it off.
+    std::string sfwNegative = "nsfw, nude, naked, nudity, topless, nipples, genitals, sex, explicit, lingerie";
     int steps = 25;
     double cfg = 6.5;
     std::string sampler = "DPM++ 2M Karras";
@@ -92,6 +95,7 @@ struct ImageConfig {
     std::string path;           // openai only; default /v1/images/generations
     std::string apiKey;
     std::string checkpoint;     // empty: whatever the server has loaded
+    std::string fallbackCheckpoint = "sd15";  // draws while checkpoint is known not to be installed
     bool requireStore = false;  // the model must exist in the model store
     int timeoutSec = 600;
     ImageStyle style;
@@ -223,7 +227,8 @@ private:
     bool Do(const Item& it, std::string& err);
     std::string Existing(const std::string& kind, const std::string& id) const;
     std::string EffectiveCheckpoint(std::string& problem) const;
-    bool MatureFallback() const;
+    bool Missing(const std::string& checkpoint) const;
+    std::string Fallback() const;
 
     ImageConfig cfg_;
     std::string artDir_;

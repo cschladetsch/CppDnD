@@ -8,7 +8,13 @@
 
   // The model. sd15 is what ./sd.ps1 -Install puts in the store. A folder name in the CppLmmModelStore (DEEPSEEK_MODEL_HOME) holding a .safetensors or .ckpt is resolved to
   // that file; any other name is passed to the image server as it is. Empty: whatever the server has loaded.
-  "checkpoint": "sd15",
+  // realistic-vision-5.1 is Realistic Vision 5.1, a photographic SD 1.5 fine-tune (fp16, 2.1 GB, fine on an 8 GB card): ./web.ps1 and
+  // ./sd.ps1 -Start offer to download it, and until it is there "fallbackCheckpoint" draws. "sd15" here goes back to the base model.
+  "checkpoint": "realistic-vision-5.1",
+  "fallbackCheckpoint": "sd15",
+  // Realistic Vision is not an adult model, but it has no filter and draws nudity readily, so outside mature mode these words
+  // go into every negative prompt. Mature mode leaves them out.
+  "sfwNegative": "nsfw, nude, naked, nudity, topless, nipples, genitals, sex, explicit, lingerie",
   // true: refuse to draw unless "checkpoint" exists in the model store.
   "requireStore": false,
 

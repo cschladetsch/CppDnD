@@ -15,7 +15,8 @@
 #   -Port 7860               API port (must match "url" in sim/data/images.json)
 #   -SdHome DIR              where AUTOMATIC1111 lives (default %LOCALAPPDATA%\CppDnD\sd on Windows, ~/.local/share/cppdnd/sd elsewhere, or $env:DND_SD_HOME)
 #   -ModelName sd15          the model-store folder that holds the checkpoint (matches "checkpoint" in images.json)
-#   -Mature                  with -Start: also load the mature checkpoint (-MatureModel, else "mature"."checkpoint" in images.json)
+#   (-Start also loads "checkpoint" from images.json beside sd15, realistic-vision-5.1 as shipped, offering the download; sd15 draws without it)
+#   -Mature                  with -Start: load the mature checkpoint instead (-MatureModel, else "mature"."checkpoint" in images.json)
 #   -MatureModel NAME        a model-store folder holding a .safetensors or .ckpt (an SD1.5 or SDXL fine-tune);
 #                            AUTOMATIC1111 lists it beside sd15 and starts with it loaded. The default, realistic-vision-5.1, is
 #                            offered for download (2.1 GB, plus its 330 MB VAE) when the folder is missing; other folders you fill yourself.
@@ -244,9 +245,11 @@ function Confirm-Download($question) {
     return ($a -match '^(y|yes)$')
 }
 
-# Mature checkpoints this script knows how to fetch, by model-store folder name (sim/data/images.json "mature"."checkpoint").
-# Each is an SD 1.5 fine-tune that can draw nudity and runs comfortably on an 8 GB card. Any other folder you fill yourself.
-$knownMature = @{
+# Checkpoints this script knows how to fetch, by model-store folder name (sim/data/images.json "checkpoint" and "mature"."checkpoint").
+# Each is an SD 1.5 fine-tune that runs comfortably on an 8 GB card. Any other folder you fill yourself.
+# Realistic Vision is a general photographic model, not an adult one, but it has no filter: outside mature mode the game keeps
+# nudity out with its negative prompt (images.json "sfwNegative").
+$knownModels = @{
     'realistic-vision-5.1' = @{
         What  = 'Realistic Vision 5.1 (SD 1.5, fp16, 2.1 GB, CreativeML OpenRAIL-M)'
         Url   = 'https://huggingface.co/SG161222/Realistic_Vision_V5.1_noVAE/resolve/main/Realistic_Vision_V5.1_fp16-no-ema.safetensors'
@@ -290,37 +293,43 @@ function Start-Sd {
     elseif ($Cpu -or -not $gpu) { $args_ += @('--use-cpu', 'all', '--no-half', '--skip-torch-cuda-test') }
     elseif ($gpu.MiB -lt 4000) { $args_ += '--lowvram' }
     elseif ($gpu.MiB -lt 9000 -and $Tune -in 'auto', 'medvram') { $args_ += '--medvram' }   # 8 GB cards run out of memory at 768 px wide pictures without it
-    if ($Mature) {
-        $name = $MatureModel
-        if (-not $name) {
-            $ij = PathOf $PSScriptRoot 'sim' 'data' 'images.json'
-            try { $j = Read-JsonFile $ij; if ($j.mature -and $j.mature.checkpoint) { $name = "$($j.mature.checkpoint)" } } catch {}
+    # The checkpoint loaded beside the base model: with -Mature the mature one (-MatureModel, else "mature"."checkpoint" in
+    # images.json), otherwise "checkpoint" in images.json (realistic-vision-5.1 as shipped, for photographic pictures). The base
+    # model ($ModelName) draws when it is not downloaded, and "checkpoint": "sd15" in images.json turns this off.
+    $ij = PathOf $PSScriptRoot 'sim' 'data' 'images.json'
+    $what = if ($Mature) { 'mature' } else { 'checkpoint' }
+    $name = $MatureModel
+    if (-not $name) {
+        try {
+            $j = Read-JsonFile $ij
+            if ($Mature -and $j.mature -and $j.mature.checkpoint) { $name = "$($j.mature.checkpoint)" }
+            elseif (-not $Mature -and $j.checkpoint) { $name = "$($j.checkpoint)" }
+        } catch {}
+    }
+    if ($Mature -and -not $name) { Warn "mature: no checkpoint named (-MatureModel, or `"mature`": {`"checkpoint`": ...} in sim/data/images.json); using $ModelName" }
+    if ($name -and $name -ne $ModelName) {
+        $dir = PathOf $modelHome $name
+        $find = { if (Test-Path $dir) { Get-ChildItem -Path $dir -Recurse -File -Include '*.safetensors', '*.ckpt' -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $null } }
+        $w = & $find
+        $k = $knownModels[$name]
+        if (-not $w -and $k) {
+            if (Confirm-Download "${what}: download $($k.What) into $dir?") {
+                if (Get-ModelFile (PathOf $dir $k.File) $k.Url $k.Bytes $k.What) { $w = & $find }
+                else { $script:failed = 0 }   # not fatal either: the base model draws (run this again to resume the download)
+            } else { Info "not downloading; ./web.ps1 (or ./sd.ps1 -Start) offers again" }
         }
-        if (-not $name) { Warn 'mature: no checkpoint named (-MatureModel, or "mature": {"checkpoint": ...} in sim/data/images.json); using sd15' }
-        else {
-            $dir = PathOf $modelHome $name
-            $find = { if (Test-Path $dir) { Get-ChildItem -Path $dir -Recurse -File -Include '*.safetensors', '*.ckpt' -ErrorAction SilentlyContinue | Select-Object -First 1 } else { $null } }
-            $w = & $find
-            $k = $knownMature[$name]
-            if (-not $w -and $k) {
-                if (Confirm-Download "mature: download $($k.What) into $dir?") {
-                    if (Get-ModelFile (PathOf $dir $k.File) $k.Url $k.Bytes $k.What) { $w = & $find }
-                    else { $script:failed = 0 }   # not fatal either: the base model draws (run this again to resume the download)
-                } else { Info "not downloading; ./web.ps1 -Mature (or ./sd.ps1 -Start -Mature) offers again" }
-            }
-            if (-not $w) {
-                # not fatal: the base model draws, and the game still adds the adults-only words and negative prompt
-                Warn "mature: no .safetensors or .ckpt in $dir, so the base model $ModelName draws$(if (-not $k) { ' (put the checkpoint file in that folder of the model store)' })"
-            } else {
-                $args_ += @('--ckpt', ('"' + $w.FullName.Replace('\', '/') + '"'))
-                Ok "mature checkpoint  $($w.FullName)"
-                if ($k -and $k.Vae) {
-                    $v = $knownVae[$k.Vae]
-                    $vaeFile = PathOf $modelHome $k.Vae $v.File
-                    if ((Test-Path $vaeFile) -or (Confirm-Download "mature: download $($v.What), which $name is meant to be used with?")) {
-                        if (Get-ModelFile $vaeFile $v.Url $v.Bytes $v.What) { $args_ += @('--vae-path', ('"' + $vaeFile.Replace('\', '/') + '"')); Ok "VAE  $vaeFile" }
-                        else { $script:failed = 0 }   # a missing VAE only costs some colour; carry on without it
-                    }
+        if (-not $w) {
+            # not fatal: the base model draws (in mature mode the game still adds the adults-only words and negative prompt)
+            Warn "${what}: no .safetensors or .ckpt in $dir, so the base model $ModelName draws$(if (-not $k) { ' (put the checkpoint file in that folder of the model store)' })"
+        } else {
+            $args_ += @('--ckpt', ('"' + $w.FullName.Replace('\', '/') + '"'))
+            Ok "$what checkpoint  $($w.FullName)"
+            if ($k -and $k.Vae) {
+                $v = $knownVae[$k.Vae]
+                $vaeFile = PathOf $modelHome $k.Vae $v.File
+                if ((Test-Path $vaeFile) -or (Confirm-Download "${what}: download $($v.What), which $name is meant to be used with?")) {
+                    if (Get-ModelFile $vaeFile $v.Url $v.Bytes $v.What) { $args_ += @('--vae-path', ('"' + $vaeFile.Replace('\', '/') + '"')); Ok "VAE  $vaeFile" }
+                    else { $script:failed = 0 }   # a missing VAE only costs some colour; carry on without it
                 }
             }
         }

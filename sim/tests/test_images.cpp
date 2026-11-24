@@ -193,6 +193,17 @@ TEST(Images, ServiceAndConfig) {
             lc->models = Json::array({"v1-5-pruned.safetensors", "realistic-vision-5.1"});
             ArtService ms2(mc, (root / "art5n").string(), lc);
             EXPECT_EQ(ms2.Status()["effectiveCheckpoint"], "realistic-vision-5.1");
+            // the same in normal mode: the shipped realistic-vision-5.1 before it is downloaded falls back to sd15
+            lc->models = Json::array({"v1-5-pruned.safetensors"});
+            ImageConfig nc;
+            nc.checkpoint = "realistic-vision-5.1";
+            ArtService ns(nc, (root / "art5o").string(), lc);
+            Json nst = ns.Status();
+            EXPECT_EQ(nst["effectiveCheckpoint"], "v1-5-pruned.safetensors");
+            EXPECT_NE(nst.value("note", "").find("realistic-vision-5.1"), std::string::npos);
+            lc->models = Json::array({"v1-5-pruned.safetensors", "realistic-vision-5.1.safetensors"});
+            ArtService ns2(nc, (root / "art5p").string(), lc);
+            EXPECT_EQ(ns2.Status()["effectiveCheckpoint"], "realistic-vision-5.1");
         }
         // requireStore refuses an unknown model before anything is drawn
         ImageConfig strict;
@@ -324,8 +335,14 @@ TEST(MatureImages, OffChangesNothing) {
     ASSERT_TRUE(svc.BuildRequest(SubjectOf(all, "characters", "elara"), "", nullptr, r, err));
     EXPECT_EQ(r.prompt.find("MATURE"), std::string::npos);
     EXPECT_EQ(r.prompt.find("adult"), std::string::npos);
-    EXPECT_EQ(r.negative, cfg.style.negative);
+    EXPECT_EQ(r.negative, cfg.style.negative + ", " + cfg.style.sfwNegative);  // outside mature mode nudity is kept out
+    EXPECT_EQ(r.negative.find("MNEG"), std::string::npos);
     ASSERT_TRUE(svc.BuildRequest(SubjectOf(all, "characters", "elara"), "a child", nullptr, r, err));  // the guard is a mature-mode guard
+    ImageConfig m = cfg;
+    m.mature = true;
+    ArtService msvc(m, "", std::make_shared<MockImageClient>(FakePng));
+    ASSERT_TRUE(msvc.BuildRequest(SubjectOf(all, "characters", "elara"), "", nullptr, r, err));
+    EXPECT_EQ(r.negative.find("nsfw"), std::string::npos);  // mature mode leaves them out
 }
 
 TEST(MatureImages, WordsChecksAndTheGuard) {
