@@ -22,7 +22,9 @@
 
   "defaults": { "backend": "ollama", "model": "qwen2.5:7b", "temperature": 0.7, "maxTokens": 400 },
 
-  "dm": { "persona": "A fair, dramatic Dungeon Master who plays monsters the way they would really fight." },
+  // "verbosity": how much the DM says, 1 (terse) to 5 (lavish); 2 was the old length. Covers narration, room descriptions,
+  // free-form actions and replies to typed messages (not NPCs, who keep their own voices).
+  "dm": { "persona": "A fair, dramatic Dungeon Master who plays monsters the way they would really fight.", "verbosity": 4 },
 
   "monsterTypes": {
     "undead":   { "model": "dolphin-llama3:8b", "persona": "Relentless and hungry. Undead do not retreat, flinch or bargain." },

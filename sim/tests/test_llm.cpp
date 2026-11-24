@@ -602,3 +602,30 @@ TEST(Llm, ActNarrationReachesTheNextCameraShot) {
     g.Say(hero, "Better.");
     EXPECT_NE(RecentNarration(g.View(0)).find("takes off her top"), std::string::npos);
 }
+
+TEST(Llm, DmVerbosityComesFromAgentsJsonAndLengthensReplies) {
+    std::string err;
+    auto cfg = AgentsConfig::Parse(Json::parse(R"({"defaults": {"model": "m"}, "dm": {"verbosity": 4}})"), err);
+    ASSERT_TRUE(cfg) << err;
+    EXPECT_EQ(cfg->dmVerbosity, 4);
+    EXPECT_EQ(AgentsConfig::Parse(Json::parse(R"({"defaults": {"model": "m"}})"), err)->dmVerbosity, 2);   // unset: the original length
+    EXPECT_FALSE(AgentsConfig::Parse(Json::parse(R"({"defaults": {"model": "m"}, "dm": {"verbosity": 9}})"), err));
+    EXPECT_NE(err.find("verbosity"), std::string::npos);
+
+    GameConfig gc;
+    gc.moduleId = "ravenmoor";
+    gc.seed = 3;
+    Game g(gc);
+    std::string seenSystem;
+    MockLlmClient mock([&](const std::string& sys, const std::string&, bool) { seenSystem = sys; LlmReply r; r.ok = true; r.content = R"({"steps":[],"reply":"Hm."})"; return r; });
+    SetDmVerbosity(2);
+    Say(mock, g, "hello");
+    EXPECT_NE(seenSystem.find("one or two sentences"), std::string::npos);
+    SetDmVerbosity(4);
+    Say(mock, g, "hello");
+    EXPECT_EQ(seenSystem.find("one or two sentences"), std::string::npos);
+    EXPECT_NE(seenSystem.find("three or four sentences"), std::string::npos);
+    SetDmVerbosity(99);
+    EXPECT_EQ(DmVerbosity(), 5);   // clamped
+    SetDmVerbosity(2);
+}

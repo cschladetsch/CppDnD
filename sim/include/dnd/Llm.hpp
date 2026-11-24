@@ -173,6 +173,11 @@ struct SayResult {
     std::string message;             // in-character reply and/or why something was refused
     std::vector<std::string> steps;  // what was actually done, one line each
 };
+// How much the Dungeon Master says, 1 (terse) to 5 (lavish). 2 is the original length; agents.json "dm": {"verbosity": N} sets it.
+// Covers the DM's own prose: event narration, room descriptions, free-form action narration and replies to typed messages.
+void SetDmVerbosity(int level);
+int DmVerbosity();
+
 SayResult Say(ILlmClient& client, Game& game, const std::string& text);
 
 // The same box with no model: a small rule-based reader for exploration commands ("go to the village and

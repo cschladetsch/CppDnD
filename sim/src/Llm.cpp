@@ -1,6 +1,7 @@
 #include "dnd/Llm.hpp"
 
 #include <algorithm>
+#include <atomic>
 #include <cstdlib>
 #include <filesystem>
 #include <set>
@@ -15,6 +16,22 @@
 #endif
 
 namespace dnd {
+
+namespace {
+std::atomic<int> g_dmVerbosity{2};
+// The length asked for at each verbosity (index 0 is level 1); level 2 is what the prompts always said.
+const char* Pick(const char* const (&v)[5]) { return v[std::clamp(g_dmVerbosity.load(), 1, 5) - 1]; }
+const char* EventLength() { static const char* const v[] = {"one short sentence", "one or two sentences", "two or three sentences", "three or four sentences", "four to six sentences"}; return Pick(v); }
+const char* RoomLength() { static const char* const v[] = {"two or three sentences", "four or five sentences", "five or six sentences", "six to eight sentences", "eight to ten sentences"}; return Pick(v); }
+const char* ActLength() { static const char* const v[] = {"one or two sentences", "two to five sentences", "four to six sentences", "five to eight sentences", "eight to twelve sentences"}; return Pick(v); }
+const char* ReplyLength() { static const char* const v[] = {"one sentence", "one or two sentences", "two or three sentences", "three or four sentences", "four to six sentences"}; return Pick(v); }
+// Character caps grow with the length asked for, so longer prose is not cut off.
+std::size_t DmCap(std::size_t base) { static const double k[] = {1.0, 1.0, 1.5, 2.0, 3.0}; return static_cast<std::size_t>(static_cast<double>(base) * k[std::clamp(g_dmVerbosity.load(), 1, 5) - 1]); }
+}  // namespace
+
+void SetDmVerbosity(int level) { g_dmVerbosity = std::clamp(level, 1, 5); }
+int DmVerbosity() { return g_dmVerbosity.load(); }
+
 namespace {
 
 std::string Env(const char* k, const std::string& def = "") {
@@ -278,7 +295,7 @@ Game::Narrator MakeLlmNarrator(std::shared_ptr<ILlmClient> client, const Game& g
         }
         const std::string system =
             Cat("You are the narrator of a Dungeons & Dragons 5e game. The setting is: ", game.Module().setting, ". Match its tone. "
-                "Reply with one or two vivid sentences of present-tense prose. Never state dice rolls, numbers or rules. Never invent "
+                "Reply with ", EventLength(), " of vivid present-tense prose. Never state dice rolls, numbers or rules. Never invent "
                 "new named characters, items or outcomes that the event does not state. Do not repeat the event text word for word.");
         const std::string user = Cat("Setting: ", game.Module().setting, "\nLocation: ", game.LocationId(), "\nTime: ",
                                      game.Module().IsNight(game.ClockHour()) ? "night" : "day", "\nThis is ", what, ":\n", e.text);
@@ -289,7 +306,7 @@ Game::Narrator MakeLlmNarrator(std::shared_ptr<ILlmClient> client, const Game& g
         }
         st->failures = 0;
         std::string t = r.content;
-        if (t.size() > 600) t.resize(600);
+        if (t.size() > DmCap(600)) t.resize(DmCap(600));
         std::replace(t.begin(), t.end(), '\n', ' ');
         return t;
     };
@@ -302,7 +319,7 @@ Game::Describer MakeLlmDescriber(std::shared_ptr<ILlmClient> client, const Game&
         if (st->skip > 0) { --st->skip; return {}; }
         const std::string system =
             Cat("You write room descriptions for a Dungeons & Dragons 5e game. The setting is: ", game.Module().setting, ". Match its tone. "
-                "Write four or five sentences of present-tense prose addressed to the party as 'you'. Be concrete and sensory: what is seen, heard, "
+                "Write ", RoomLength(), " of present-tense prose addressed to the party as 'you'. Be concrete and sensory: what is seen, heard, "
                 "smelled and underfoot. Keep every fact in the authored description, and keep the mood it sets. Never invent named characters, "
                 "creatures, items, doors, exits or outcomes that the facts do not state. Never mention dice, numbers or rules. Do not use dashes. "
                 "Reply with the description only, as one paragraph.");
@@ -320,7 +337,7 @@ Game::Describer MakeLlmDescriber(std::shared_ptr<ILlmClient> client, const Game&
         }
         st->failures = 0;
         std::string t = r.content;
-        if (t.size() > 1100) { t.resize(1100); const auto dot = t.find_last_of(".!?"); if (dot != std::string::npos) t.resize(dot + 1); }
+        if (t.size() > DmCap(1100)) { t.resize(DmCap(1100)); const auto dot = t.find_last_of(".!?"); if (dot != std::string::npos) t.resize(dot + 1); }
         std::replace(t.begin(), t.end(), '\n', ' ');
         st->recent.push_back(t.substr(0, 160));
         if (st->recent.size() > 3) st->recent.erase(st->recent.begin());
@@ -700,19 +717,19 @@ std::string NarrateActs(ILlmClient& client, const Game& game, const std::string&
     const std::string sys = Cat("You are the narrator of a tabletop roleplaying game. The setting is: ", game.Module().setting, ". "
                                 "The player's character is ", game.Hero(), ". The player has them do, or asks to see, something the rules have no "
                                 "command for. As the narrator, in the third person, describe ", game.Hero(), " doing exactly that, or what the player "
-                                "asked to see, then briefly how anyone present reacts, in two to five sentences of present-tense prose. You are the "
+                                "asked to see, then briefly how anyone present reacts, in ", ActLength(), " of present-tense prose. You are the "
                                 "narrator, not one of the characters. Never mention dice, numbers or rules. Reply with the prose only.");
     std::string user = "State:\n" + ObserveWorld(game).dump() + "\n\nPlayer says: " + text;
     if (!what.empty()) user += "\nWhat they do: " + what;
     const LlmReply r = client.Chat(sys, user, false);
-    return r.ok ? CleanLine(StripThink(r.content), 900) : std::string{};
+    return r.ok ? CleanLine(StripThink(r.content), DmCap(900)) : std::string{};
 }
 }  // namespace
 
 SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
     SayResult out;
     if (Trim(text).empty()) { out.message = "Say something first."; return out; }
-    static const char* sys =
+    static const char* const kSay =
         "You translate a player's plain-English message into commands for a D&D 5e game and reply in a short, in-character voice. "
         "Use ONLY ids that appear in the state. Reply with one JSON object and nothing else:\n"
         "{\"steps\":[...],\"reply\":\"one or two sentences, optional\"}\n"
@@ -735,6 +752,10 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
         "You are also the Dungeon Master: every player message gets an answer. ALWAYS include a short in-character \"reply\" (one or two sentences), "
         "even when you return steps, and even when the request is odd, impossible or silly.";
     const std::string user = "State:\n" + ObserveWorld(game).dump() + "\n\nPlayer says: " + text;
+    // The reply's length follows the DM's verbosity: every "one or two sentences" in the prompt becomes the configured length.
+    std::string sys = kSay;
+    const std::string len = ReplyLength();
+    for (std::size_t at = sys.find("one or two sentences"); at != std::string::npos; at = sys.find("one or two sentences", at + len.size())) sys.replace(at, 20, len);
     const LlmReply r = client.Chat(sys, user, true);
     // Every input gets an answer from the DM, even when the model is down.
     if (!r.ok) { out.message = "The Dungeon Master stares into the mist for a moment, lost in thought. (The model did not answer: " + r.error + ")"; return out; }
@@ -744,7 +765,7 @@ SayResult Say(ILlmClient& client, Game& game, const std::string& text) {
         const std::string raw = StripThink(r.content);
         if (!raw.empty() && raw.find('{') == std::string::npos) {  // plain prose instead of JSON: show it as the narration
             out.ok = true;
-            out.message = CleanLine(raw, 900);
+            out.message = CleanLine(raw, DmCap(900));
             return out;
         }
         out.message = "The model's reply was not the JSON the game expects: " + (raw.empty() ? std::string("(empty)") : CleanLine(raw, 200));

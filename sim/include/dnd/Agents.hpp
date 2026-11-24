@@ -42,6 +42,7 @@ struct AgentDef {
 struct AgentsConfig {
     std::map<std::string, BackendDef> backends;
     AgentDef dm;
+    int dmVerbosity = 2;   // "dm": {"verbosity": 1..5}: how much the DM's prose says (see SetDmVerbosity)
     AgentDef playerFallback;
     std::map<std::string, AgentDef> players;  // lowercase character id or name
     AgentDef npcFallback;                     // defaults + npcTypes["*"]

@@ -225,6 +225,7 @@ int main(int argc, char** argv) {
         if (agentsPath.empty()) agentsPath = std::getenv("DND_AGENTS") && *std::getenv("DND_AGENTS") ? std::getenv("DND_AGENTS") : dataDir + "/agents.json";
         std::string agentsErr;
         auto acfg = AgentsConfig::Load(agentsPath, agentsErr);
+        if (acfg) SetDmVerbosity(acfg->dmVerbosity);
         if (acfg && acfg->mature) lc.mature = true;
         if (acfg && lc.mature) acfg->mature = true;
         if (lc.mature && lc.matureModel.empty() && acfg) lc.matureModel = acfg->dm.matureModel;

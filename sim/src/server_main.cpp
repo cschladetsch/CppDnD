@@ -167,6 +167,7 @@ int main(int argc, char** argv) {
         if (explicitPath || fs::exists(S.agentsPath)) {
             std::string err;
             S.agentsCfg = AgentsConfig::Load(S.agentsPath, err);
+            if (S.agentsCfg) SetDmVerbosity(S.agentsCfg->dmVerbosity);
             if (!S.agentsCfg) {
                 S.agentsError = err;
                 if (explicitPath) { std::cerr << err << "\n"; return 2; }

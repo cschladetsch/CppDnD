@@ -85,6 +85,13 @@ std::optional<AgentsConfig> AgentsConfig::Parse(const Json& j, std::string& err)
 
         c.dm = defaults;
         if (j.contains("dm")) Overlay(c.dm, j["dm"]);
+        if (j.contains("dm") && j["dm"].is_object() && j["dm"].contains("verbosity")) {
+            if (!j["dm"]["verbosity"].is_number_integer() || j["dm"]["verbosity"].get<int>() < 1 || j["dm"]["verbosity"].get<int>() > 5) {
+                err = "dm.verbosity must be a whole number from 1 to 5";
+                return std::nullopt;
+            }
+            c.dmVerbosity = j["dm"]["verbosity"].get<int>();
+        }
 
         c.playerFallback = defaults;
         const Json empty = Json::object();
