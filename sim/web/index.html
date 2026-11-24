@@ -119,6 +119,27 @@ kbd { background:#2a2638; border:1px solid var(--edge); border-bottom-width:2px;
 #herostrip .hero .nm{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
 #herostrip .hpbar{width:48px;height:4px;background:#0006;border-radius:2px;overflow:hidden}#herostrip .hpbar i{display:block;height:100%}
 #herostrip .hero.you{outline:2px solid var(--accent);background:#2b2540}#herostrip .hero.acting .init,#herostrip .hero.acting img{box-shadow:0 0 0 2px var(--accent)}
+.cine{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(ellipse at center,rgba(20,16,30,.88),rgba(0,0,0,.96));cursor:pointer;animation:cinein .25s ease-out}
+.cine .cbar{height:56px;background:#000;display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:0 16px}
+.cine .cstage{flex:1;display:flex;align-items:center;justify-content:space-around;padding:0 4vw}
+.cine .cside{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:18px;transition:transform .35s ease-out}
+.cine .cside img,.cine .cside svg{width:min(22vw,180px);height:min(22vw,180px);border-radius:50%;object-fit:cover;box-shadow:0 0 0 4px var(--party,#648fff),0 0 30px #000}
+.cine .cside.foe img,.cine .cside.foe svg{box-shadow:0 0 0 4px var(--foe,#e0604f),0 0 30px #000}
+.cine .cside.l{animation:slidel .4s ease-out}.cine .cside.r{animation:slider .4s ease-out}
+.cine .cside.l.lunge{transform:translateX(9vw) scale(1.08)}
+.cine .cside.r.struck{animation:cshake .35s}.cine .cside.r.struck.crit{animation:cshake .5s,cflash .7s}
+.cine .cmid{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;max-width:36vw}
+.cine .cwhat{color:var(--dim);font-size:15px}
+.cine .cdie{width:84px;height:84px;display:flex;align-items:center;justify-content:center;font:800 34px ui-monospace,monospace;color:#1a1405;background:#e5c24a;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);animation:cspin .3s linear infinite}
+.cine .cdie.landed{animation:cland .3s ease-out}.cine .cdie.miss{background:#999}.cine .cdie.crit{background:#ffd54a;filter:drop-shadow(0 0 12px #ffd54a)}
+.cine .cverdict{font:800 30px ui-monospace,monospace;letter-spacing:2px;opacity:0;transform:scale(.6);transition:all .25s ease-out}
+.cine .cverdict.show{opacity:1;transform:scale(1)}.cine .cverdict.hit{color:#ff8a7a}.cine .cverdict.crit{color:#ffd54a;text-shadow:0 0 14px #ffd54a}.cine .cverdict.miss{color:#bbb}
+.cine .cwhy{color:var(--dim);font-size:13px;min-height:1em}
+.cine .cskip{font-size:12px}
+@keyframes cinein{from{opacity:0}to{opacity:1}} @keyframes slidel{from{transform:translateX(-30vw)}} @keyframes slider{from{transform:translateX(30vw)}}
+@keyframes cspin{to{transform:rotate(360deg)}} @keyframes cland{from{transform:scale(1.5)}to{transform:scale(1)}}
+@keyframes cshake{20%{transform:translateX(-12px) rotate(-4deg)}60%{transform:translateX(10px) rotate(3deg)}}
+@keyframes cflash{from{filter:brightness(2.5)}to{filter:none}}
 #log .expandable{cursor:pointer} #log .expandable:hover{text-decoration:underline dotted} #log .recap{color:var(--dim);border-left:3px solid var(--accent);padding-left:8px;margin-bottom:6px}
 .uxdlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
 .uxbox{max-width:560px;width:92vw;max-height:80vh;overflow:auto}.uxset{display:flex;gap:8px;align-items:center;padding:4px 0;color:var(--text)}.jrow{padding:3px 0}
@@ -2401,6 +2422,89 @@ showSettings = function () {
   first.before(el("label", { className: "uxset", title: "Tokens walk to where they move and spells fly to their targets. Off, or with reduced motion set in your system, the grid just updates." },
     el("input", { type: "checkbox", checked: ux.anim !== false, onchange: e => { ux.anim = e.target.checked; uxSave(); if (!ux.anim) { animFlush(); animUnhide(); } } }),
     el("span", { textContent: "Animate movement and spells" })));
+  return dlg;
+};
+
+// ---- attack cut-scenes: a short close-up of each attack (attacker lunges, the d20 tumbles, hit or miss), played in the
+// animation queue. Click, Esc, Space or Skip ends one; "Skip the rest of this fight" and Settings turn them down.
+// ux.cine: "all" every attack, "party" (default) your party's attacks and every critical hit, "off" none.
+const cine = { skipFight: false, done: null, box: null };
+const cineMode = () => ux.cine || "party";
+function cineWanted(e) {
+  const c = view && view.combat; if (!c || cine.skipFight || !animOn() || cineMode() === "off") return false;
+  if (cineMode() === "all") return true;
+  const a = c.actors.find(x => x.id === e.actor);
+  return !!(a && a.team === "party") || !!e.crit;
+}
+function cineEnd() { if (cine.done) { const d = cine.done; cine.done = null; d(); } }
+async function animCine(s) {
+  const e = s.e, c = view && view.combat;
+  const a = c && c.actors.find(x => x.id === e.actor), t = c && c.actors.find(x => x.id === e.target);
+  if (!a || !t || cine.skipFight || cineMode() === "off") return animShowFx(s.fx);
+  const crit = !!e.crit || /\bCRIT\b/.test(e.text), hit = crit || e.amount > 0 || /\bHIT\b/.test(e.text);
+  const weapon = (/ with (.+?): /.exec(e.text) || [])[1] || "an attack";
+  const big = x => { const n = animToken(x); n.removeAttribute("style"); return n; };
+  const die = el("div", { className: "cdie", textContent: "20" });
+  const verdict = el("div", { className: "cverdict " + (crit ? "crit" : hit ? "hit" : "miss"), textContent: crit ? `CRITICAL HIT!  −${e.amount}` : hit ? `HIT  −${e.amount}` : "MISS" });
+  const why = e.check === "attack" ? `Rolled ${e.natural}${e.mode ? ` (${e.mode})` : ""}, total ${e.roll} against AC ${e.vs}${e.coverBonus ? ` (cover +${e.coverBonus})` : ""}.` : "";
+  const left = el("div", { className: "cside l " + (a.team === "party" ? "party" : "foe") }, big(a), el("b", { textContent: a.name }));
+  const right = el("div", { className: "cside r " + (t.team === "party" ? "party" : "foe") }, big(t), el("b", { textContent: t.name }));
+  const skip = el("button", { className: "cskip", textContent: "Skip ▸▸", title: "Skip this cut-scene (Esc, Space or click)" });
+  const skipAll = el("button", { className: "cskip", textContent: "Skip the rest of this fight", onclick: ev => { ev.stopPropagation(); cine.skipFight = true; cineEnd(); } });
+  const box = el("div", { className: "cine", role: "dialog", "aria-label": `${a.name} attacks ${t.name}` },
+    el("div", { className: "cbar" }), el("div", { className: "cstage" }, left, el("div", { className: "cmid" }, el("div", { className: "cwhat", textContent: `${a.name} attacks ${t.name} with ${weapon}${e.opportunity ? " (opportunity attack)" : ""}` }), die, verdict, el("div", { className: "cwhy", textContent: why })), right),
+    el("div", { className: "cbar" }, skipAll, skip));
+  box.style.setProperty("--ms", `${animMs(1)}`);
+  cine.box = box; document.body.append(box);
+  const ended = new Promise(r => { cine.done = r; });
+  box.onclick = () => cineEnd();
+  const key = ev => { if (ev.key === "Escape" || ev.key === " " || ev.key === "Enter") { ev.preventDefault(); ev.stopPropagation(); cineEnd(); } };
+  document.addEventListener("keydown", key, true);
+  const wait = ms => Promise.race([new Promise(r => setTimeout(r, animMs(ms))), ended]);
+  let over = false; ended.then(() => { over = true; });
+  try {
+    await wait(350); if (over) return;
+    left.classList.add("lunge");
+    const end = performance.now() + animMs(700);   // the d20 tumbles, then lands on the natural roll
+    while (!over && performance.now() < end) { die.textContent = String(1 + Math.floor(Math.random() * 20)); await wait(60); }
+    if (over) return;
+    die.textContent = String(e.natural || "?"); die.classList.add("landed", crit ? "crit" : hit ? "hit" : "miss");
+    if (hit) right.classList.add(crit ? "struck crit" : "struck");
+    verdict.classList.add("show");
+    await wait(crit ? 1500 : 1100);
+  } finally {
+    document.removeEventListener("keydown", key, true);
+    box.remove(); cine.box = null; cine.done = null;
+    animShowFx(s.fx);
+  }
+}
+// queue a cut-scene in place of the attack's floating numbers
+const cineBaseUx = uxEvent;
+uxEvent = function (e, short) {
+  if (e.type === "combat_start" || e.type === "combat_end") cine.skipFight = false;
+  if (e.type !== "attack" || !cineWanted(e)) return cineBaseUx(e, short);
+  const before = fx.length;
+  cineBaseUx(e, short);
+  const fresh = fx.splice(before);   // the attack's own floats wait in the queue (cineBaseUx may already have queued them as a step)
+  const last = anim.q[anim.q.length - 1], items = fresh.length ? fresh : last && last.kind === "fx" ? anim.q.pop().items : [];
+  anim.q.push({ kind: "cine", e, fx: items });   // renderCombat starts the queue
+};
+const cineBaseRun = animRun;
+animRun = function () {
+  if (anim.running) return;
+  anim.running = (async () => {
+    while (anim.q.length) {
+      const s = anim.q.shift();
+      try { await (s.kind === "cine" ? animCine(s) : s.kind === "move" ? animMove(s) : s.kind === "spell" ? animSpell(s) : animShowFx(s.items)); } catch (err) { console.warn(err); }
+    }
+  })().finally(() => { anim.running = null; });
+};
+const cineBaseSettings = showSettings;
+showSettings = function () {
+  const dlg = cineBaseSettings(), box = dlg && dlg.querySelector(".uxbox"), first = box && box.querySelector(".uxset"); if (!first) return dlg;
+  const sel = el("select", { onchange: ev => { ux.cine = ev.target.value; uxSave(); } },
+    ...[["party", "your party's attacks and every critical hit"], ["all", "every attack"], ["off", "off"]].map(([v, t]) => el("option", { value: v, textContent: t, selected: cineMode() === v })));
+  first.before(el("label", { className: "uxset", title: "A short close-up of an attack: who swings, the d20, hit or miss. Click, Esc or Space skips one." }, el("span", { textContent: "Attack cut-scenes:" }), sel));
   return dlg;
 };
 
