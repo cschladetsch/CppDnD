@@ -1830,7 +1830,7 @@ const KEYS = [["/", "focus the prompt"], ["1 to 9", "pick an attack or spell in 
 function showHelp() {
   dialog("How to play", el("p", { className: "small", textContent: "Click a path to travel, a topic to talk, or type plain English below. In a fight, shaded squares are where you can walk, and each foe shows your chance to hit." }),
     el("p", { className: "small", textContent: "Undo steps back one action. Rewind returns to the last rest. The journal lists who you have met and what they said." }),
-    el("p", { className: "small", textContent: "Hover or focus anything for what it does, including each line of the combat log. Tips explain things the first time they happen; Settings turns them off or brings them back. New to fights? Start the Training Yard tutorial from New game." }),
+    el("p", { className: "small", textContent: "Hover or focus anything for what it does, including each line of the combat log. Tips explain things the first time they happen; Settings turns them off or brings them back. New to fights? Press Learn combat at the top for the Training Yard tutorial." }),
     el("h3", { textContent: "Keys" }), ...KEYS.map(([k, d]) => el("div", { className: "small" }, el("kbd", { textContent: k }), " " + d)));
 }
 
@@ -1934,7 +1934,7 @@ function coachOnEvent(e) {
   if (e.type === "info" && /^Initiative:/.test(e.text))
     coachOffer("initiative", "Who goes first", `Everyone rolled initiative: a d20 plus their Dexterity modifier. The highest goes first.\n${e.text.replace(/^Initiative:\s*/, "").replace(/\) /g, "),  ")}\n\nThe strip above the grid shows the order, with whoever is acting now highlighted. When everyone has had a turn, a new round starts. A round is about six seconds.`, () => $(".initstrip"));
   if (e.type === "combat_start" && view && view.module && view.module.id !== "tutorial" && !coach.tutorialDone && !tut.on)
-    coachOffer("try_tutorial", "New to combat?", "The Training Yard walks you through one small fight step by step. Start it from New game (top right) whenever you like.");
+    coachOffer("try_tutorial", "New to combat?", "The Training Yard walks you through one small fight step by step. Press Learn combat at the top whenever you like; this game is kept.");
   if (e.check === "attack") {
     if (e.opportunity) coachOffer("opportunity", "Opportunity attack", `${actorName(e.actor)} got a free swing at ${actorName(e.target)} for moving out of reach. Leaving an enemy's reach (5 ft for most weapons) lets it attack as a reaction, once per round. To avoid it, go around enemies or finish them first.\n\n${explainRoll(e)}`);
     else if (ours(a)) coachOffer("attack_result", "Reading an attack", `${explainRoll(e)}\n\nHover any attack line in the log for this breakdown, or click it for the raw dice.`, () => $("#log"));
@@ -2015,7 +2015,7 @@ const TUT = [
     body: () => "Hurt? Potion heals you 2d4+2 HP for your action, and Kestrel has two. Dodge spends your action to give attacks against you disadvantage until your next turn. Walking away from an enemy next to you gives it a free swing (an opportunity attack), so go around or finish it first." },
   { title: "Finish the fight", body: () => "Beat everything in the ring. Tips will pop up the first time something new happens: a critical hit, cover, a saving throw, someone going down.", done: v => !inFight() },
   { title: "That is combat", next: true, last: true,
-    body: () => "You have the basics: initiative, movement, one action, the d20 against AC, cover, saves and death saves. In the adventures the same tips appear when something new happens, and you can switch them off or reset them in Settings.\n\nPress New game (top right) to start a real adventure." },
+    body: () => "You have the basics: initiative, movement, one action, the d20 against AC, cover, saves and death saves. In the adventures the same tips appear when something new happens, and you can switch them off or reset them in Settings.\n\nPress New game (top right) to start a real adventure, or Learn combat to go again." },
 ];
 function tutCard() {
   const s = TUT[tut.step], last = !!s.last;
@@ -2031,7 +2031,7 @@ function tutGo(n) {
   coachRender(); coachResume();
 }
 function tutEnd(finished) {
-  if (!finished && !confirm("Leave the tutorial? You can start it again from New game.")) return;
+  if (!finished && !confirm("Leave the tutorial? You can start it again with Learn combat at the top.")) return;
   tut.on = false; coach.tutorialDone = true; tutSave(); coachRender(); coachResume();
 }
 function tutCheck(e) {
@@ -2039,6 +2039,12 @@ function tutCheck(e) {
   const s = TUT[tut.step], h = heroActor();
   if (e && e.check === "attack" && !e.opportunity && h && e.actor === h.id) tut.last = e;   // the first swing, for "Reading the result"
   if (s.done && s.done(view, e || null)) tutGo(tut.step + 1);
+}
+async function openTutorial() {
+  if (!content) content = (await api("GET", "/api/content")).data;
+  const lesson = ((content && content.modules) || []).find(m => m.tutorial);
+  if (!lesson) return toast("This server has no tutorial module: rebuild and restart it (web.ps1 does both).");
+  startTutorial(lesson.id);
 }
 async function startTutorial(moduleId) {
   const { status, data } = await api("POST", "/api/games", { module: moduleId, role: "player", hero: "kestrel_vane", difficulty: "easy", seed: 7 });
@@ -2146,6 +2152,7 @@ function uxHeader() {
   mk("undoBtn", "Undo", "Take back your last action (U)", undoLast); mk("rewBtn", "Rewind", "Go back to the last rest", rewindRest); mk("jrnBtn", "Journal", "People you have met, quests (J)", showJournal);
   const h = el("button", { id: "helpBtn", textContent: "?", title: "How to play (?)", "aria-label": "Help", onclick: showHelp }), s = el("button", { id: "setBtn", textContent: "Settings", title: "Sound, voices, text size, colours (S)", onclick: showSettings });
   hdr.insertBefore(h, anchor); hdr.insertBefore(s, anchor);
+  hdr.insertBefore(el("button", { id: "learnBtn", textContent: "Learn combat", title: "The combat tutorial: one guided fight in the Training Yard, about five minutes. Your current game is kept.", onclick: openTutorial }), anchor);
   hdr.insertBefore(el("button", { id: "modelsBtn", textContent: "3D", title: "3D models: textures and characters, fly around with W A S D and the mouse", onclick: () => { location.href = "models.html"; } }), anchor);
   $("#log")?.setAttribute("aria-live", "polite");
 }
