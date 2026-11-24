@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <algorithm>
 #include <chrono>
 #include <cmath>
 #include <filesystem>
@@ -231,4 +232,53 @@ TEST(Core, ExtraAttackAndConcentration) {
     Action holdOgre = hold;
     holdOgre.targetId = ogre.id;
     EXPECT_FALSE(c.Resolve(aldric, holdOgre).ok);
+}
+
+TEST(Core, AttackAndSaveEventsCarryTheirDice) {
+    EventBus bus;
+    std::vector<Event> seen;
+    bus.Subscribe([&](const Event& e) { seen.push_back(e); });
+    Combat c(TacticalGrid(12, 5), bus);
+    auto& thorin = c.AddActor(Team::Party, Hero("thorin"), {1, 1}, nullptr);
+    auto& aldric = c.AddActor(Team::Party, Hero("aldric"), {1, 3}, nullptr);
+    CharacterSheet dummy = Mon("ogre");
+    dummy.maxHp = dummy.hp = 500;
+    auto& ogre = c.AddActor(Team::Monsters, dummy, {2, 1}, nullptr);
+    auto& cultist = c.AddActor(Team::Monsters, Mon("cultist"), {4, 3}, nullptr);
+
+    thorin.sheet.economy.Reset(thorin.SpeedFt());
+    Action atk;
+    atk.type = ActionType::Attack;
+    atk.targetId = ogre.id;
+    ASSERT_TRUE(c.Resolve(thorin, atk).ok);
+    const auto attack = std::find_if(seen.begin(), seen.end(), [](const Event& e) { return e.type == EventType::Attack; });
+    ASSERT_NE(attack, seen.end());
+    EXPECT_EQ(attack->check, "attack");
+    EXPECT_GE(attack->natural, 1);
+    EXPECT_LE(attack->natural, 20);
+    EXPECT_EQ(attack->roll, attack->natural + thorin.sheet.attacks[0].toHit);
+    EXPECT_EQ(attack->vs, ogre.EffectiveAc() + attack->coverBonus);
+    EXPECT_FALSE(attack->opportunity);
+
+    // The fields survive the trip through JSON (saves and the API).
+    const Event back = EventFromJson(ToJson(*attack));
+    EXPECT_EQ(back.check, "attack");
+    EXPECT_EQ(back.natural, attack->natural);
+    EXPECT_EQ(back.crit, attack->crit);
+    EXPECT_EQ(back.mode, attack->mode);
+
+    seen.clear();
+    aldric.sheet.economy.Reset(aldric.SpeedFt());
+    Action hold;
+    hold.type = ActionType::CastSpell;
+    hold.spellId = "hold_person";
+    hold.targetId = cultist.id;
+    ASSERT_TRUE(c.Resolve(aldric, hold).ok);
+    const auto save = std::find_if(seen.begin(), seen.end(), [](const Event& e) { return e.type == EventType::Spell; });
+    ASSERT_NE(save, seen.end());
+    EXPECT_EQ(save->check, "save");
+    EXPECT_EQ(save->vs, aldric.sheet.SpellSaveDc());
+
+    // Events that are not d20 tests stay as they were.
+    EXPECT_FALSE(ToJson(Event{}).contains("check"));
 }

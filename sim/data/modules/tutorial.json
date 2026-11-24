@@ -1,0 +1,75 @@
+{
+ "id": "tutorial",
+ "name": "Training Yard",
+ "tutorial": true,
+ "setting": "a walled training yard behind a frontier keep, straw targets and practice dummies, a gruff drill sergeant, bright morning",
+ "recommendedLevel": 3,
+ "hardHp": 1.0,
+ "intro": "The keep's training yard smells of straw and lamp oil. Sergeant Brask has a bet with the quartermaster that two greenhorns cannot clear the practice ring before the noon bell, and the quartermaster has let some real goblins and an old skeleton into it to make the bet interesting.",
+ "endText": "The noon bell rings over the yard. Brask pays the quartermaster nothing, and tells you, gruffly, that you will do.",
+ "clock": { "startHour": 9, "nightStart": 20, "nightEnd": 5 },
+ "party": ["kestrel_vane", "mira_ashgrove"],
+ "start": "yard_gate",
+ "quests": [
+  { "id": "clear_the_ring", "name": "Clear the Ring", "description": "Walk into the practice ring and beat everything in it.", "completeWhen": ["ring_cleared"], "xp": 50 }
+ ],
+ "endWhen": ["ring_cleared"],
+ "locations": [
+  {
+   "id": "yard_gate",
+   "name": "The Yard Gate",
+   "kind": "settlement",
+   "rest": "safe",
+   "description": "A gate of iron-banded oak opens onto a square of trampled sand. Weapon racks line the wall, a water butt stands by the gate, and beyond a low fence lies the practice ring, where something small and green is sharpening a blade.",
+   "events": [
+    { "id": "arrival", "trigger": "enter", "narration": "Sergeant Brask spits, looks you both up and down, and jerks a thumb at the ring. \"In you go. Mind the crates, they stop arrows.\"" }
+   ],
+   "npcs": [
+    {
+     "id": "brask",
+     "name": "Sergeant Brask",
+     "gender": "male",
+     "type": "soldier",
+     "description": "A broad, grey-whiskered veteran with a broken nose and a wooden practice sword he never puts down.",
+     "topics": [
+      { "id": "advice", "text": "\"Every fight goes the same way. Everyone rolls for who goes first. On your turn you can move, and you get one action, usually a swing or a spell. A swing is a twenty-sided die plus your skill against how hard they are to hit. Beat it and you hurt them.\"" },
+      { "id": "cover", "text": "\"Crates give half cover, pillars give more. Shooting at someone behind one is harder. Standing behind one yourself is smart.\"" },
+      { "id": "running", "text": "\"Do not turn your back and walk away from something with a blade. It gets a free swing at you as you go. Kill it, or go around.\"" }
+     ]
+    }
+   ],
+   "exits": [
+    { "to": "practice_ring", "label": "Into the practice ring" }
+   ]
+  },
+  {
+   "id": "practice_ring",
+   "name": "The Practice Ring",
+   "kind": "site",
+   "rest": "none",
+   "description": "A ring of packed sand fenced with rope. Supply crates and a stone pillar break it up, and a churned patch of mud in the middle sucks at boots.",
+   "map": [
+    "############",
+    "#P...c...M.#",
+    "#..~~...O..#",
+    "#P.~~..#..M#",
+    "#P...c.#...#",
+    "#P.O.....M.#",
+    "############"
+   ],
+   "events": [
+    {
+     "id": "drill",
+     "trigger": "enter",
+     "narration": "Two goblins look up from a stolen ration sack and grin. Behind them an old skeleton creaks to its feet, rattling a rusty sword.",
+     "encounter": { "monsters": ["goblin", "goblin", "skeleton"] },
+     "setsFlags": ["ring_cleared"],
+     "xp": 0
+    }
+   ],
+   "exits": [
+    { "to": "yard_gate", "label": "Back to the gate" }
+   ]
+  }
+ ]
+}

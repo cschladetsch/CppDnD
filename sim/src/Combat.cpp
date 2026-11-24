@@ -55,7 +55,26 @@ const GameActor* Combat::Find(int id) const {
 }
 
 void Combat::Say(EventType t, int actor, int target, std::string text, int roll, int vs, int amount) const {
-    bus_.Emit(Event{t, actor, target, roll, vs, amount, std::move(text), 0, {}});
+    bus_.Emit(Event{.type = t, .actor = actor, .target = target, .roll = roll, .vs = vs, .amount = amount, .text = std::move(text)});
+}
+
+void Combat::SayAttack(EventType t, int actor, int target, std::string text, const AttackRollResult& r, const AttackPreview& pv,
+                       int amount, bool opportunity) const {
+    Event e{.type = t, .actor = actor, .target = target, .roll = r.total, .vs = r.targetAc, .amount = amount, .text = std::move(text)};
+    e.check = "attack";
+    e.natural = r.natural;
+    e.mode = pv.mode == RollMode::Advantage ? "advantage" : pv.mode == RollMode::Disadvantage ? "disadvantage" : "";
+    e.crit = r.crit;
+    e.coverBonus = pv.coverBonus;
+    e.opportunity = opportunity;
+    bus_.Emit(e);
+}
+
+void Combat::SaySave(EventType t, int actor, int target, std::string text, int total, int dc, int amount, int coverBonus) const {
+    Event e{.type = t, .actor = actor, .target = target, .roll = total, .vs = dc, .amount = amount, .text = std::move(text)};
+    e.check = "save";
+    e.coverBonus = coverBonus;
+    bus_.Emit(e);
 }
 
 void Combat::RemoveFromGrid(GameActor& a) {
@@ -608,7 +627,7 @@ void Combat::ResolveWeaponAttack(GameActor& a, GameActor& t, const WeaponAttack&
     ConsumeAdvantageEffects(t);
     const std::string lead = Cat(a.Name(), opportunity ? " takes an opportunity attack on " : " attacks ", t.Name(), " with ", w.name, ": ");
     if (!r.hit) {
-        Say(EventType::Attack, a.id, t.id, Cat(lead, "MISS [", r.total, " vs AC ", r.targetAc, "]", ModeTag(pv.mode)), r.total, r.targetAc);
+        SayAttack(EventType::Attack, a.id, t.id, Cat(lead, "MISS [", r.total, " vs AC ", r.targetAc, "]", ModeTag(pv.mode)), r, pv, 0, opportunity);
         return;
     }
     int dmg = DiceRoller::Roll(w.damage, r.crit);
@@ -624,7 +643,7 @@ void Combat::ResolveWeaponAttack(GameActor& a, GameActor& t, const WeaponAttack&
     std::string line = Cat(lead, r.crit ? "CRIT" : "HIT", " [", r.total, " vs AC ", r.targetAc, "]", ModeTag(pv.mode), " for ", total, " ", ToString(w.type), " damage");
     if (sneak) line += Cat(" (incl. ", sneak, " sneak attack)");
     line += Note(raw, total);
-    Say(EventType::Attack, a.id, t.id, line + "!", r.total, r.targetAc, total);
+    SayAttack(EventType::Attack, a.id, t.id, line + "!", r, pv, total, opportunity);
     DealDamage(a, t, total, r.crit);
 
     if (w.rider.present && !t.IsDead()) {
@@ -752,12 +771,12 @@ ActionResult Combat::DoCast(GameActor& a, const Action& act) {
             const AttackRollResult r = RollToHit(a, a.sheet.SpellAttackBonus(), *t, pv);
             ConsumeAdvantageEffects(*t);
             if (!r.hit) {
-                Say(EventType::Spell, a.id, t->id, Cat(lead, "MISS [", r.total, " vs AC ", r.targetAc, "]", ModeTag(pv.mode)), r.total, r.targetAc);
+                SayAttack(EventType::Spell, a.id, t->id, Cat(lead, "MISS [", r.total, " vs AC ", r.targetAc, "]", ModeTag(pv.mode)), r, pv);
                 break;
             }
             const int raw = DiceRoller::Roll(dice, r.crit);
             const int dmg = AdjustDamage(*t, raw, sp->damageType, true);
-            Say(EventType::Spell, a.id, t->id, Cat(lead, r.crit ? "CRIT" : "HIT", " [", r.total, " vs AC ", r.targetAc, "]", ModeTag(pv.mode), " for ", dmg, " ", ToString(sp->damageType), " damage", Note(raw, dmg), "!"), r.total, r.targetAc, dmg);
+            SayAttack(EventType::Spell, a.id, t->id, Cat(lead, r.crit ? "CRIT" : "HIT", " [", r.total, " vs AC ", r.targetAc, "]", ModeTag(pv.mode), " for ", dmg, " ", ToString(sp->damageType), " damage", Note(raw, dmg), "!"), r, pv, dmg);
             DealDamage(a, *t, dmg, r.crit);
             if (sp->grantsAdvantage && !t->IsDead()) {
                 Effect e = makeEffect(*sp);
@@ -783,11 +802,11 @@ ActionResult Combat::DoCast(GameActor& a, const Action& act) {
             int total = 0;
             const int cover = CoverBonusFor(grid_.CoverBetween(a.pos, t->pos));
             if (RollSave(*t, sp->save, dc, total, cover)) {
-                Say(EventType::Spell, a.id, t->id, Cat(lead, t->Name(), " resists (", ToString(sp->save), " save ", total, " vs DC ", dc, ")."), total, dc);
+                SaySave(EventType::Spell, a.id, t->id, Cat(lead, t->Name(), " resists (", ToString(sp->save), " save ", total, " vs DC ", dc, ")."), total, dc, 0, cover);
             } else {
                 const int raw = DiceRoller::Roll(dice);
                 const int dmg = AdjustDamage(*t, raw, sp->damageType, true);
-                Say(EventType::Spell, a.id, t->id, Cat(lead, "FAILED ", ToString(sp->save), " save (", total, " vs DC ", dc, ") for ", dmg, " ", ToString(sp->damageType), " damage", Note(raw, dmg), "!"), total, dc, dmg);
+                SaySave(EventType::Spell, a.id, t->id, Cat(lead, "FAILED ", ToString(sp->save), " save (", total, " vs DC ", dc, ") for ", dmg, " ", ToString(sp->damageType), " damage", Note(raw, dmg), "!"), total, dc, dmg, cover);
                 DealDamage(a, *t, dmg, false);
             }
             break;
@@ -803,7 +822,7 @@ ActionResult Combat::DoCast(GameActor& a, const Action& act) {
                 const int cover = CoverBonusFor(grid_.CoverBetween(t->pos, o->pos));
                 const bool saved = RollSave(*o, sp->save, dc, total, cover);
                 const int applied = AdjustDamage(*o, saved ? raw / 2 : raw, sp->damageType, true);
-                Say(EventType::Spell, a.id, o->id, Cat("   ", o->Name(), saved ? " saves" : " fails", " (", total, ") and takes ", applied, " damage."), total, dc, applied);
+                SaySave(EventType::Spell, a.id, o->id, Cat("   ", o->Name(), saved ? " saves" : " fails", " (", total, ") and takes ", applied, " damage."), total, dc, applied, cover);
                 DealDamage(a, *o, applied, false);
             }
             break;
@@ -812,9 +831,9 @@ ActionResult Combat::DoCast(GameActor& a, const Action& act) {
             int total = 0;
             const int cover = CoverBonusFor(grid_.CoverBetween(a.pos, t->pos));
             if (RollSave(*t, sp->save, dc, total, cover)) {
-                Say(EventType::Spell, a.id, t->id, Cat(lead, t->Name(), " resists (", ToString(sp->save), " save ", total, " vs DC ", dc, ")."), total, dc);
+                SaySave(EventType::Spell, a.id, t->id, Cat(lead, t->Name(), " resists (", ToString(sp->save), " save ", total, " vs DC ", dc, ")."), total, dc, 0, cover);
             } else {
-                Say(EventType::Spell, a.id, t->id, Cat(lead, "FAILED ", ToString(sp->save), " save (", total, " vs DC ", dc, ")!"), total, dc);
+                SaySave(EventType::Spell, a.id, t->id, Cat(lead, "FAILED ", ToString(sp->save), " save (", total, " vs DC ", dc, ")!"), total, dc, 0, cover);
                 ApplyEffect(*t, makeEffect(*sp));
             }
             break;

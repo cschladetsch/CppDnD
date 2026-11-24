@@ -233,6 +233,7 @@ ModuleDef ParseModule(const json& j, const std::string& file) {
         m.nightEnd = j.at("clock").value("nightEnd", 6);
     }
     m.party = Strs(j, "party");
+    m.tutorial = j.value("tutorial", false);
     if (j.contains("art") && j["art"].is_object()) {
         const auto& a = j["art"];
         m.art.prefix = a.value("prefix", "");

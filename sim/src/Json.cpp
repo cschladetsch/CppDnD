@@ -236,8 +236,17 @@ const char* const kEventNames[] = {"combat_start", "round_start", "turn_start", 
 }
 
 Json ToJson(const Event& e) {
-    return Json{{"seq", e.seq}, {"type", kEventNames[static_cast<int>(e.type)]}, {"actor", e.actor}, {"target", e.target}, {"roll", e.roll},
-                {"vs", e.vs}, {"amount", e.amount}, {"text", e.text}, {"flavour", e.flavour}};
+    Json j{{"seq", e.seq}, {"type", kEventNames[static_cast<int>(e.type)]}, {"actor", e.actor}, {"target", e.target}, {"roll", e.roll},
+           {"vs", e.vs}, {"amount", e.amount}, {"text", e.text}, {"flavour", e.flavour}};
+    if (!e.check.empty()) {  // only on d20 tests, so other events stay small
+        j["check"] = e.check;
+        j["natural"] = e.natural;
+        j["mode"] = e.mode;
+        j["crit"] = e.crit;
+        j["coverBonus"] = e.coverBonus;
+        j["opportunity"] = e.opportunity;
+    }
+    return j;
 }
 
 Event EventFromJson(const Json& j) {
@@ -253,6 +262,12 @@ Event EventFromJson(const Json& j) {
     e.amount = j.value("amount", 0);
     e.text = j.value("text", "");
     e.flavour = j.value("flavour", "");
+    e.check = j.value("check", "");
+    e.natural = j.value("natural", 0);
+    e.mode = j.value("mode", "");
+    e.crit = j.value("crit", false);
+    e.coverBonus = j.value("coverBonus", 0);
+    e.opportunity = j.value("opportunity", false);
     return e;
 }
 

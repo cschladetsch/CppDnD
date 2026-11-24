@@ -154,6 +154,7 @@ struct ModuleDef {
     ArtStyleDef art;
     std::vector<std::string> party;      // optional: the default party, by character id; empty: the first four of the module's own cast
     std::vector<RoomSeedDef> roomSeeds;  // rooms for Explore to find when no model writes them; empty means the general ones
+    bool tutorial = false;               // a guided lesson: clients offer it apart from the adventures
 
     const LocationDef* FindLocation(std::string_view id) const;
     const RandomTableDef* FindTable(std::string_view id) const;

@@ -89,7 +89,7 @@ void Game::Init(bool restore) {
 // ---------------------------------------------------------------- plumbing
 
 void Game::Emit(EventType t, std::string text, int amount) {
-    bus_.Emit(Event{t, -1, -1, 0, 0, amount, std::move(text), 0, {}});
+    bus_.Emit(Event{.type = t, .amount = amount, .text = std::move(text)});
 }
 
 void Game::OnBusEvent(const Event& in) {

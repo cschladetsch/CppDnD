@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <gtest/gtest.h>
 
 #include <chrono>
@@ -138,9 +139,13 @@ TEST(Llm, Say) {
 TEST(Llm, Agents) {
     // ---- the shipped agents.json parses and resolves as documented
     std::string err;
-    auto cfg = AgentsConfig::Load(std::string(DND_DATA_DIR) + "/agents.json", err);
-    EXPECT_TRUE(cfg.has_value());
-    if (!cfg) { std::cerr << err << "\n"; return; }
+    const auto shipped = AgentsConfig::Load(std::string(DND_DATA_DIR) + "/agents.json", err);
+    EXPECT_TRUE(shipped.has_value());
+    if (!shipped) { std::cerr << err << "\n"; return; }
+    // The shipped file may have mature mode on (content.mature). The per-actor routing below is checked with it off;
+    // Llm.AgentsInMatureMode checks what mature mode does to the same file.
+    auto cfg = shipped;
+    cfg->mature = false;
     EXPECT_EQ(cfg->ForPlayer("thorin", "Thorin").model, "dolphin-llama3:8b");
     EXPECT_EQ(cfg->ForPlayer("nobody", "Nobody").model, "qwen2.5:7b");
     auto undead = cfg->ForMonster("zombie", {"undead"});
@@ -402,6 +407,50 @@ TEST(NpcLines, TheVoiceRemembersThePartyAndFallsBackWhenTheModelFails) {
     auto failing = std::make_shared<MockLlmClient>([](const std::string&, const std::string&, bool) { LlmReply r; r.error = "boom"; return r; });
     g->SetNpcVoice(MakeLlmNpcVoice(failing, *g));
     ASSERT_TRUE(g->Talk("tran", "stores").ok);  // the written text is used instead
+}
+
+TEST(Llm, AgentsInMatureMode) {
+    // Mature mode on the shipped agents file: every actor thinks with content.model (unless it names its own
+    // matureModel), and every prompt it receives starts with the adult-content preamble.
+    std::string err;
+    auto cfg = AgentsConfig::Load(std::string(DND_DATA_DIR) + "/agents.json", err);
+    ASSERT_TRUE(cfg.has_value()) << err;
+    cfg->mature = true;
+    if (cfg->dm.matureModel.empty()) cfg->dm.matureModel = cfg->playerFallback.matureModel = "uncensored:test";   // a file without content.model
+    const std::string matureModel = cfg->dm.matureModel;
+    struct Mind { std::string model, system; };
+    std::map<std::string, Mind> minds;
+    AgentTable::ClientFactory factory = [&](const std::string& name, const BackendDef&, const AgentDef& def) {
+        minds[name].model = def.model;
+        return std::make_shared<MockLlmClient>([&minds, name](const std::string& sys, const std::string&, bool) {
+            minds[name].system = sys;
+            LlmReply r;
+            r.ok = true;
+            r.content = R"({"say":"Onward.","actions":[{"type":"end_turn"}]})";
+            return r;
+        });
+    };
+    GameConfig dc;
+    dc.rooms = 1; dc.difficulty = "easy"; dc.seed = 3; dc.role = Role::Spectator; dc.agents = true;
+    Game g(dc);
+    auto table = std::make_shared<AgentTable>(*cfg, factory);
+    AgentTable::Attach(table, g);
+    int guard = 0;
+    while (g.GetMode() == Mode::Combat && guard++ < 500) g.AdvanceCombat();
+    ASSERT_GE(minds.size(), 3u);
+    for (const auto& [name, m] : minds) {
+        EXPECT_EQ(m.model, matureModel) << name;
+        if (!m.system.empty()) EXPECT_EQ(m.system.rfind(ContentPreamble(true), 0), 0u) << name << " did not get the mature preamble";
+    }
+    EXPECT_TRUE(std::any_of(minds.begin(), minds.end(), [](const auto& kv) { return !kv.second.system.empty(); })) << "no agent was asked anything";
+
+    // A model switched at runtime wins over the mature model, and stays wrapped.
+    EXPECT_TRUE(table->SetModel("type:undead", "phi3:mini", "", false, err)) << err;
+    GameActor zombie;
+    zombie.team = Team::Monsters;
+    zombie.sheet.monsterId = "zombie";
+    zombie.sheet.tags = {"undead"};
+    EXPECT_EQ(table->MonsterAgent(zombie)->Def().model, "phi3:mini");
 }
 
 TEST(Llm, MatureContentPolicy) {

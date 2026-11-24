@@ -51,7 +51,7 @@ try:
 
     st, a = call("POST", "/api/games", {"module": "ravenmoor", "seed": 1, "role": "spectator"})
     assert st == 201 and a["name"] == "The Dread of Ravenmoor #1", a
-    st, b = call("POST", "/api/games", {"module": "cyberhood", "seed": 2, "role": "player", "hero": "elara", "name": "  Neon run  "})
+    st, b = call("POST", "/api/games", {"module": "cyberhood", "seed": 2, "role": "player", "hero": "kade_riot", "name": "  Neon run  "})
     assert st == 201 and b["name"] == "Neon run", b
     st, c = call("POST", "/api/games", {"module": "ravenmoor", "seed": 3, "role": "spectator"})
     assert st == 201 and c["name"] == "The Dread of Ravenmoor #2", c
@@ -74,7 +74,7 @@ try:
     names = {s["id"]: s["name"] for s in before["sessions"]}
     assert names == {a["id"]: "The Dread of Ravenmoor #1", b["id"]: "Neon run", c["id"]: "Second try"}, names
     info = {s["id"]: s for s in before["sessions"]}
-    assert info[b["id"]]["module"] == "cyberhood" and info[b["id"]]["hero"] == "Elara" and info[b["id"]]["role"] == "player", info[b["id"]]
+    assert info[b["id"]]["module"] == "cyberhood" and info[b["id"]]["hero"] == "Kade Riot" and info[b["id"]]["role"] == "player", info[b["id"]]
     assert info[a["id"]]["day"] == played["clock"]["day"] and info[a["id"]]["mode"] == played["mode"], info[a["id"]]
     assert before["sessions"][0]["id"] == a["id"], "the session played last comes first"  # a was played after the others were created
     assert before["sessions"][0]["updated"] >= before["sessions"][-1]["updated"]
@@ -87,7 +87,7 @@ try:
     st, v = call("GET", f"/api/games/{a['id']}")
     assert st == 200 and v["clock"] == played["clock"] and v["location"]["id"] == played["location"]["id"] and v["mode"] == played["mode"], "state changed across a restart"
     st, v = call("GET", f"/api/games/{b['id']}")
-    assert st == 200 and v["hero"] == "Elara" and v["module"]["name"] == "CyberHood", v.get("module")
+    assert st == 200 and v["hero"] == "Kade Riot" and v["module"]["name"] == "CyberHood", v.get("module")
 
     # a restored session keeps playing, and the same way a never-restarted one would
     st, r = call("POST", f"/api/games/{a['id']}/auto", {"steps": 3})

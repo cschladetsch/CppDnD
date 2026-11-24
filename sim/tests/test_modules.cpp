@@ -243,10 +243,46 @@ TEST_P(ModuleContent, TheAutopilotAlwaysFinishesAndOftenWins) {
     EXPECT_GE(won, 3) << "the autopilot should win at least a third of the time";
 }
 
-INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown", "sunless_abbey", "meridian"));
+INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown", "sunless_abbey", "meridian", "tutorial"));
 
 TEST(Modules, EveryShippedModuleIsCovered) {
-    EXPECT_EQ(Content::Modules().size(), 5u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
+    EXPECT_EQ(Content::Modules().size(), 6u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
+}
+
+// ---------------------------------------------------------------- Training Yard (the combat tutorial)
+
+TEST(Tutorial, IsFlaggedAndIsTheOnlyOne) {
+    for (const auto& m : Content::Modules()) EXPECT_EQ(m.tutorial, m.id == "tutorial") << m.id;
+}
+
+TEST(Tutorial, OneStepFromTheGateIsAFightWithEveryKindOfGround) {
+    GameConfig c;
+    c.moduleId = "tutorial";
+    c.seed = 7;
+    c.role = Role::Player;
+    Game g(c);
+    ASSERT_EQ(g.Party().size(), 2u);
+    ASSERT_EQ(g.GetMode(), Mode::Exploring);
+    ASSERT_TRUE(g.Travel("practice_ring").ok);
+    ASSERT_EQ(g.GetMode(), Mode::Combat);
+    const std::string map = g.GetCombat()->RenderMap();
+    for (char ch : {'#', '~', 'c', 'O'}) EXPECT_NE(map.find(ch), std::string::npos) << "the lesson needs '" << ch << "' on the map";
+}
+
+TEST(Tutorial, IsForgivingEnoughThatTheAutopilotNearlyAlwaysWins) {
+    int won = 0;
+    for (std::uint64_t seed = 1; seed <= 20; ++seed) {
+        GameConfig c;
+        c.moduleId = "tutorial";
+        c.seed = seed;
+        c.role = Role::Spectator;
+        Game g(c);
+        int steps = 0;
+        while ((g.GetMode() == Mode::Exploring || g.GetMode() == Mode::Combat) && steps++ < 2000)
+            if (!g.AutoStep().ok) break;
+        won += g.GetMode() == Mode::Complete;
+    }
+    EXPECT_GE(won, 18) << "a lesson should almost never end in defeat";
 }
 
 // ---------------------------------------------------------------- CyberHood specifics
@@ -515,7 +551,8 @@ TEST(Meridian, TheKeycardAndTheCarrierAreEachDrawnFromTwoPlaces) {
 TEST(ModuleCasts, EveryModuleHasItsOwnCastAndStartsWithIt) {
     for (const auto& m : Content::Modules()) {
         const auto cast = Content::CastOf(m.id);
-        ASSERT_GE(cast.size(), 5u) << m.id;
+        const std::size_t want = m.tutorial ? 2u : 4u;   // the lesson is a fighter and a wizard, to keep the first fight readable
+        ASSERT_GE(cast.size(), m.tutorial ? 2u : 5u) << m.id;
         std::set<std::string> classes;
         for (const CharacterDef* c : cast) {
             EXPECT_EQ(c->module, m.id);
@@ -524,13 +561,13 @@ TEST(ModuleCasts, EveryModuleHasItsOwnCastAndStartsWithIt) {
             for (const auto& s : c->spells) EXPECT_TRUE(Content::FindSpell(s) != nullptr) << c->id << " " << s;
             classes.insert(c->classId);
         }
-        EXPECT_GE(classes.size(), 4u) << m.id;
+        EXPECT_GE(classes.size(), want) << m.id;
         const auto party = Content::DefaultParty(m.id);
-        ASSERT_EQ(party.size(), 4u);
+        ASSERT_EQ(party.size(), want);
         for (const auto& id : party) { const CharacterDef* c = Content::FindCharacter(id); ASSERT_TRUE(c != nullptr); EXPECT_EQ(c->module, m.id); }
         GameConfig cfg; cfg.moduleId = m.id; cfg.seed = 3;
         Game g(cfg);
-        EXPECT_EQ(g.View(0)["party"].size(), 4u) << m.id;
+        EXPECT_EQ(g.View(0)["party"].size(), want) << m.id;
         EXPECT_TRUE(g.Hero().find("Thorin") == std::string::npos) << m.id;
     }
     // the others stay out of it: no module cast shares a character with another
