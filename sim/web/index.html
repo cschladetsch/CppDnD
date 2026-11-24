@@ -119,24 +119,24 @@ kbd { background:#2a2638; border:1px solid var(--edge); border-bottom-width:2px;
 #herostrip .hero .nm{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
 #herostrip .hpbar{width:48px;height:4px;background:#0006;border-radius:2px;overflow:hidden}#herostrip .hpbar i{display:block;height:100%}
 #herostrip .hero.you{outline:2px solid var(--accent);background:#2b2540}#herostrip .hero.acting .init,#herostrip .hero.acting img{box-shadow:0 0 0 2px var(--accent)}
-.cine{position:fixed;inset:0;z-index:200;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(ellipse at center,rgba(20,16,30,.88),rgba(0,0,0,.96));cursor:pointer;animation:cinein .25s ease-out}
-.cine .cbar{height:56px;background:#000;display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:0 16px}
-.cine .cstage{flex:1;display:flex;align-items:center;justify-content:space-around;padding:0 4vw}
-.cine .cside{display:flex;flex-direction:column;align-items:center;gap:10px;font-size:18px;transition:transform .35s ease-out}
-.cine .cside img,.cine .cside svg{width:min(22vw,180px);height:min(22vw,180px);border-radius:50%;object-fit:cover;box-shadow:0 0 0 4px var(--party,#648fff),0 0 30px #000}
+.cine{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);width:min(640px,calc(100vw - 32px));height:min(360px,calc(100vh - 32px));z-index:200;display:flex;flex-direction:column;justify-content:space-between;background:radial-gradient(ellipse at center,#221c30,#0b0910);border:1px solid var(--edge);border-radius:12px;box-shadow:0 12px 48px rgba(0,0,0,.7);overflow:hidden;cursor:pointer;animation:cinein .25s ease-out}
+.cine .cbar{height:40px;background:#000a;display:flex;justify-content:flex-end;align-items:center;gap:8px;padding:0 16px}
+.cine .cstage{flex:1;display:flex;align-items:center;justify-content:space-around;padding:0 16px;overflow:hidden}
+.cine .cside{display:flex;flex-direction:column;align-items:center;gap:8px;font-size:15px;transition:transform .35s ease-out}
+.cine .cside img,.cine .cside svg{width:min(22vw,120px);height:min(22vw,120px);border-radius:50%;object-fit:cover;box-shadow:0 0 0 4px var(--party,#648fff),0 0 30px #000}
 .cine .cside.foe img,.cine .cside.foe svg{box-shadow:0 0 0 4px var(--foe,#e0604f),0 0 30px #000}
 .cine .cside.l{animation:slidel .4s ease-out}.cine .cside.r{animation:slider .4s ease-out}
-.cine .cside.l.lunge{transform:translateX(9vw) scale(1.08)}
+.cine .cside.l.lunge{transform:translateX(48px) scale(1.08)}
 .cine .cside.r.struck{animation:cshake .35s}.cine .cside.r.struck.crit{animation:cshake .5s,cflash .7s}
-.cine .cmid{display:flex;flex-direction:column;align-items:center;gap:14px;text-align:center;max-width:36vw}
+.cine .cmid{display:flex;flex-direction:column;align-items:center;gap:10px;text-align:center;max-width:240px}
 .cine .cwhat{color:var(--dim);font-size:15px}
-.cine .cdie{width:84px;height:84px;display:flex;align-items:center;justify-content:center;font:800 34px ui-monospace,monospace;color:#1a1405;background:#e5c24a;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);animation:cspin .3s linear infinite}
+.cine .cdie{width:64px;height:64px;display:flex;align-items:center;justify-content:center;font:800 26px ui-monospace,monospace;color:#1a1405;background:#e5c24a;clip-path:polygon(50% 0,100% 25%,100% 75%,50% 100%,0 75%,0 25%);animation:cspin .3s linear infinite}
 .cine .cdie.landed{animation:cland .3s ease-out}.cine .cdie.miss{background:#999}.cine .cdie.crit{background:#ffd54a;filter:drop-shadow(0 0 12px #ffd54a)}
-.cine .cverdict{font:800 30px ui-monospace,monospace;letter-spacing:2px;opacity:0;transform:scale(.6);transition:all .25s ease-out}
+.cine .cverdict{font:800 24px ui-monospace,monospace;letter-spacing:2px;opacity:0;transform:scale(.6);transition:all .25s ease-out}
 .cine .cverdict.show{opacity:1;transform:scale(1)}.cine .cverdict.hit{color:#ff8a7a}.cine .cverdict.crit{color:#ffd54a;text-shadow:0 0 14px #ffd54a}.cine .cverdict.miss{color:#bbb}
 .cine .cwhy{color:var(--dim);font-size:13px;min-height:1em}
-.cine .cskip{font-size:12px}
-@keyframes cinein{from{opacity:0}to{opacity:1}} @keyframes slidel{from{transform:translateX(-30vw)}} @keyframes slider{from{transform:translateX(30vw)}}
+.cine .cskip{font-size:12px}.cine .cbar.top{justify-content:flex-start;color:var(--dim);font-size:13px;letter-spacing:1px}
+@keyframes cinein{from{opacity:0;transform:translate(-50%,-50%) scale(.9)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}} @keyframes slidel{from{transform:translateX(-220px)}} @keyframes slider{from{transform:translateX(220px)}}
 @keyframes cspin{to{transform:rotate(360deg)}} @keyframes cland{from{transform:scale(1.5)}to{transform:scale(1)}}
 @keyframes cshake{20%{transform:translateX(-12px) rotate(-4deg)}60%{transform:translateX(10px) rotate(3deg)}}
 @keyframes cflash{from{filter:brightness(2.5)}to{filter:none}}
@@ -2451,8 +2451,8 @@ async function animCine(s) {
   const right = el("div", { className: "cside r " + (t.team === "party" ? "party" : "foe") }, big(t), el("b", { textContent: t.name }));
   const skip = el("button", { className: "cskip", textContent: "Skip ▸▸", title: "Skip this cut-scene (Esc, Space or click)" });
   const skipAll = el("button", { className: "cskip", textContent: "Skip the rest of this fight", onclick: ev => { ev.stopPropagation(); cine.skipFight = true; cineEnd(); } });
-  const box = el("div", { className: "cine", role: "dialog", "aria-label": `${a.name} attacks ${t.name}` },
-    el("div", { className: "cbar" }), el("div", { className: "cstage" }, left, el("div", { className: "cmid" }, el("div", { className: "cwhat", textContent: `${a.name} attacks ${t.name} with ${weapon}${e.opportunity ? " (opportunity attack)" : ""}` }), die, verdict, el("div", { className: "cwhy", textContent: why })), right),
+  const box = el("div", { className: "cine", role: "dialog", title: "Click to skip", "aria-label": `${a.name} attacks ${t.name}` },
+    el("div", { className: "cbar top" }, el("span", { textContent: `⚔  ${e.opportunity ? "Opportunity attack" : "Attack"}${c.round ? `, round ${c.round}` : ""}` })), el("div", { className: "cstage" }, left, el("div", { className: "cmid" }, el("div", { className: "cwhat", textContent: `${a.name} attacks ${t.name} with ${weapon}${e.opportunity ? " (opportunity attack)" : ""}` }), die, verdict, el("div", { className: "cwhy", textContent: why })), right),
     el("div", { className: "cbar" }, skipAll, skip));
   box.style.setProperty("--ms", `${animMs(1)}`);
   cine.box = box; document.body.append(box);
