@@ -118,6 +118,13 @@ TEST(Llm, Say) {
     SayResult go = Say(mock, g, "leave for the village");
     EXPECT_EQ(g.LocationId(), "greywick");      // the first step ran
     EXPECT_TRUE(!go.ok && go.steps.size() == 1);    // the invented exit was refused by the engine
+    EXPECT_EQ(go.message.rfind("Off we go. (", 0), 0u) << go.message;   // the refusal keeps the DM's words and adds the engine's reason
+    {   // the DM still answers when the model is down
+        MockLlmClient down([](const std::string&, const std::string&, bool) { LlmReply r; r.error = "offline"; return r; });
+        const SayResult d = Say(down, g, "hello?");
+        EXPECT_NE(d.message.find("Dungeon Master"), std::string::npos);
+        EXPECT_NE(d.message.find("offline"), std::string::npos);
+    }
     EXPECT_EQ(Say(mock, g, "   ").ok, false);
     {   // an attack asked for while exploring is refused as "no fight", not as somebody else's turn
         GameConfig ec; ec.moduleId = "ravenmoor"; ec.seed = 11;
