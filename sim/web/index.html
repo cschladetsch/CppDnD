@@ -2324,7 +2324,10 @@ uxHeader(); uxApply();
 const ANIM_COLOURS = { fire: "#ff7a2e", cold: "#8fd8ff", lightning: "#fff36b", thunder: "#b9a6ff", acid: "#9be04a", poison: "#6fcf5a", necrotic: "#9b5cc9",
   radiant: "#ffe38a", force: "#e07aff", psychic: "#ff8fd0", healing: "#7be08a", buff: "#7fb4ff", condition: "#c08aff" };
 const anim = { q: [], running: null, sprites: new Map(), layer: el("div", { id: "fxlayer", "aria-hidden": "true" }) };
-const animOn = () => ux.anim !== false && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+// On unless turned off in Settings. (It used to follow the system's reduced-motion setting too, which Windows turns on with
+// "Animation effects" off, so the animations and cut-scenes silently never played.)
+const reducedMotion = () => { try { return matchMedia("(prefers-reduced-motion: reduce)").matches; } catch { return false; } };
+const animOn = () => ux.anim !== false;
 const animMs = ms => ms * (ux.fast ? 0.5 : 1);
 const tween = (ms, f) => new Promise(done => { const t0 = performance.now(); const step = now => { const t = Math.min(1, (now - t0) / ms); f(t); if (t < 1) requestAnimationFrame(step); else done(); }; requestAnimationFrame(step); });
 function animCell(x, y) { const g = $("#grid"), c = view && view.combat; return g && c ? g.children[y * c.grid.width + x] : null; }
@@ -2378,7 +2381,8 @@ function animUnhide() {
   const c = view && view.combat; if (!c) return;
   for (const id of anim.sprites.keys()) { const a = c.actors.find(x => x.id === id), cell = a && animCell(a.pos[0], a.pos[1]); if (cell) cell.classList.add("animhide"); }
 }
-function animFlush() { anim.q = []; for (const s of anim.sprites.values()) s.node.remove(); anim.sprites.clear(); anim.layer.replaceChildren(); }
+function animFlush() { anim.q = anim.q.filter(s => s.kind === "cine");   // a fight's last blows still play after it ends
+  for (const s of anim.sprites.values()) s.node.remove(); anim.sprites.clear(); anim.layer.replaceChildren(); }
 function animRun() {
   if (anim.running) return;
   anim.running = (async () => {
@@ -2405,7 +2409,7 @@ const animBaseRenderCombat = renderCombat;
 renderCombat = function () {
   animBaseRenderCombat();
   const c = view && view.combat, grid = $("#grid");
-  if (!c || !grid || $("#combat").hidden) { animFlush(); return; }
+  if (!c || !grid || $("#combat").hidden) { animFlush(); if (anim.q.length) animRun(); return; }
   grid.append(anim.layer);
   for (const sp of anim.sprites.values()) if (!sp.placed) { const xy = animXY(sp.at); if (xy) { animPlace(sp.node, xy); sp.placed = true; } }
   animUnhide();
@@ -2421,15 +2425,15 @@ showSettings = function () {
   const dlg = animBaseSettings(), box = dlg && dlg.querySelector(".uxbox"), first = box && box.querySelector(".uxset"); if (!first) return dlg;
   first.before(el("label", { className: "uxset", title: "Tokens walk to where they move and spells fly to their targets. Off, or with reduced motion set in your system, the grid just updates." },
     el("input", { type: "checkbox", checked: ux.anim !== false, onchange: e => { ux.anim = e.target.checked; uxSave(); if (!ux.anim) { animFlush(); animUnhide(); } } }),
-    el("span", { textContent: "Animate movement and spells" })));
+    el("span", { textContent: "Animate movement and spells" }), ...(reducedMotion() ? [el("span", { className: "dim small", textContent: "(your system asks for reduced motion; untick to respect it)" })] : [])));
   return dlg;
 };
 
 // ---- attack cut-scenes: a short close-up of each attack (attacker lunges, the d20 tumbles, hit or miss), played in the
 // animation queue. Click, Esc, Space or Skip ends one; "Skip the rest of this fight" and Settings turn them down.
-// ux.cine: "all" every attack, "party" (default) your party's attacks and every critical hit, "off" none.
+// ux.cine: "all" (default) every attack, "party" your party's attacks and every critical hit, "off" none.
 const cine = { skipFight: false, done: null, box: null };
-const cineMode = () => ux.cine || "party";
+const cineMode = () => ux.cine || "all";
 function cineWanted(e) {
   const c = view && view.combat; if (!c || cine.skipFight || !animOn() || cineMode() === "off") return false;
   if (cineMode() === "all") return true;
@@ -2438,8 +2442,7 @@ function cineWanted(e) {
 }
 function cineEnd() { if (cine.done) { const d = cine.done; cine.done = null; d(); } }
 async function animCine(s) {
-  const e = s.e, c = view && view.combat;
-  const a = c && c.actors.find(x => x.id === e.actor), t = c && c.actors.find(x => x.id === e.target);
+  const e = s.e, a = s.a, t = s.t, c = { round: s.round };   // snapshots: the fight may be over by the time this plays
   if (!a || !t || cine.skipFight || cineMode() === "off") return animShowFx(s.fx);
   const crit = !!e.crit || /\bCRIT\b/.test(e.text), hit = crit || e.amount > 0 || /\bHIT\b/.test(e.text);
   const weapon = (/ with (.+?): /.exec(e.text) || [])[1] || "an attack";
@@ -2487,7 +2490,9 @@ uxEvent = function (e, short) {
   cineBaseUx(e, short);
   const fresh = fx.splice(before);   // the attack's own floats wait in the queue (cineBaseUx may already have queued them as a step)
   const last = anim.q[anim.q.length - 1], items = fresh.length ? fresh : last && last.kind === "fx" ? anim.q.pop().items : [];
-  anim.q.push({ kind: "cine", e, fx: items });   // renderCombat starts the queue
+  const c = view.combat, a = c.actors.find(x => x.id === e.actor), t = c.actors.find(x => x.id === e.target);
+  if (!a || !t) { fx.push(...items); return; }
+  anim.q.push({ kind: "cine", e, fx: items, a: { ...a }, t: { ...t }, round: c.round });   // renderCombat starts the queue
 };
 const cineBaseRun = animRun;
 animRun = function () {
@@ -2503,7 +2508,7 @@ const cineBaseSettings = showSettings;
 showSettings = function () {
   const dlg = cineBaseSettings(), box = dlg && dlg.querySelector(".uxbox"), first = box && box.querySelector(".uxset"); if (!first) return dlg;
   const sel = el("select", { onchange: ev => { ux.cine = ev.target.value; uxSave(); } },
-    ...[["party", "your party's attacks and every critical hit"], ["all", "every attack"], ["off", "off"]].map(([v, t]) => el("option", { value: v, textContent: t, selected: cineMode() === v })));
+    ...[["all", "every attack"], ["party", "your party's attacks and every critical hit"], ["off", "off"]].map(([v, t]) => el("option", { value: v, textContent: t, selected: cineMode() === v })));
   first.before(el("label", { className: "uxset", title: "A short close-up of an attack: who swings, the d20, hit or miss. Click, Esc or Space skips one." }, el("span", { textContent: "Attack cut-scenes:" }), sel));
   return dlg;
 };
