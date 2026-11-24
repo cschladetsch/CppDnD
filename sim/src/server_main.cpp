@@ -860,6 +860,10 @@ int main(int argc, char** argv) {
         Reply(res, 200, needArt().View(req.path_params.at("id")));
     }));
 
+    // The page changes with every pull; make browsers check for a newer copy instead of reusing a cached one.
+    svr.set_file_request_handler([](const httplib::Request& req, httplib::Response& res) {
+        if (req.path.rfind("/art/", 0) != 0) res.set_header("Cache-Control", "no-cache");
+    });
     if (!staticDir.empty() && !svr.set_mount_point("/", staticDir)) {
         std::cerr << "warning: cannot serve web client from '" << staticDir << "'\n";
         staticDir.clear();

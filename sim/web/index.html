@@ -112,6 +112,13 @@ kbd { background:#2a2638; border:1px solid var(--edge); border-bottom-width:2px;
 #fxlayer .burst{position:absolute;left:0;top:0;border-radius:50%;background:radial-gradient(circle,#fff 0,var(--c) 30%,transparent 70%);transform-origin:center}
 #fxlayer .burst.ring{background:none;border:3px solid var(--c);box-shadow:0 0 10px var(--c),inset 0 0 10px var(--c)}
 .cell.animhide > img, .cell.animhide > svg{visibility:hidden}
+#herostrip{display:flex;gap:6px;align-items:center;flex-wrap:wrap;margin-bottom:12px;padding:6px 8px}
+#herostrip .hero{display:flex;align-items:center;gap:6px;padding:3px 8px 3px 3px;border-radius:18px;font-size:12px}
+#herostrip .hero img,#herostrip .hero .init{width:28px;height:28px;border-radius:50%;object-fit:cover;flex:none}
+#herostrip .hero .init{display:flex;align-items:center;justify-content:center;background:var(--party,#648fff);color:#fff;font-weight:700}
+#herostrip .hero .nm{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+#herostrip .hpbar{width:48px;height:4px;background:#0006;border-radius:2px;overflow:hidden}#herostrip .hpbar i{display:block;height:100%}
+#herostrip .hero.you{outline:2px solid var(--accent);background:#2b2540}#herostrip .hero.acting .init,#herostrip .hero.acting img{box-shadow:0 0 0 2px var(--accent)}
 #log .expandable{cursor:pointer} #log .expandable:hover{text-decoration:underline dotted} #log .recap{color:var(--dim);border-left:3px solid var(--accent);padding-left:8px;margin-bottom:6px}
 .uxdlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
 .uxbox{max-width:560px;width:92vw;max-height:80vh;overflow:auto}.uxset{display:flex;gap:8px;align-items:center;padding:4px 0;color:var(--text)}.jrow{padding:3px 0}
@@ -2396,6 +2403,26 @@ showSettings = function () {
     el("span", { textContent: "Animate movement and spells" })));
   return dlg;
 };
+
+// ---- the hero strip: every party member, always on screen; click one to play as them
+function renderHeroStrip() {
+  if (!view || !view.party) return;
+  let strip = $("#herostrip");
+  if (!strip) { const bar = $("#viewbar"); if (!bar) return; strip = el("div", { id: "herostrip", className: "panel", role: "toolbar", "aria-label": "Party: click to play as" }); bar.before(strip); }
+  const c = view.combat && !view.combat.finished ? view.combat : null, acting = c && (c.actors.find(a => a.id === c.current) || {}).name;
+  const player = view.role === "player";
+  strip.replaceChildren(el("span", { className: "dim small", textContent: "Play as:" }), ...view.party.map(m => {
+    const you = player && m.name === view.hero, u = artUrl("characters", m.id), pct = Math.max(0, Math.round(100 * m.hp / m.maxHp));
+    const why = m.dead ? `${m.name} is dead.` : !player ? "Switch to the player role to control a hero." : you ? `You are playing ${m.name}.` : `Click to play as ${m.name}. The one you leave is played by the computer.`;
+    return el("button", { className: "hero" + (you ? " you" : "") + (m.name === acting ? " acting" : ""), disabled: m.dead || !player, "aria-pressed": String(you),
+        title: `${m.name}, ${m.class} ${m.level}. HP ${m.hp}/${m.maxHp}.${m.name === acting ? " Acting now." : ""}\n${why}`,
+        onclick: () => { if (!you) setHero(m.id); } },
+      u ? el("img", { src: u, alt: "" }) : el("span", { className: "init", textContent: m.name[0] }),
+      el("span", { className: "nm" }, el("span", { textContent: m.name.split(" ")[0] }), el("span", { className: "hpbar" }, el("i", { style: `width:${pct}%;background:${pct > 50 ? "#5fbf6a" : pct > 25 ? "#e5c24a" : "#e0604f"}` }))));
+  }));
+}
+const stripBaseApply = apply;
+apply = function (v) { stripBaseApply(v); renderHeroStrip(); };
 
 // ---------------------------------------------------------------- boot: reopen the session that was open, otherwise the start screen
 (async () => {
