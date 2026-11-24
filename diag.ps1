@@ -12,7 +12,7 @@ $root = Split-Path -Parent $MyInvocation.MyCommand.Path
 $out  = PathOf $root 'diag.txt'
 $sdRoot = if ($env:DND_SD_HOME) { $env:DND_SD_HOME } elseif ($OnWindows) { PathOf (Get-DataHome) 'CppDnD' 'sd' } else { PathOf (Get-DataHome) 'cppdnd' 'sd' }
 $webui  = PathOf $sdRoot 'stable-diffusion-webui'
-$launcherName = if ($OnWindows) { 'webui.bat' } else { 'webui.sh' }
+$launcherName = 'launch.py'
 $venvPy = if ($OnWindows) { PathOf $webui 'venv' 'Scripts' 'python.exe' } else { PathOf $webui 'venv' 'bin' 'python' }
 $lines  = New-Object System.Collections.Generic.List[string]
 
@@ -78,7 +78,6 @@ if (Test-Path $sdRoot) { Try-Run 'files in the sd home' { Get-ChildItem $sdRoot 
 if (Test-Path (PathOf $webui '.git')) { Try-Run 'webui git version' { git -C $webui log -1 --format='%h %ad %s' --date=short } }
 
 foreach ($f in (Get-ChildItem $sdRoot -Filter '*.log' -ErrorAction SilentlyContinue)) { Tail-File $f.FullName }
-Tail-File (PathOf $webui $(if ($OnWindows) { 'webui-user.bat' } else { 'webui-user.sh' }))
 
 if ($OnWindows) { Try-Run 'python launchers' { py -0p; python --version; where.exe python } }
 else { Try-Run 'pythons' { foreach ($n in 'python3.10', 'python3', 'python') { $c = Get-Command $n -ErrorAction SilentlyContinue; if ($c) { "$n -> $($c.Source): $(& $c.Source --version 2>&1)" } } } }
