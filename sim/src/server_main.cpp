@@ -164,10 +164,11 @@ int main(int argc, char** argv) {
         namespace fs = std::filesystem;
         const bool explicitPath = !S.agentsPath.empty() || (std::getenv("DND_AGENTS") && *std::getenv("DND_AGENTS"));
         if (S.agentsPath.empty()) S.agentsPath = std::getenv("DND_AGENTS") && *std::getenv("DND_AGENTS") ? std::getenv("DND_AGENTS") : (fs::path(dataDir) / "agents.json").string();
+        if (!explicitPath && !fs::exists(S.agentsPath)) std::cerr << "agents: none (no " << S.agentsPath << "), so the AI table is off\n";
         if (explicitPath || fs::exists(S.agentsPath)) {
             std::string err;
             S.agentsCfg = AgentsConfig::Load(S.agentsPath, err);
-            if (S.agentsCfg) SetDmVerbosity(S.agentsCfg->dmVerbosity);
+            if (S.agentsCfg) { SetDmVerbosity(S.agentsCfg->dmVerbosity); std::cerr << "agents: " << S.agentsPath << "\n"; }
             if (!S.agentsCfg) {
                 S.agentsError = err;
                 if (explicitPath) { std::cerr << err << "\n"; return 2; }

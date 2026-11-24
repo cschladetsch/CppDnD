@@ -196,6 +196,8 @@ async function showStart() {
   if (gen !== startGen) return;   // a game was opened (Learn combat, a session) while this screen was loading
   llmOn = !!llmInfo.enabled;
   agentsOn = !!(llmInfo.agents && llmInfo.agents.available);
+  // why not, in the server's own words: a file that is missing reads differently from one that did not load
+  const ag = llmInfo.agents || {}, agentsWhy = ag.error ? `${ag.file || "agents.json"} did not load: ${ag.error}` : ag.file ? `no agents file at ${ag.file}` : "no agents.json found";
   const mods = el("select", { id: "mod" }, el("option", { value: "", textContent: "Procedural delve (3 rooms)" }));
   const adventures = (content.modules || []).filter(m => !m.tutorial), lesson = (content.modules || []).find(m => m.tutorial);
   for (const m of adventures) mods.append(el("option", { value: m.id, textContent: `${m.name} (level ${m.recommendedLevel})` }));
@@ -234,7 +236,7 @@ async function showStart() {
   $("#app").replaceChildren(...learn, el("div", { className: "panel start" }, el("h2", { textContent: "New game" }),
     el("label", { textContent: "Module" }), mods, el("label", { textContent: "Role" }), role, el("label", { textContent: "Hero" }), hero, el("label", { textContent: "Difficulty" }), diff,
     el("label", { textContent: "AI table" }), el("label", { style: "display:flex;gap:8px;align-items:center;color:var(--text)" }, agentsBox,
-      el("span", { textContent: agentsOn ? "every actor is its own model (agents.json); slower" : "not available: no agents.json found" })),
+      el("span", { textContent: agentsOn ? "every actor is its own model (agents.json); slower" : `not available: ${agentsWhy}` })),
     el("label", { textContent: "Seed (optional, reproducible)" }), seed, el("div", { className: "row" }, go),
     el("label", { textContent: "Or load a save file" }), file));
 }
