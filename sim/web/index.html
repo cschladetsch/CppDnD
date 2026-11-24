@@ -155,8 +155,10 @@ function toast(msg) { const t = $("#toast"); t.textContent = msg; t.style.displa
 async function showStart() {
   gid = null; view = null; lastSeq = 0; lsSet(SESS_KEY, null); renderSessions();
   $("#saveBtn").hidden = $("#newBtn").hidden = true; $("#sub").textContent = "";
+  const gen = startGen;
   if (!content) content = (await api("GET", "/api/content")).data;
   const llmInfo = (await api("GET", "/api/llm")).data;
+  if (gen !== startGen) return;   // a game was opened (Learn combat, a session) while this screen was loading
   llmOn = !!llmInfo.enabled;
   agentsOn = !!(llmInfo.agents && llmInfo.agents.available);
   const mods = el("select", { id: "mod" }, el("option", { value: "", textContent: "Procedural delve (3 rooms)" }));
@@ -202,7 +204,9 @@ async function showStart() {
     el("label", { textContent: "Or load a save file" }), file));
 }
 
+let startGen = 0;
 function startGame(id, v) {
+  ++startGen;
   gid = id; lastSeq = 0; lastView = null; viewMsg = { text: "", bad: false }; pending = { kind: "attack", index: 0 };
   lsSet(SESS_KEY, id); refreshSessions();
   $("#app").replaceChildren(el("main", {},
@@ -2133,6 +2137,77 @@ renderCombat = function () {
     else if (ACTION_TIPS[t]) b.title = ACTION_TIPS[t];
   }
 };
+
+// ---- clicking a party member on the grid: what you can do for them (attacks only ever target enemies)
+function allyMenu(t) {
+  const c = view.combat, o = c.options, me = o && c.actors.find(a => a.id === o.actor); if (!me) return;
+  const dist = Math.max(Math.abs(me.pos[0] - t.pos[0]), Math.abs(me.pos[1] - t.pos[1])) * 5, self = t.id === me.id, eco = o.economy;
+  const pm = view.party.find(p => p.name === t.name), kids = [], close = () => dlg.remove();
+  const act = (label, tip, ok, why, fn) => kids.push(el("div", { className: "row", style: "align-items:center" },
+    el("button", { textContent: label, title: tip, disabled: !ok, onclick: () => { close(); fn(); } }), ...(ok ? [] : [el("span", { className: "dim small", textContent: why })])));
+  kids.push(el("p", { className: "small", textContent: `${t.name}: HP ${t.hp}/${t.maxHp}, AC ${t.ac}${t.life !== "alive" ? `, ${t.life}` : ""}${t.effects.length ? ", " + t.effects.join(", ") : ""}. ${self ? "That is you." : `${dist} ft away.`}` }));
+  const actionLeft = eco.action && !eco.attacksLeft;
+  act(self ? "Drink a potion" : `Give ${t.name} a potion`, "Potion of healing: 2d4+2 HP, uses your action. Gets a downed ally back up.",
+    o.potions > 0 && actionLeft && dist <= 5, !o.potions ? "no potions left" : !actionLeft ? "no action left this turn" : "you must be next to them (5 ft)", () => doAction({ type: "potion", target: t.id }));
+  for (const sp of o.spells.filter(s => s.friendly))
+    act(`Cast ${sp.name}${sp.level ? ` (L${sp.level})` : ""}${self ? " on yourself" : ""}`, `${sp.name}: range ${sp.rangeFt} ft${sp.bonusAction ? ", bonus action" : ", action"}${sp.concentration ? ", concentration" : ""}.`,
+      sp.available && (sp.bonusAction ? eco.bonusAction : actionLeft) && dist <= sp.rangeFt,
+      !sp.available ? "no spell slot left" : dist > sp.rangeFt ? `out of range (${sp.rangeFt} ft)` : sp.bonusAction ? "no bonus action left" : "no action left this turn",
+      () => doAction({ type: "cast", spell: sp.id, target: t.id, slot: sp.level ? lowestSlot(sp.level) : 0 }));
+  if (!self && pm && view.role === "player" && !pm.dead)
+    kids.push(el("div", { className: "row" }, el("button", { textContent: `Play as ${t.name} instead`, title: "Switch which party member you control. The one you leave is played by the computer.", onclick: () => { close(); setHero(pm.id); } })));
+  kids.push(el("p", { className: "dim small", textContent: "Party members are never targets for attacks or harmful spells: the rules engine only lets you attack enemies. Area spells such as Shatter are the exception, so mind where you aim them." }));
+  const dlg = dialog(self ? `${t.name} (you)` : `Help ${t.name}`, ...kids);
+}
+const allyBaseRenderCombat = renderCombat;
+renderCombat = function () {
+  allyBaseRenderCombat();
+  const c = view && view.combat, box = $("#combat"); if (!c || !box || box.hidden) return;
+  const o = c.options, me = o && c.actors.find(a => a.id === o.actor), grid = $("#grid", box); if (!me || !grid) return;
+  const w = c.grid.width, cells = [...grid.children];
+  for (const a of c.actors.filter(x => x.team === me.team && x.life !== "dead")) {
+    const cell = cells[a.pos[1] * w + a.pos[0]]; if (!cell) continue;
+    const sp = pending.kind === "spell" && o.spells.find(s => s.id === pending.index);
+    cell.classList.add("ally");
+    if (sp && sp.friendly && a.id !== me.id) { cell.onclick = () => useOn(a); cell.title += `\nClick to cast ${sp.name} on ${a.name}.`; continue; }   // a healing or buff spell is picked: cast it
+    cell.onclick = () => allyMenu(a); cell.tabIndex = 0;
+    cell.title = (cell.title || a.name) + (a.id === me.id ? "\nThat is you. Click to drink a potion or cast a spell on yourself." : `\nAn ally: you cannot attack them. Click to heal, give a potion, buff, or play as ${a.name}.`);
+  }
+};
+
+// ---- more hover help: the party panel, the character sheet, the exploration actions
+const SHEET_TIPS = {
+  Level: "Character level. It rises after a long rest once XP reaches the next threshold.", Class: "Fighter, wizard, cleric and so on: decides hit points, proficiencies and features.",
+  AC: "Armor Class: what an attack roll must reach to hit. Armor, shields, Dexterity and spells raise it.", HP: "Hit points. At 0 the character falls unconscious and starts making death saves.",
+  Speed: "How far the character can move in one turn.", Proficiency: "Added to attacks, saves and skills the character is trained in. Grows with level.",
+  "Hit dice": "Spend these on a short rest to heal: roll each die and add Constitution. A long rest restores half of them.", "Attacks/turn": "Attacks made with one Attack action (Extra Attack raises it).",
+  Score: "The ability score, usually 3 to 20.", Mod: "The modifier: (score - 10) / 2, rounded down. Added to rolls that use this ability.", Save: "The saving throw bonus. * means proficient: the proficiency bonus is included.",
+  STR: "Strength: melee attacks and damage, Athletics.", DEX: "Dexterity: AC, ranged and finesse attacks, initiative, Dexterity saves.", CON: "Constitution: hit points, and saves to keep concentration.",
+  INT: "Intelligence: wizards cast with it.", WIS: "Wisdom: clerics and rangers cast with it; resists charm and fear.", CHA: "Charisma: bards, sorcerers and warlocks cast with it.",
+};
+const ACTION_HELP = {
+  "Search (1h)": "Spend an hour searching this place. Some secrets and items only turn up when you search.", "Explore (2h)": "Spend two hours looking for a new way on: it may find a new room or path.",
+  "Short rest": "One hour: each hero can spend hit dice to heal. Can be interrupted somewhere risky.", "Long rest": "Eight hours: full hit points, spell slots and features, half the hit dice back. Once a day; risky places can interrupt it.",
+  "Wait 1h": "Let an hour pass.", "Autopilot step": "Let the computer take one exploration step for you.", "Autopilot x20": "Let the computer take up to 20 exploration steps.",
+};
+function moreTips() {
+  for (const b of document.querySelectorAll("#scene button")) {
+    const t = b.textContent;
+    if (ACTION_HELP[t]) b.title = ACTION_HELP[t];
+    else if (!b.title && !/^Go:|Memory|New game/.test(t) && b.closest(".row") && b.closest(".row").querySelector(".dim")) b.title = `Ask about "${t.replace(" ✓", "")}"${t.includes("✓") ? " (heard already)" : ""}. Some topics open up quests or paths.`;
+  }
+  const pace = $("#scene select"); if (pace) pace.title = "Travel pace: slow is 2 mph, normal 3, fast 4. Going fast for long tires the party (exhaustion).";
+  for (const row of document.querySelectorAll("#party .member")) {
+    const line = row.lastElementChild; if (!line || line.dataset.tip) continue;
+    line.title = "XP: experience, and the total for the next level (reached after a long rest).\nPotions: healing potions carried.\nDice: hit dice left, spent on short rests to heal.\nL1:4/4: spell slots left of each level, out of the maximum.\nExhaustion: from forced marches; each level makes everything harder.";
+  }
+  for (const k of document.querySelectorAll("#party .sheet .kv")) { const n = k.firstElementChild && k.firstElementChild.textContent.trim(); if (SHEET_TIPS[n]) k.title = SHEET_TIPS[n]; }
+  for (const cell of document.querySelectorAll("#party .sheet table.abil th, #party .sheet table.abil td:first-child")) { const n = cell.textContent.trim(); if (SHEET_TIPS[n]) cell.title = SHEET_TIPS[n]; }
+}
+const tipsBaseApply = apply;
+apply = function (v) { tipsBaseApply(v); moreTips(); };
+const tipsBaseRenderParty = renderParty;
+renderParty = function () { tipsBaseRenderParty(); moreTips(); };
 
 // Settings: tips on or off, and a way to see them all again
 const coachBaseSettings = showSettings;

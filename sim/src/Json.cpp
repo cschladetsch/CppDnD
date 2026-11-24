@@ -445,6 +445,7 @@ Json CombatView(const Combat& c) {
             if (const Spell* x = Content::FindSpell(id)) {
                 const bool ok = x->level == 0 || s.LowestSlotAtLeast(x->level) > 0;
                 sp.push_back(Json{{"id", x->id}, {"name", x->name}, {"level", x->level}, {"rangeFt", x->rangeFt}, {"bonusAction", x->bonusAction},
+                                  {"friendly", x->kind == SpellKind::Heal || x->kind == SpellKind::Buff}, {"radiusFt", x->radiusFt},
                                   {"concentration", x->concentration}, {"available", ok}});
             }
         opts["spells"] = sp;
