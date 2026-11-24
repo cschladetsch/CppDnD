@@ -1,0 +1,7 @@
+[
+  { "id": "kestrel_vane", "name": "Kestrel Vane", "gender": "female", "class": "fighter", "level": 3, "tags": ["humanoid","human","recruit"],
+    "scores": [16,12,15,10,12,10], "ac": 17, "speed": 30, "weapons": ["warhammer","javelin"], "potions": 2 },
+  { "id": "mira_ashgrove", "name": "Mira Ashgrove", "gender": "female", "class": "wizard", "level": 3, "tags": ["humanoid","elf","apprentice"],
+    "scores": [8,14,14,16,12,10], "ac": 13, "speed": 30, "weapons": ["dagger"], "potions": 1,
+    "spells": ["fire_bolt","magic_missile","shatter"] }
+]

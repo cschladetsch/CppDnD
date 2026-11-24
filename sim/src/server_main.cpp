@@ -355,7 +355,7 @@ int main(int argc, char** argv) {
         Json j;
         j["modules"] = Json::array();
         for (const auto& m : Content::Modules())
-            j["modules"].push_back({{"id", m.id}, {"name", m.name}, {"setting", m.setting}, {"intro", m.intro}, {"recommendedLevel", m.recommendedLevel}, {"locations", m.locations.size()}});
+            j["modules"].push_back({{"id", m.id}, {"name", m.name}, {"setting", m.setting}, {"intro", m.intro}, {"recommendedLevel", m.recommendedLevel}, {"locations", m.locations.size()}, {"tutorial", m.tutorial}});
         j["characters"] = Json::array();
         for (const auto& c : Content::Characters()) {
             const auto def = Content::DefaultParty(c.module);

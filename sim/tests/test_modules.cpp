@@ -243,10 +243,46 @@ TEST_P(ModuleContent, TheAutopilotAlwaysFinishesAndOftenWins) {
     EXPECT_GE(won, 3) << "the autopilot should win at least a third of the time";
 }
 
-INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown", "sunless_abbey", "meridian"));
+INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ::testing::Values("ravenmoor", "cyberhood", "hollow_crown", "sunless_abbey", "meridian", "tutorial"));
 
 TEST(Modules, EveryShippedModuleIsCovered) {
-    EXPECT_EQ(Content::Modules().size(), 5u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
+    EXPECT_EQ(Content::Modules().size(), 6u) << "add the new module's id to INSTANTIATE_TEST_SUITE_P(Shipped, ModuleContent, ...)";
+}
+
+// ---------------------------------------------------------------- Training Yard (the combat tutorial)
+
+TEST(Tutorial, IsFlaggedAndIsTheOnlyOne) {
+    for (const auto& m : Content::Modules()) EXPECT_EQ(m.tutorial, m.id == "tutorial") << m.id;
+}
+
+TEST(Tutorial, OneStepFromTheGateIsAFightWithEveryKindOfGround) {
+    GameConfig c;
+    c.moduleId = "tutorial";
+    c.seed = 7;
+    c.role = Role::Player;
+    Game g(c);
+    ASSERT_EQ(g.Party().size(), 2u);
+    ASSERT_EQ(g.GetMode(), Mode::Exploring);
+    ASSERT_TRUE(g.Travel("practice_ring").ok);
+    ASSERT_EQ(g.GetMode(), Mode::Combat);
+    const std::string map = g.GetCombat()->RenderMap();
+    for (char ch : {'#', '~', 'c', 'O'}) EXPECT_NE(map.find(ch), std::string::npos) << "the lesson needs '" << ch << "' on the map";
+}
+
+TEST(Tutorial, IsForgivingEnoughThatTheAutopilotNearlyAlwaysWins) {
+    int won = 0;
+    for (std::uint64_t seed = 1; seed <= 20; ++seed) {
+        GameConfig c;
+        c.moduleId = "tutorial";
+        c.seed = seed;
+        c.role = Role::Spectator;
+        Game g(c);
+        int steps = 0;
+        while ((g.GetMode() == Mode::Exploring || g.GetMode() == Mode::Combat) && steps++ < 2000)
+            if (!g.AutoStep().ok) break;
+        won += g.GetMode() == Mode::Complete;
+    }
+    EXPECT_GE(won, 18) << "a lesson should almost never end in defeat";
 }
 
 // ---------------------------------------------------------------- CyberHood specifics
