@@ -105,6 +105,13 @@ kbd { background:#2a2638; border:1px solid var(--edge); border-bottom-width:2px;
 @keyframes shake{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
 @keyframes critglow{from{box-shadow:0 0 14px 4px #ffd54a}to{box-shadow:none}} @keyframes healglow{from{box-shadow:0 0 10px 3px #7be08a}to{box-shadow:none}}
 @media (prefers-reduced-motion:reduce){.cell.fx-hit,.cell.fx-crit,.cell.fx-heal,.cell .float{animation:none}}
+#grid{position:relative} #fxlayer{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:4}
+#fxlayer .sprite{position:absolute;left:0;top:0;width:32px;height:32px;display:flex;align-items:center;justify-content:center;will-change:transform}
+#fxlayer .bolt{position:absolute;left:11px;top:11px;width:10px;height:10px;border-radius:50%;background:#fff;box-shadow:0 0 6px 3px var(--c),0 0 14px 6px var(--c)}
+#fxlayer .bolt.soft{width:8px;height:8px;left:12px;top:12px;opacity:.85}
+#fxlayer .burst{position:absolute;left:0;top:0;border-radius:50%;background:radial-gradient(circle,#fff 0,var(--c) 30%,transparent 70%);transform-origin:center}
+#fxlayer .burst.ring{background:none;border:3px solid var(--c);box-shadow:0 0 10px var(--c),inset 0 0 10px var(--c)}
+.cell.animhide > img, .cell.animhide > svg{visibility:hidden}
 #log .expandable{cursor:pointer} #log .expandable:hover{text-decoration:underline dotted} #log .recap{color:var(--dim);border-left:3px solid var(--accent);padding-left:8px;margin-bottom:6px}
 .uxdlg{position:fixed;inset:0;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;z-index:50}
 .uxbox{max-width:560px;width:92vw;max-height:80vh;overflow:auto}.uxset{display:flex;gap:8px;align-items:center;padding:4px 0;color:var(--text)}.jrow{padding:3px 0}
@@ -2274,6 +2281,113 @@ document.addEventListener("keydown", ev => {
   }
 });
 uxHeader(); uxApply();
+
+// ---- animations: tokens walk the squares they moved through; spells fly from the caster and burst on the target.
+// The server sends finished states, so each move event carries its path and the first event of a cast names the spell.
+// Steps play one at a time; a moving token's real square stays hidden while a sprite walks there, and computer turns wait.
+const ANIM_COLOURS = { fire: "#ff7a2e", cold: "#8fd8ff", lightning: "#fff36b", thunder: "#b9a6ff", acid: "#9be04a", poison: "#6fcf5a", necrotic: "#9b5cc9",
+  radiant: "#ffe38a", force: "#e07aff", psychic: "#ff8fd0", healing: "#7be08a", buff: "#7fb4ff", condition: "#c08aff" };
+const anim = { q: [], running: null, sprites: new Map(), layer: el("div", { id: "fxlayer", "aria-hidden": "true" }) };
+const animOn = () => ux.anim !== false && !matchMedia("(prefers-reduced-motion: reduce)").matches;
+const animMs = ms => ms * (ux.fast ? 0.5 : 1);
+const tween = (ms, f) => new Promise(done => { const t0 = performance.now(); const step = now => { const t = Math.min(1, (now - t0) / ms); f(t); if (t < 1) requestAnimationFrame(step); else done(); }; requestAnimationFrame(step); });
+function animCell(x, y) { const g = $("#grid"), c = view && view.combat; return g && c ? g.children[y * c.grid.width + x] : null; }
+function animXY(sq) { const c = sq && animCell(sq[0], sq[1]); return c ? [c.offsetLeft, c.offsetTop] : null; }
+function animSquare(id) { const s = anim.sprites.get(id); if (s) return s.at; const a = view && view.combat && view.combat.actors.find(x => x.id === id); return a ? a.pos : null; }
+function animToken(a) {   // the token as the grid draws it
+  const pid = a.team === "party" ? (view.party.find(p => p.name === a.name) || {}).id : a.monsterId, u = artUrl(a.team === "party" ? "characters" : "monsters", pid);
+  return u ? el("img", { src: u, alt: "", style: "width:30px;height:30px" }) : tokenSvg(a);
+}
+function animPlace(node, xy) { node.style.transform = `translate(${xy[0]}px,${xy[1]}px)`; }
+function animShowFx(items) {   // the floating numbers and shakes, as renderCombat draws them
+  for (const f of items) {
+    const sq = animSquare(f.id), cell = sq && animCell(sq[0], sq[1]); if (!cell) continue;
+    cell.classList.remove("fx-" + f.kind); void cell.offsetWidth; cell.classList.add("fx-" + f.kind);
+    cell.append(el("span", { className: "float " + f.kind, textContent: f.kind === "miss" ? "miss" : f.amt ? (f.kind === "heal" ? "+" : "-") + f.amt : "" }));
+  }
+}
+
+async function animMove(s) {
+  const sp = anim.sprites.get(s.actor); if (!sp) return;
+  for (let i = 2; i + 1 < s.path.length; i += 2) {
+    const from = animXY([s.path[i - 2], s.path[i - 1]]), to = animXY([s.path[i], s.path[i + 1]]); if (!from || !to) break;
+    const rough = view.combat.grid.rows[s.path[i + 1]][s.path[i]] === "~";
+    await tween(animMs(rough ? 220 : 130), t => { sp.node.style.transform = `translate(${from[0] + (to[0] - from[0]) * t}px,${from[1] + (to[1] - from[1]) * t - 4 * Math.sin(Math.PI * t)}px)`; });
+    sp.at = [s.path[i], s.path[i + 1]];
+  }
+  if (--sp.moves <= 0) { sp.node.remove(); anim.sprites.delete(s.actor); animUnhide(); }
+}
+async function animSpell(s) {
+  const e = s.e, colour = ANIM_COLOURS[e.element] || "#e0e0ff", from = animXY(animSquare(e.actor)), to = animXY(animSquare(e.target));
+  if (from && to && e.actor !== e.target) {   // one bolt, or one per dart for Magic Missile
+    const n = Math.min(5, +((/(\d+) darts/.exec(e.text) || [])[1] || 1)), dist = Math.hypot(to[0] - from[0], to[1] - from[1]);
+    await Promise.all([...Array(n)].map((_, k) => new Promise(r => setTimeout(r, animMs(90 * k))).then(() => {
+      const bolt = el("div", { className: "bolt" + (e.element === "healing" || e.element === "buff" ? " soft" : "") }); bolt.style.setProperty("--c", colour); anim.layer.append(bolt);
+      const wob = n > 1 ? (k - (n - 1) / 2) * 10 : 0;
+      return tween(animMs(Math.max(200, dist * 1.4)), t => animPlace(bolt, [from[0] + (to[0] - from[0]) * t + wob * Math.sin(Math.PI * t), from[1] + (to[1] - from[1]) * t - wob * Math.sin(Math.PI * t)])).then(() => bolt.remove());
+    })));
+  }
+  if (to) {   // the burst: as wide as the spell's area, or a ring for healing, buffs and conditions
+    const soft = /^(healing|buff|condition)$/.test(e.element), size = e.radiusFt > 0 ? (2 * e.radiusFt / 5 + 1) * 33 : soft ? 40 : 34;
+    const b = el("div", { className: "burst" + (soft ? " ring" : "") }); b.style.setProperty("--c", colour); b.style.width = b.style.height = size + "px"; anim.layer.append(b);
+    const cx = to[0] + 16 - size / 2, cy = to[1] + 16 - size / 2;
+    if (e.amount > 0 || e.type === "heal") sfx(e.type === "heal" ? "heal" : "hit");
+    animShowFx(s.fx);
+    await tween(animMs(soft ? 520 : 380), t => { b.style.transform = `translate(${cx}px,${cy - (e.element === "healing" ? 10 * t : 0)}px) scale(${e.element === "buff" ? 1.3 - 0.4 * t : 0.25 + 0.85 * t})`; b.style.opacity = String(1 - t * t); });
+    b.remove();
+  } else animShowFx(s.fx);
+}
+function animUnhide() {
+  for (const cell of document.querySelectorAll("#grid .cell.animhide")) cell.classList.remove("animhide");
+  const c = view && view.combat; if (!c) return;
+  for (const id of anim.sprites.keys()) { const a = c.actors.find(x => x.id === id), cell = a && animCell(a.pos[0], a.pos[1]); if (cell) cell.classList.add("animhide"); }
+}
+function animFlush() { anim.q = []; for (const s of anim.sprites.values()) s.node.remove(); anim.sprites.clear(); anim.layer.replaceChildren(); }
+function animRun() {
+  if (anim.running) return;
+  anim.running = (async () => {
+    while (anim.q.length) { const s = anim.q.shift(); try { await (s.kind === "move" ? animMove(s) : s.kind === "spell" ? animSpell(s) : animShowFx(s.items)); } catch (err) { console.warn(err); } }
+  })().finally(() => { anim.running = null; });
+}
+
+const animBaseUx = uxEvent;
+uxEvent = function (e, short) {
+  const before = fx.length;
+  animBaseUx(e, short);
+  if (e.type === "spell" && e.amount > 0 && e.target >= 0 && !(e.radiusFt > 0)) fx.push({ id: e.target, kind: "hit", amt: e.amount });   // spell damage floats too
+  if (!animOn() || !view || !view.combat) return;
+  const fresh = fx.splice(before);
+  if (e.type === "move" && e.path && e.path.length >= 4) {
+    const a = view.combat.actors.find(x => x.id === e.actor), sp = anim.sprites.get(e.actor);
+    if (a && sp) sp.moves++;
+    else if (a) { const node = el("div", { className: "sprite" }, animToken(a)); anim.layer.append(node); anim.sprites.set(e.actor, { node, at: [e.path[0], e.path[1]], start: [e.path[0], e.path[1]], moves: 1, placed: false }); }
+    anim.q.push({ kind: "move", actor: e.actor, path: e.path });
+  } else if (e.spell) { anim.q.push({ kind: "spell", e, fx: fresh }); return; }
+  if (fresh.length) { if (anim.q.length || anim.running) anim.q.push({ kind: "fx", items: fresh }); else fx.push(...fresh); }
+};
+const animBaseRenderCombat = renderCombat;
+renderCombat = function () {
+  animBaseRenderCombat();
+  const c = view && view.combat, grid = $("#grid");
+  if (!c || !grid || $("#combat").hidden) { animFlush(); return; }
+  grid.append(anim.layer);
+  for (const sp of anim.sprites.values()) if (!sp.placed) { const xy = animXY(sp.at); if (xy) { animPlace(sp.node, xy); sp.placed = true; } }
+  animUnhide();
+  if (anim.q.length) animRun();
+};
+const animBaseAdvance = advance;
+advance = async function () {   // computer turns wait until what has happened so far has played out
+  for (let i = 0; i < 400 && (anim.running || anim.q.length); i++) await (anim.running || new Promise(r => setTimeout(r, 25)));
+  return animBaseAdvance();
+};
+const animBaseSettings = showSettings;
+showSettings = function () {
+  const dlg = animBaseSettings(), box = dlg && dlg.querySelector(".uxbox"), first = box && box.querySelector(".uxset"); if (!first) return dlg;
+  first.before(el("label", { className: "uxset", title: "Tokens walk to where they move and spells fly to their targets. Off, or with reduced motion set in your system, the grid just updates." },
+    el("input", { type: "checkbox", checked: ux.anim !== false, onchange: e => { ux.anim = e.target.checked; uxSave(); if (!ux.anim) { animFlush(); animUnhide(); } } }),
+    el("span", { textContent: "Animate movement and spells" })));
+  return dlg;
+};
 
 // ---------------------------------------------------------------- boot: reopen the session that was open, otherwise the start screen
 (async () => {

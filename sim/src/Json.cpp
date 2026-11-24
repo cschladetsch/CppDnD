@@ -246,6 +246,12 @@ Json ToJson(const Event& e) {
         j["coverBonus"] = e.coverBonus;
         j["opportunity"] = e.opportunity;
     }
+    if (!e.spell.empty()) {
+        j["spell"] = e.spell;
+        j["element"] = e.element;
+        j["radiusFt"] = e.radiusFt;
+    }
+    if (!e.path.empty()) j["path"] = e.path;
     return j;
 }
 
@@ -268,6 +274,10 @@ Event EventFromJson(const Json& j) {
     e.crit = j.value("crit", false);
     e.coverBonus = j.value("coverBonus", 0);
     e.opportunity = j.value("opportunity", false);
+    e.spell = j.value("spell", "");
+    e.element = j.value("element", "");
+    e.radiusFt = j.value("radiusFt", 0);
+    e.path = j.value("path", std::vector<int>{});
     return e;
 }
 

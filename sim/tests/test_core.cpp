@@ -279,6 +279,23 @@ TEST(Core, AttackAndSaveEventsCarryTheirDice) {
     EXPECT_EQ(save->check, "save");
     EXPECT_EQ(save->vs, aldric.sheet.SpellSaveDc());
 
+    // For the client's animations: the first event of a cast names the spell, and a move carries the squares walked.
+    EXPECT_EQ(save->spell, "hold_person");
+    EXPECT_EQ(save->element, "condition");
+    EXPECT_EQ(EventFromJson(ToJson(*save)).spell, "hold_person");
+    EXPECT_TRUE(back.spell.empty() && back.path.empty());
+    seen.clear();
+    Action walk;
+    walk.type = ActionType::Move;
+    walk.dest = {3, 4};
+    ASSERT_TRUE(c.Resolve(aldric, walk).ok);
+    const auto mv = std::find_if(seen.begin(), seen.end(), [](const Event& e) { return e.type == EventType::Move; });
+    ASSERT_NE(mv, seen.end());
+    ASSERT_GE(mv->path.size(), 4u);
+    EXPECT_EQ((std::vector<int>{mv->path[0], mv->path[1]}), (std::vector<int>{1, 3}));
+    EXPECT_EQ((std::vector<int>{mv->path[mv->path.size() - 2], mv->path.back()}), (std::vector<int>{3, 4}));
+    EXPECT_EQ(EventFromJson(ToJson(*mv)).path, mv->path);
+
     // Events that are not d20 tests stay as they were.
     EXPECT_FALSE(ToJson(Event{}).contains("check"));
 }

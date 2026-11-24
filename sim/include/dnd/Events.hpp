@@ -29,6 +29,12 @@ struct Event {
     bool crit = false;       // the attack was a critical hit
     int coverBonus = 0;      // AC (attack) or save bonus (save) the target got from cover
     bool opportunity = false;  // an opportunity attack, taken as a reaction
+
+    // Set for animation. A spell's first event carries the spell, its element and burst radius; a move carries its path.
+    std::string spell{};       // spell id, on the first event of a cast only
+    std::string element{};     // damage type ("fire", "cold", ...), or "healing", "buff", "condition"
+    int radiusFt = 0;          // burst radius around the target, 0 for single-target spells
+    std::vector<int> path{};   // move: squares walked as x0,y0,x1,y1,... starting where the mover stood
 };
 
 // Synchronous publish/subscribe. Rule code emits; narrators, loggers and tests listen.

@@ -54,8 +54,18 @@ const GameActor* Combat::Find(int id) const {
     return id >= 0 && id < static_cast<int>(actors_.size()) ? actors_[static_cast<std::size_t>(id)].get() : nullptr;
 }
 
+void Combat::Stamp(Event& e) const {
+    if (castFx_.spell.empty()) return;
+    e.spell = std::move(castFx_.spell);
+    e.element = std::move(castFx_.element);
+    e.radiusFt = castFx_.radiusFt;
+    castFx_ = {};
+}
+
 void Combat::Say(EventType t, int actor, int target, std::string text, int roll, int vs, int amount) const {
-    bus_.Emit(Event{.type = t, .actor = actor, .target = target, .roll = roll, .vs = vs, .amount = amount, .text = std::move(text)});
+    Event e{.type = t, .actor = actor, .target = target, .roll = roll, .vs = vs, .amount = amount, .text = std::move(text)};
+    Stamp(e);
+    bus_.Emit(e);
 }
 
 void Combat::SayAttack(EventType t, int actor, int target, std::string text, const AttackRollResult& r, const AttackPreview& pv,
@@ -67,6 +77,7 @@ void Combat::SayAttack(EventType t, int actor, int target, std::string text, con
     e.crit = r.crit;
     e.coverBonus = pv.coverBonus;
     e.opportunity = opportunity;
+    Stamp(e);
     bus_.Emit(e);
 }
 
@@ -74,6 +85,7 @@ void Combat::SaySave(EventType t, int actor, int target, std::string text, int t
     Event e{.type = t, .actor = actor, .target = target, .roll = total, .vs = dc, .amount = amount, .text = std::move(text)};
     e.check = "save";
     e.coverBonus = coverBonus;
+    Stamp(e);
     bus_.Emit(e);
 }
 
@@ -577,7 +589,10 @@ ActionResult Combat::DoMove(GameActor& a, Pos dest) {
         RemoveFromGrid(a);
         a.pos = cur;
         if (!a.IsDead()) grid_.SetOccupant(cur, a.id);
-        Say(EventType::Move, a.id, -1, Cat(a.Name(), " moves ", cost, " ft to (", cur.x, ",", cur.y, ")."), 0, 0, cost);
+        Event e{.type = EventType::Move, .actor = a.id, .target = -1, .amount = cost, .text = Cat(a.Name(), " moves ", cost, " ft to (", cur.x, ",", cur.y, ").")};
+        e.path = {start.x, start.y};
+        for (std::size_t i = 0; i < done; ++i) e.path.insert(e.path.end(), {path[i].x, path[i].y});
+        bus_.Emit(e);
     }
     return {};
 }
@@ -750,6 +765,9 @@ ActionResult Combat::DoCast(GameActor& a, const Action& act) {
     const std::string lead = Cat(a.Name(), " casts ", sp->name, slot ? Cat(" (slot ", slot, ")") : std::string(), " on ", t->Name(), ": ");
     const DiceExpr dice = SpellDice(a.sheet, *sp, slot);
     const int dc = a.sheet.SpellSaveDc();
+    castFx_ = {.spell = sp->id,
+               .element = sp->kind == SpellKind::Heal ? "healing" : sp->kind == SpellKind::Buff ? "buff" : sp->kind == SpellKind::Condition ? "condition" : std::string(ToString(sp->damageType)),
+               .radiusFt = sp->radiusFt};
 
     auto makeEffect = [&](const Spell& s) {
         Effect e;
@@ -851,6 +869,7 @@ ActionResult Combat::DoCast(GameActor& a, const Action& act) {
             break;
         }
     }
+    castFx_ = {};
     return {};
 }
 

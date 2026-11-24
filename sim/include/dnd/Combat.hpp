@@ -96,6 +96,7 @@ private:
     void SayAttack(EventType t, int actor, int target, std::string text, const AttackRollResult& r, const AttackPreview& pv,
                    int amount = 0, bool opportunity = false) const;
     void SaySave(EventType t, int actor, int target, std::string text, int total, int dc, int amount = 0, int coverBonus = 0) const;
+    void Stamp(Event& e) const;  // adds castFx_ to the first event of a cast
     void RollInitiative();
     void BeginTurn(GameActor& a);
     void FinishTurn(GameActor& a);
@@ -125,6 +126,8 @@ private:
 
     TacticalGrid grid_;
     EventBus& bus_;
+    struct CastFx { std::string spell; std::string element; int radiusFt = 0; };
+    mutable CastFx castFx_;  // set by DoCast, taken by the next event it emits
     std::vector<std::unique_ptr<GameActor>> actors_;
     std::vector<int> order_;
     std::function<void(Role)> roleSwap_;
